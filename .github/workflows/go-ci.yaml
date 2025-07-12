@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  lint-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,9 +24,17 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.6
+
       - name: Install dependencies
-        working-directory: jsmn-go  # Run in subfolder with go.mod.
+        working-directory: jsmn-go
         run: go mod tidy
+
+      - name: Lint with golangci-lint
+        working-directory: jsmn-go
+        run: golangci-lint run --config ../.golangci.yml
 
       - name: Test
         working-directory: jsmn-go
