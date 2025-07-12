@@ -1,7 +1,8 @@
+// Package main provides an example CLI tool for parsing JSON files using jsmn-go.
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	jsmngo "github.com/alikatgh/safeheaders-go/jsmn-go"
@@ -9,7 +10,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: jsmn-go <json_file>")
+		log.Println("Usage: jsmn-go <json_file>")
 		os.Exit(1)
 	}
 	data, err := os.ReadFile(os.Args[1])
@@ -21,6 +22,6 @@ func main() {
 		panic(err)
 	}
 	for _, tok := range tokens {
-		fmt.Printf("Token: Type=%v, Start=%d, End=%d, Size=%d\n", tok.Type, tok.Start, tok.End, tok.Size)
+		log.Printf("Token: Type=%v, Start=%d, End=%d, Size=%d\n", tok.Type, tok.Start, tok.End, tok.Size)
 	}
 }

@@ -1,7 +1,9 @@
+// Package jsmngo provides a fast JSON tokenizer with parallel processing capabilities.
 package jsmngo
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"sync"
@@ -11,9 +13,13 @@ import (
 type TokenType int
 
 const (
+	// Object represents a JSON object token.
 	Object TokenType = iota
+	// Array represents a JSON array token.
 	Array
+	// String represents a JSON string token.
 	String
+	// Primitive represents a JSON primitive token (number, boolean, null).
 	Primitive
 )
 
@@ -166,7 +172,7 @@ func (p *Parser) parsePrimitive(json []byte) error {
 	return nil
 }
 
-// Novel Enhancement: ParseParallel - Tokenize in parallel across chunks.
+// ParseParallel tokenizes JSON in parallel across chunks for improved performance.
 func ParseParallel(json []byte, numTokens int) ([]Token, error) {
 	if len(json) < 512 { // Fallback for small JSON to avoid invalid chunks.
 		p := NewParser(numTokens)
@@ -225,11 +231,11 @@ func ParseParallel(json []byte, numTokens int) ([]Token, error) {
 	return merged, nil
 }
 
-// Novel Enhancement: ParseStream - Tokenize from an io.Reader (non-blocking streaming).
+// ParseStream tokenizes JSON from an io.Reader for non-blocking streaming.
 func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
 	json, err := io.ReadAll(r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read from reader: %w", err)
 	}
 	p := NewParser(numTokens)
 	_, err = p.Parse(json)
