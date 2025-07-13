@@ -257,7 +257,6 @@ func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
 }
 
 // ParseStreamDecoder uses json.Decoder for incremental tokenizing during I/O.
-// ParseStreamDecoder uses json.Decoder for incremental tokenizing during I/O.
 func ParseStreamDecoder(r io.Reader, numTokens int) ([]Token, error) {
 	dec := json.NewDecoder(r)
 	p := NewParser(numTokens)
