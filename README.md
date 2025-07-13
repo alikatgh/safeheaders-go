@@ -13,6 +13,7 @@ A collection of idiomatic Go ports of popular single-header C libraries, enhance
 
 ## Current Ports
 - [jsmn-go](./jsmn-go): Lightweight JSON tokenizer with parallel and streaming support.
+- [stb-image-go](./stb-image-go): Image loading with concurrent batch decoding.
 
 ## Usage Snippets
 Basic parsing:
