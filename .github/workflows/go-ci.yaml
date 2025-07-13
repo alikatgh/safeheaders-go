@@ -43,3 +43,22 @@ jobs:
       - name: Benchmark
         working-directory: jsmn-go
         run: go test -bench .
+
+      - name: Test with Coverage
+        working-directory: jsmn-go
+        run: go test -coverprofile=coverage.txt -v
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./jsmn-go/coverage.txt
+    
+      - name: Test with Coverage  # New: Generate coverage file.
+        working-directory: jsmn-go
+        run: go test -coverprofile=coverage.txt -v
+
+      - name: Upload Coverage to Codecov  # New: Upload file.
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./jsmn-go/coverage.txt
+          token: ${{ secrets.CODECOV_TOKEN }}  # Optional if public repo.
+          verbose: true
