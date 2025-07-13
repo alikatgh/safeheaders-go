@@ -1,7 +1,9 @@
+// Package jsmngo provides a fast JSON tokenizer with parallel processing capabilities.
 package jsmngo
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"sync"
@@ -11,9 +13,13 @@ import (
 type TokenType int
 
 const (
+	// Object represents a JSON object token.
 	Object TokenType = iota
+	// Array represents a JSON array token.
 	Array
+	// String represents a JSON string token.
 	String
+	// Primitive represents a JSON primitive token (number, boolean, null).
 	Primitive
 )
 
@@ -166,7 +172,7 @@ func (p *Parser) parsePrimitive(json []byte) error {
 	return nil
 }
 
-// Novel Enhancement: ParseParallel - Tokenize in parallel across chunks.
+// ParseParallel tokenizes JSON in parallel across chunks for improved performance.
 func ParseParallel(json []byte, numTokens int) ([]Token, error) {
 	if len(json) < 512 { // Fallback for small JSON to avoid invalid chunks.
 		p := NewParser(numTokens)
@@ -229,7 +235,7 @@ func ParseParallel(json []byte, numTokens int) ([]Token, error) {
 func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
 	p := NewParser(numTokens)
 	buf := make([]byte, 4096) // Chunk size.
-	var fullData []byte       // Accumulate for positions (or use offsets).
+	var fullData []byte       // Accumulate for positions.
 	for {
 		n, err := r.Read(buf)
 		if n > 0 {
@@ -237,14 +243,14 @@ func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
 			fullData = append(fullData, chunk...)
 			_, parseErr := p.Parse(chunk) // Parse chunk; note: May need boundary fixes.
 			if parseErr != nil {
-				return nil, parseErr
+				return nil, fmt.Errorf("failed to parse chunk: %w", parseErr)
 			}
 		}
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read from reader: %w", err)
 		}
 	}
 	// Adjust token positions to fullData offsets if needed.

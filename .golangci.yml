@@ -1,0 +1,132 @@
+version: "2"
+run:
+  timeout: 5m
+  tests: false
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - gocyclo
+    - misspell
+    - wrapcheck
+    - gosec
+    - dogsled
+    - dupl
+    - nakedret
+    - prealloc
+    - predeclared
+    - unparam
+    - whitespace
+    - bodyclose
+    - containedctx
+    - durationcheck
+    - forbidigo
+    - gocognit
+    - godot
+    - godox
+    - goprintffuncname
+    - lll
+    - makezero
+    - nestif
+    - nolintlint
+    - rowserrcheck
+    - testpackage
+    - thelper
+    - wastedassign
+    - unconvert
+  disable: []
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  revive:
+    ignore-generated-header: true
+    severity: warning
+    rules:
+      - name: var-naming
+        arguments:
+          allow-leading-underscore: true
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  lll:
+    line-length: 120
+    tab-width: 2
+    ignore-comments: true
+    ignore-strings: true
+    ignore-urls: true
+  misspell:
+    locale: US
+  wrapcheck:
+    ignoreSigs:
+      - "Errorf"
+      - "Wrap"
+      - "Wrapf"
+      - "WithMessage"
+      - "WithStack"
+      - "WithError"
+
+  gocritic:
+    enabled-checks:
+      - rangeValCopy
+      - captLocal
+      - ifElseChain
+      - sloppyLen
+      - typeSwitchVar
+      - hugeParam
+      - dupImport
+      - whyNoLint
+      - octalLiteral
+      - importShadow
+      - flagDeref
+      - caseOrder
+      - appendAssign
+      - assignOp
+      - boolExprSimplify
+      - builtinShadow
+      - defaultCaseOrder
+      - deferInLoop
+      - elseIfChain
+      - exitAfterDefer
+      - importShadow
+      - indexAlloc
+      - paramTypeCombine
+      - rangeValCopy
+      - sloppyLen
+      - typeSwitchVar
+      - unlambda
+      - unslice
+      - valSwap
+      - wrapperFunc
+      - yodaStyle
+      - hugeParam
+      - dupImport
+      - whyNoLint
+      - octalLiteral
+      - importShadow
+      - flagDeref
+      - caseOrder
+      - appendAssign
+      - assignOp
+      - boolExprSimplify
+      - builtinShadow
+      - defaultCaseOrder
+      - deferInLoop
+      - elseIfChain
+      - exitAfterDefer
+      - importShadow
+      - indexAlloc
+      - paramTypeCombine
+      - rangeValCopy
+      - sloppyLen
+      - typeSwitchVar
+      - unlambda
+      - unslice
+      - valSwap
+      - wrapperFunc
+      - yodaStyle
