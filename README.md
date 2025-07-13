@@ -9,7 +9,7 @@ A collection of idiomatic Go ports of popular single-header C libraries, enhance
 - **Safety**: No buffer overflows or undefined behavior.
 - **Performance**: Leverage goroutines for concurrency, e.g., parallel tokenizing.
 - **Simplicity**: Drop-in packages for embedded, web, or edge apps.
-- **Novelty**: Go-specific features like streaming I/O for real-time data (e.g., IoT JSON streams).
+- **Modernized**: Application of Go-idiomatic features like streaming I/O to classic C libraries for real-time data (e.g., IoT JSON streams).
 
 ## Current Ports
 - [jsmn-go](./jsmn-go): Lightweight JSON tokenizer with parallel and streaming support.
