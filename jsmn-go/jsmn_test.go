@@ -39,3 +39,15 @@ func TestParseStream(t *testing.T) {
 		t.Errorf("expected 3 tokens, got %d", len(tokens))
 	}
 }
+
+func TestParseStreamIncremental(t *testing.T) {
+	json := []byte(`{"key": "value", "num": 42}`)
+	reader := bytes.NewReader(json)
+	tokens, err := ParseStream(reader, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 5 { // Object + "key" string + "value" string + "num" string + 42 primitive.
+		t.Errorf("expected 5 tokens, got %d", len(tokens))
+	}
+}

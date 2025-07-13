@@ -231,20 +231,14 @@ func ParseParallel(json []byte, numTokens int) ([]Token, error) {
 	return merged, nil
 }
 
-// ParseStream tokenizes JSON from an io.Reader incrementally (non-blocking, chunked).
+// ParseStream tokenizes JSON from an io.Reader for non-blocking streaming.
 func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
-	p := NewParser(numTokens)
-	buf := make([]byte, 4096) // Chunk size.
-	var fullData []byte       // Accumulate for positions.
+	var fullData []byte
+	buf := make([]byte, 4096) // Chunk size for reading.
 	for {
 		n, err := r.Read(buf)
 		if n > 0 {
-			chunk := buf[:n]
-			fullData = append(fullData, chunk...)
-			_, parseErr := p.Parse(chunk) // Parse chunk; note: May need boundary fixes.
-			if parseErr != nil {
-				return nil, fmt.Errorf("failed to parse chunk: %w", parseErr)
-			}
+			fullData = append(fullData, buf[:n]...)
 		}
 		if err == io.EOF {
 			break
@@ -253,6 +247,10 @@ func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
 			return nil, fmt.Errorf("failed to read from reader: %w", err)
 		}
 	}
-	// Adjust token positions to fullData offsets if needed.
+	p := NewParser(numTokens)
+	_, err := p.Parse(fullData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
 	return p.Tokens(), nil
 }
