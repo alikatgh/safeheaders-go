@@ -71,11 +71,18 @@ Run `go test -bench . ./jsmn-go` for details. On a sample 1MB JSON array:
 
 ## Contributing
 Pick a single-header C lib from the wishlist below, port it to pure Go, add one concurrent enhancement, and PR!
-- Wishlist:
-  - stb_image.h (images): Enhancement idea: Goroutine-based batch decoding.
-  - stb_truetype.h (fonts): Enhancement: Concurrent glyph caching.
-  - miniz.h (compression): Enhancement: Parallel compression of chunks.
-  - linenoise.h (CLI input): Enhancement: Async history search with goroutines.
+
+- [x] stb_image.h (images): Enhancement idea: Goroutine-based batch decoding.
+- [ ] stb_truetype.h (fonts): Enhancement: Concurrent glyph caching.
+- [x] miniz.h (compression): Enhancement: Parallel compression of chunks.
+- [ ] linenoise.h (CLI input): Enhancement: Async history search with goroutines.
+- [ ] nuklear.h (GUI): Enhancement: Concurrent rendering of UI elements.
+- [ ] cJSON.h (JSON parsing): Enhancement: Parallel object deserialization.
+- [ ] dr_wav.h (WAV audio loading): Enhancement: Goroutine-based audio stream decoding.
+- [ ] tinyxml2.h (XML parsing): Enhancement: Concurrent node traversal and querying.
+- [ ] cgltf.h (glTF 3D model loading): Enhancement: Parallel asset loading for models.
+- [ ] stb_vorbis.h (Ogg Vorbis audio decoding): Enhancement: Multi-channel parallel decoding.
+- [ ] easytab.h (table layout): Enhancement: Async data filling for dynamic tables.
 
 Guidelines: Keep it allocation-free where possible, include benchmarks/tests vs. original C, and ensure safety with Go's features.
 
