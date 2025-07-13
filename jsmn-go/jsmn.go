@@ -2,6 +2,7 @@
 package jsmngo
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -251,6 +252,49 @@ func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
 	_, err := p.Parse(fullData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+	return p.Tokens(), nil
+}
+
+// ParseStreamDecoder uses json.Decoder for incremental tokenizing during I/O.
+// ParseStreamDecoder uses json.Decoder for incremental tokenizing during I/O.
+func ParseStreamDecoder(r io.Reader, numTokens int) ([]Token, error) {
+	dec := json.NewDecoder(r)
+	p := NewParser(numTokens)
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("decoder error: %w", err)
+		}
+		// Map json.Token to our Token (basic; expand for full support).
+		ourTok := Token{ParentIdx: p.toksuper}
+		switch v := tok.(type) {
+		case json.Delim:
+			switch v {
+			case '{':
+				ourTok.Type = Object
+			case '[':
+				ourTok.Type = Array
+			case '}', ']':
+				if p.toksuper != -1 {
+					p.tokens[p.toksuper].End = p.pos + 1 // Approximate positions.
+					p.toksuper = p.tokens[p.toksuper].ParentIdx
+				}
+				continue // Delims like }/] don't need new tokens.
+			}
+		case string:
+			ourTok.Type = String
+		default: // Numbers, booleans, null.
+			ourTok.Type = Primitive
+		}
+		if err := p.allocToken(ourTok); err != nil {
+			return nil, err
+		}
+		p.toksuper = p.toknext - 1 // Update for containers.
+		p.pos++                    // Increment position (stub; track real offsets from dec).
 	}
 	return p.Tokens(), nil
 }
