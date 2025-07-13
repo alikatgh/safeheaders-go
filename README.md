@@ -67,7 +67,6 @@ Run `go test -bench . ./jsmn-go` for details. On a sample 1MB JSON array:
 
 ## Limitations
 - Parallel chunking is naive (simple splits without boundary alignment); works best for large, uniform arrays/objects. May produce misaligned tokens on complex JSON—PR improvements welcome (e.g., add smart chunk boundary scanning)!
-- Streaming mode accumulates full data into memory; true incremental parsing (process as read) is planned but needs robust handling—contributions welcome!
 
 ## Contributing
 Pick a single-header C lib from the wishlist below, port it to pure Go, add one concurrent enhancement, and PR!

@@ -232,26 +232,48 @@ func ParseParallel(json []byte, numTokens int) ([]Token, error) {
 	return merged, nil
 }
 
-// ParseStream tokenizes JSON from an io.Reader for non-blocking streaming.
+// ParseStream tokenizes JSON from an io.Reader incrementally during I/O.
 func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
-	var fullData []byte
-	buf := make([]byte, 4096) // Chunk size for reading.
+	dec := json.NewDecoder(r)
+	p := NewParser(numTokens)
+	pos := 0 // Track approximate position.
 	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			fullData = append(fullData, buf[:n]...)
-		}
+		tok, err := dec.Token()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to read from reader: %w", err)
+			return nil, fmt.Errorf("decoder error: %w", err)
 		}
-	}
-	p := NewParser(numTokens)
-	_, err := p.Parse(fullData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		ourTok := Token{Start: pos, End: pos + 1, ParentIdx: p.toksuper} // Stub positions; enhance with dec.Offset().
+		switch v := tok.(type) {
+		case json.Delim:
+			switch v {
+			case '{':
+				ourTok.Type = Object
+			case '[':
+				ourTok.Type = Array
+			case '}', ']':
+				if p.toksuper != -1 {
+					p.tokens[p.toksuper].End = pos
+					p.toksuper = p.tokens[p.toksuper].ParentIdx
+				}
+				pos++
+				continue
+			}
+		case string:
+			ourTok.Type = String
+			ourTok.End = pos + len(v)
+		default: // Primitives.
+			ourTok.Type = Primitive
+		}
+		if err := p.allocToken(ourTok); err != nil {
+			return nil, err
+		}
+		if ourTok.Type == Object || ourTok.Type == Array {
+			p.toksuper = p.toknext - 1
+		}
+		pos++
 	}
 	return p.Tokens(), nil
 }

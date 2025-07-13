@@ -35,7 +35,7 @@ func TestParseStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tokens) != 3 {
+	if len(tokens) != 3 { // Adjust if mapping adds extras.
 		t.Errorf("expected 3 tokens, got %d", len(tokens))
 	}
 }
@@ -49,5 +49,17 @@ func TestParseStreamIncremental(t *testing.T) {
 	}
 	if len(tokens) != 5 { // Object + "key" string + "value" string + "num" string + 42 primitive.
 		t.Errorf("expected 5 tokens, got %d", len(tokens))
+	}
+}
+
+func TestParseStreamDecoder(t *testing.T) {
+	json := []byte(`{"key": "value"}`)
+	reader := bytes.NewReader(json)
+	tokens, err := ParseStreamDecoder(reader, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 3 { // Adjust based on mapping.
+		t.Errorf("expected 3 tokens, got %d", len(tokens))
 	}
 }
