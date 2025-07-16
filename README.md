@@ -17,6 +17,7 @@ A collection of idiomatic Go ports of popular single-header C libraries, enhance
 - [stb-image-go](./stb-image-go): Image loading with concurrent batch decoding.
 - [miniz-go](./miniz-go): ZIP compression with concurrent chunk processing.
 - [cgltf-go](./cgltf-go): glTF 3D model loading with parallel asset loading.
+- [cjson-go](./cjson-go): JSON parsing with parallel deserialization.
 
 ## Usage Snippets
 Basic parsing:
@@ -81,7 +82,7 @@ Pick a single-header C lib from the wishlist below, port it to pure Go, add one 
 - [x] [miniz.h](https://github.com/richgel999/miniz) (compression): Enhancement: Parallel compression of chunks. (Difficulty: Easy - Challenge: Balancing compression ratios with concurrency overhead).
 - [ ] [linenoise.h](https://github.com/antirez/linenoise/blob/master/linenoise.h) (CLI input): Enhancement: Async history search with goroutines. (Difficulty: Easy - Challenge: Integrating non-blocking input with Go's terminal handling).
 - [ ] [nuklear.h](https://github.com/Immediate-Mode-UI/Nuklear/blob/master/nuklear.h) (GUI): Enhancement: Concurrent rendering of UI elements. (Difficulty: Hard - Challenge: Synchronizing immediate-mode GUI state in multi-threaded environments).
-- [ ] [cJSON.h](https://github.com/DaveGamble/cJSON) (JSON parsing): Enhancement: Parallel object deserialization. (Difficulty: Medium - Challenge: Avoiding data races in recursive JSON structures).
+- [x] [cJSON.h](https://github.com/DaveGamble/cJSON) (JSON parsing): Enhancement: Parallel object deserialization. (Difficulty: Medium - Challenge: Avoiding data races in recursive JSON structures).
 - [ ] [dr_wav.h](https://github.com/mackron/dr_libs/blob/master/dr_wav.h) (WAV audio loading): Enhancement: Goroutine-based audio stream decoding. (Difficulty: Medium - Challenge: Handling multi-channel audio with parallel chunk processing).
 - [ ] [tinyxml2.h](https://github.com/leethomason/tinyxml2/blob/master/tinyxml2.h) (XML parsing): Enhancement: Concurrent node traversal and querying. (Difficulty: Hard - Challenge: Managing XML tree state safely across goroutines).
 - [x] [cgltf.h](https://github.com/jkuhlmann/cgltf/blob/master/cgltf.h) (glTF 3D model loading): Enhancement: Parallel asset loading for models. (Difficulty: Hard - Challenge: Coordinating binary data parsing and asset dependencies in parallel).
