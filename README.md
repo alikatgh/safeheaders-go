@@ -81,21 +81,23 @@ Comparisons (on similar Apple Silicon hardware like M1 Pro, as M3 Pro benchmarks
 ## Contributing
 Pick a single-header C lib from the wishlist below, port it to pure Go, add one concurrent enhancement, and PR!
 
-- [x] [jsmn.h](https://github.com/zserge/jsmn) (JSON tokenizing): Enhancement: Goroutine-based parallel parsing. (Difficulty: Medium - Challenge: Handling chunk boundaries in parallel without misalignment).
-- [x] [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (images): Enhancement idea: Goroutine-based batch decoding. (Difficulty: Easy - Challenge: Ensuring thread-safe image format parsing).
-- [ ] [stb_truetype.h](https://github.com/nothings/stb/blob/master/stb_truetype.h) (fonts): Enhancement: Concurrent glyph caching. (Difficulty: Medium - Challenge: Managing font state across goroutines for efficient rendering).
-- [x] [miniz.h](https://github.com/richgel999/miniz) (compression): Enhancement: Parallel compression of chunks. (Difficulty: Easy - Challenge: Balancing compression ratios with concurrency overhead).
-- [ ] [linenoise.h](https://github.com/antirez/linenoise/blob/master/linenoise.h) (CLI input): Enhancement: Async history search with goroutines. (Difficulty: Easy - Challenge: Integrating non-blocking input with Go's terminal handling).
-- [ ] [nuklear.h](https://github.com/Immediate-Mode-UI/Nuklear/blob/master/nuklear.h) (GUI): Enhancement: Concurrent rendering of UI elements. (Difficulty: Hard - Challenge: Synchronizing immediate-mode GUI state in multi-threaded environments).
-- [x] [cJSON.h](https://github.com/DaveGamble/cJSON) (JSON parsing): Enhancement: Parallel object deserialization. (Difficulty: Medium - Challenge: Avoiding data races in recursive JSON structures).
-- [ ] [dr_wav.h](https://github.com/mackron/dr_libs/blob/master/dr_wav.h) (WAV audio loading): Enhancement: Goroutine-based audio stream decoding. (Difficulty: Medium - Challenge: Handling multi-channel audio with parallel chunk processing).
-- [ ] [tinyxml2.h](https://github.com/leethomason/tinyxml2/blob/master/tinyxml2.h) (XML parsing): Enhancement: Concurrent node traversal and querying. (Difficulty: Hard - Challenge: Managing XML tree state safely across goroutines).
-- [x] [cgltf.h](https://github.com/jkuhlmann/cgltf/blob/master/cgltf.h) (glTF 3D model loading): Enhancement: Parallel asset loading for models. (Difficulty: Hard - Challenge: Coordinating binary data parsing and asset dependencies in parallel).
-- [ ] [stb_vorbis.h](https://github.com/nothings/stb/blob/master/stb_vorbis.c) (Ogg Vorbis audio decoding): Enhancement: Multi-channel parallel decoding. (Difficulty: Medium - Challenge: Optimizing audio decoding pipelines for concurrency without latency spikes).
-- [ ] [easytab.h](https://github.com/ApoorvaJ/EasyTab) (table layout): Enhancement: Async data filling for dynamic tables. (Difficulty: Easy - Challenge: Ensuring layout consistency in asynchronous updates).
-- [ ] [tinyobjloader.h](https://github.com/tinyobjloader/tinyobjloader/blob/release/tiny_obj_loader.h) (OBJ model loading): Enhancement: Concurrent mesh parsing. (Difficulty: Medium - Challenge: Parallelizing vertex/index loading while maintaining model integrity).
-- [ ] [stb_perlin.h](https://github.com/nothings/stb/blob/master/stb_perlin.h) (Perlin noise generation): Enhancement: Parallel noise computation for large grids. (Difficulty: Easy - Challenge: Distributing noise calculations across goroutines for seamless results).
-- [ ] [utf8.h](https://github.com/sheredom/utf8.h) (UTF-8 handling): Enhancement: Goroutine-based string validation/encoding. (Difficulty: Easy - Challenge: Ensuring UTF-8 validity in concurrent string operations).
+| Status | Library | Enhancement | Difficulty | Challenge |
+|--------|---------|-------------|------------|-----------|
+| [x] | [jsmn.h](https://github.com/zserge/jsmn) (JSON tokenizing) | Goroutine-based parallel parsing | Medium | Handling chunk boundaries in parallel without misalignment |
+| [x] | [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (images) | Goroutine-based batch decoding | Easy | Ensuring thread-safe image format parsing |
+| [ ] | [stb_truetype.h](https://github.com/nothings/stb/blob/master/stb_truetype.h) (fonts) | Concurrent glyph caching | Medium | Managing font state across goroutines for efficient rendering |
+| [x] | [miniz.h](https://github.com/richgel999/miniz) (compression) | Parallel compression of chunks | Easy | Balancing compression ratios with concurrency overhead |
+| [ ] | [linenoise.h](https://github.com/antirez/linenoise/blob/master/linenoise.h) (CLI input) | Async history search with goroutines | Easy | Integrating non-blocking input with Go's terminal handling |
+| [ ] | [nuklear.h](https://github.com/Immediate-Mode-UI/Nuklear/blob/master/nuklear.h) (GUI) | Concurrent rendering of UI elements | Hard | Synchronizing immediate-mode GUI state in multi-threaded environments |
+| [x] | [cJSON.h](https://github.com/DaveGamble/cJSON) (JSON parsing) | Parallel object deserialization | Medium | Avoiding data races in recursive JSON structures |
+| [ ] | [dr_wav.h](https://github.com/mackron/dr_libs/blob/master/dr_wav.h) (WAV audio loading) | Goroutine-based audio stream decoding | Medium | Handling multi-channel audio with parallel chunk processing |
+| [ ] | [tinyxml2.h](https://github.com/leethomason/tinyxml2/blob/master/tinyxml2.h) (XML parsing) | Concurrent node traversal and querying | Hard | Managing XML tree state safely across goroutines |
+| [x] | [cgltf.h](https://github.com/jkuhlmann/cgltf/blob/master/cgltf.h) (glTF 3D model loading) | Parallel asset loading for models | Hard | Coordinating binary data parsing and asset dependencies in parallel |
+| [ ] | [stb_vorbis.h](https://github.com/nothings/stb/blob/master/stb_vorbis.c) (Ogg Vorbis audio decoding) | Multi-channel parallel decoding | Medium | Optimizing audio decoding pipelines for concurrency without latency spikes |
+| [ ] | [easytab.h](https://github.com/ApoorvaJ/EasyTab) (table layout) | Async data filling for dynamic tables | Easy | Ensuring layout consistency in asynchronous updates |
+| [ ] | [tinyobjloader.h](https://github.com/tinyobjloader/tinyobjloader/blob/release/tiny_obj_loader.h) (OBJ model loading) | Concurrent mesh parsing | Medium | Parallelizing vertex/index loading while maintaining model integrity |
+| [ ] | [stb_perlin.h](https://github.com/nothings/stb/blob/master/stb_perlin.h) (Perlin noise generation) | Parallel noise computation for large grids | Easy | Distributing noise calculations across goroutines for seamless results |
+| [ ] | [utf8.h](https://github.com/sheredom/utf8.h) (UTF-8 handling) | Goroutine-based string validation/encoding | Easy | Ensuring UTF-8 validity in concurrent string operations |
 
 Guidelines: Keep it allocation-free where possible, include benchmarks/tests vs. original C, and ensure safety with Go's features.
 
