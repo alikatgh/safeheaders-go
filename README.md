@@ -4,7 +4,7 @@
 [![Tests](https://github.com/alikatgh/safeheaders-go/actions/workflows/go-ci.yaml/badge.svg)](https://github.com/alikatgh/safeheaders-go/actions/workflows/go-ci.yaml)
 [![Coverage](https://codecov.io/gh/alikatgh/safeheaders-go/branch/main/graph/badge.svg)](https://codecov.io/gh/alikatgh/safeheaders-go)
 
-A collection of idiomatic Go ports of popular single-header C libraries, enhanced with Go's concurrency and safety features. These ports eliminate C's raw pointer risks using Go's slices and bounds checking, while applying established Go patterns like parallel processing for high-throughput scenarios.
+Idiomatic Go rewrites of single-header C libs with opt-in goroutine helpers and zero-CGO safety.
 
 ## Why?
 - **Safety**: No buffer overflows or undefined behavior.
