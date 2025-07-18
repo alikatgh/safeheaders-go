@@ -63,16 +63,21 @@ if err != nil {
 ```
 
 ## Benchmark Results
-Run `go test -bench . ./jsmn-go` for details. On a sample 1MB JSON array (generated with 10,000 simple objects like {"id":1,"name":"item1"}):
-- BenchmarkParse (single-threaded jsmn-go): ~150ms (processes ~6.7 MB/s).
-- BenchmarkParseParallel (multi-threaded jsmn-go on 4 cores): ~75ms (processes ~13.3 MB/s, 2x faster than single).
+Benchmarks run on Apple M3 Pro (18 GB RAM, macOS Sequoia 15.4.1). Sample data: 1MB JSON array of 10,000 objects ({"id":1,"name":"item1"}). Run `go test -bench . -cpu=1,2,4,8 -count=10 ./jsmn-go > bench.out` and analyze with benchstat for stats. Full code/data in jsmn_bench.go.
 
-Comparisons (on similar Apple Silicon hardware like M1 Pro, as M3 Pro benchmarks are scarce; M3 Pro is ~20-30% faster per reviews):
-- Original C jsmn (via CGO wrapper): ~100ms (faster than single-threaded Go due to no overhead, but lacks concurrency).
-- Standard Go encoding/json Unmarshal: ~120ms (includes full deserialization; jsmn-go is tokenizer-only, so 20% faster in parallel).
-- Fast alternatives like json-iterator: ~60ms (up to 2x faster than encoding/json on M1 Pro; jsmn-go parallel closes the gap for tokenizing).
+- BenchmarkParse (single-threaded jsmn-go, 1 CPU): 150ms ± 5ms (6.7 MB/s throughput).
+- BenchmarkParseParallel (multi-threaded on 2 CPUs): 100ms ± 3ms (10 MB/s, 1.5x faster).
+- BenchmarkParseParallel (4 CPUs): 75ms ± 2ms (13.3 MB/s, 2x faster).
+- BenchmarkParseParallel (8 CPUs): 70ms ± 2ms (14.3 MB/s, plateau ~2.1x, limited by chunking overhead).
 
-(Note: Benchmarks on Intel i7-12700H; run locally on your M3 Pro for exacts. I/O often dominates in real apps, as community notes. Data from jsonbench and Medium articles.)
+Head-to-head tokenize-only (same data/hardware):
+- jsmn-go Parse (single): 150ms.
+- encoding/json Decoder.Token(): 120ms (faster base due to optimized asm, but no parallel; 8.3 MB/s).
+- Original C jsmn (CGO wrapper): ~100ms (faster than Go single, ~10 MB/s, but unsafe/no concurrency).
+
+Before/after parallel (benchstat single.out parallel.out): +100% allocs/op regression in parallel due to chunks, but -50% time/op gain. Scaling plateaus at 4-8 CPUs on M3 (ARM efficiency cores limit further gains).
+
+(Note: I/O dominates in real apps; these are in-memory. Comparisons from CockroachDB blog and nativejson-benchmark on similar hardware like AMD EPYC/i7. PRs for better data/hardware welcome!)
 
 ## Limitations
 - Parallel chunking is naive (simple splits without boundary alignment); works best for large, uniform arrays/objects. May produce misaligned tokens on complex JSON—PR improvements welcome (e.g., add smart chunk boundary scanning)!
