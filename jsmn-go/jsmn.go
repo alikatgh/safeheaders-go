@@ -12,13 +12,13 @@ import (
 type TokenType int
 
 const (
-	// Object represents a JSON object token: { ... }
+	// Object represents a JSON object token: { ... }.
 	Object TokenType = iota
-	// Array represents a JSON array token: [ ... ]
+	// Array represents a JSON array token: [ ... ].
 	Array
-	// String represents a JSON string token: "..."
+	// String represents a JSON string token: "...".
 	String
-	// Primitive represents a JSON primitive token (number, boolean, null).
+	// Primitive represents a JSON primitive token (e.g., number, boolean, null).
 	Primitive
 )
 

@@ -1,4 +1,4 @@
-// jsmngo/jsmn_bench_test.go
+// Package jsmngo provides benchmarks for the JSON tokenizer.
 package jsmngo
 
 import (
