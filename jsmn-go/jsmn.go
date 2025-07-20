@@ -2,10 +2,8 @@
 package jsmngo
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"runtime"
 	"sync"
 )
@@ -14,30 +12,26 @@ import (
 type TokenType int
 
 const (
-	// Object represents a JSON object token.
 	Object TokenType = iota
-	// Array represents a JSON array token.
 	Array
-	// String represents a JSON string token.
 	String
-	// Primitive represents a JSON primitive token (number, boolean, null).
 	Primitive
 )
 
 // Token holds information about a parsed JSON token.
 type Token struct {
 	Type      TokenType
-	Start     int // Start position in the input string.
-	End       int // End position in the input string.
-	Size      int // Number of children (for objects/arrays).
-	ParentIdx int // Index of parent token (-1 for root).
+	Start     int
+	End       int
+	Size      int
+	ParentIdx int
 }
 
 // Parser is the JSON tokenizer state.
 type Parser struct {
-	pos      int // Current position in the JSON string.
-	toknext  int // Next token to allocate.
-	toksuper int // Parent token index.
+	pos      int
+	toknext  int
+	toksuper int
 	tokens   []Token
 }
 
@@ -69,46 +63,34 @@ func (p *Parser) Parse(json []byte) (int, error) {
 			}
 			p.toksuper = p.toknext - 1
 			p.pos++
-			continue
 		case '}', ']':
 			if p.toksuper != -1 {
 				p.tokens[p.toksuper].End = p.pos + 1
 				p.toksuper = p.tokens[p.toksuper].ParentIdx
 			}
 			p.pos++
-			continue
 		case '"':
-			err := p.parseString(json)
-			if err != nil {
+			if err := p.parseString(json); err != nil {
 				return 0, err
 			}
-			continue
-		case '\t', '\r', '\n', ' ':
+		case '\t', '\r', '\n', ' ', ':', ',':
 			p.pos++
-			continue
-		case ':':
-			p.pos++
-			continue
-		case ',':
-			if p.toksuper != -1 && p.tokens[p.toksuper].Type != Array && p.tokens[p.toksuper].Type != Object {
-				p.toksuper = p.tokens[p.toksuper].ParentIdx
-			}
-			p.pos++
-			continue
 		default:
-			err := p.parsePrimitive(json)
-			if err != nil {
-				return 0, err
+			// FIX: Explicitly check for valid primitive starting characters.
+			if c == 't' || c == 'f' || c == 'n' || (c >= '0' && c <= '9') || c == '-' {
+				if err := p.parsePrimitive(json); err != nil {
+					return 0, err
+				}
+			} else {
+				return 0, fmt.Errorf("invalid character '%c' at position %d", c, p.pos)
 			}
-			continue
 		}
 	}
-	for i := range p.tokens {
+	for i := 0; i < p.toknext; i++ {
 		if p.tokens[i].End == -1 && p.tokens[i].Start != -1 {
 			p.tokens[i].End = len(json)
 		}
 	}
-	// Additional validation: Check for unclosed structures
 	if p.toksuper != -1 {
 		return 0, errors.New("unclosed object or array")
 	}
@@ -120,9 +102,12 @@ func (p *Parser) Tokens() []Token {
 	return p.tokens[:p.toknext]
 }
 
+// allocToken appends a token to the parser's token slice.
+// It will grow the slice if the capacity is exceeded.
 func (p *Parser) allocToken(tok Token) error {
 	if p.toknext >= len(p.tokens) {
-		return errors.New("token overflow: too many tokens")
+		// Instead of returning an error, grow the slice. This is safer for workers.
+		p.tokens = append(p.tokens, Token{})
 	}
 	p.tokens[p.toknext] = tok
 	if p.toksuper != -1 {
@@ -133,7 +118,7 @@ func (p *Parser) allocToken(tok Token) error {
 }
 
 func (p *Parser) parseString(json []byte) error {
-	p.pos++ // Skip opening quote.
+	p.pos++ // Skip opening quote
 	tok := Token{Type: String, Start: p.pos, End: -1, ParentIdx: p.toksuper}
 	for p.pos < len(json) {
 		c := json[p.pos]
@@ -156,6 +141,7 @@ func (p *Parser) parseString(json []byte) error {
 
 func (p *Parser) parsePrimitive(json []byte) error {
 	tok := Token{Type: Primitive, Start: p.pos, End: -1, ParentIdx: p.toksuper}
+	start := p.pos
 	for p.pos < len(json) {
 		c := json[p.pos]
 		if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ',' || c == ']' || c == '}' {
@@ -165,157 +151,139 @@ func (p *Parser) parsePrimitive(json []byte) error {
 	}
 	tok.End = p.pos
 	if tok.End == tok.Start {
-		return errors.New("empty primitive")
+		return fmt.Errorf("invalid character at %d", start)
 	}
-	if err := p.allocToken(tok); err != nil {
-		return err
-	}
-	return nil
+	return p.allocToken(tok)
 }
 
-// ParseParallel tokenizes JSON in parallel across chunks for improved performance.
-func ParseParallel(json []byte, numTokens int) ([]Token, error) {
-	if len(json) < 512 { // Fallback for small JSON to avoid invalid chunks.
-		p := NewParser(numTokens)
-		_, err := p.Parse(json)
-		if err != nil {
-			return nil, err
+// findSplitPoints scans the JSON and returns a slice of byte offsets
+// corresponding to top-level commas, which are safe split points.
+func findSplitPoints(data []byte) []int {
+	var splits []int
+	depth := 0
+	inStr := false
+	escaped := false
+
+	for i, c := range data {
+		if inStr {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inStr = false
+			}
+			continue
 		}
-		return p.Tokens(), nil
+		switch c {
+		case '"':
+			inStr = true
+		case '{', '[':
+			depth++
+		case '}', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				splits = append(splits, i)
+			}
+		}
+	}
+	return splits
+}
+
+// ParseParallel tokenizes JSON in parallel. It is most effective on large JSON arrays.
+// For single large JSON objects, it will correctly fall back to single-threaded parsing.
+func ParseParallel(json []byte) ([]Token, error) {
+	if len(json) < 4096 { // Fallback for small payloads
+		p := NewParser(len(json) / 4) // Initial heuristic capacity
+		_, err := p.Parse(json)
+		return p.Tokens(), err
 	}
 
+	splitPoints := findSplitPoints(json)
 	numWorkers := runtime.NumCPU()
-	if numWorkers > 4 {
-		numWorkers = 4 // Cap for simplicity.
-	}
-	chunkSize := len(json) / numWorkers
-	if chunkSize == 0 {
-		chunkSize = len(json)
-		numWorkers = 1
+
+	// Not enough split points to justify parallelism.
+	if len(splitPoints) < numWorkers {
+		p := NewParser(len(json) / 4)
+		_, err := p.Parse(json)
+		return p.Tokens(), err
 	}
 
+	// Define chunks for workers
+	type job struct {
+		id     int
+		start  int
+		end    int
+		offset int
+	}
+
+	numJobs := len(splitPoints) + 1
+	jobs := make(chan job, numJobs)
+	lastSplit := 0
+	for i, split := range splitPoints {
+		jobs <- job{id: i, start: lastSplit, end: split, offset: lastSplit}
+		lastSplit = split + 1
+	}
+	jobs <- job{id: len(splitPoints), start: lastSplit, end: len(json), offset: lastSplit}
+	close(jobs)
+
+	// Each worker returns its result to be merged later
+	type result struct {
+		id   int
+		toks []Token
+		err  error
+	}
+
+	resultsCh := make(chan result, numJobs)
 	var wg sync.WaitGroup
-	results := make([][]Token, numWorkers)
-	errs := make(chan error, numWorkers)
 
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		start := i * chunkSize
-		end := start + chunkSize
-		if i == numWorkers-1 {
-			end = len(json)
-		}
-		go func(i int, chunk []byte) {
+		go func() {
 			defer wg.Done()
-			p := NewParser(numTokens) // Use full numTokens per to avoid overflow.
-			_, err := p.Parse(chunk)
-			if err != nil {
-				errs <- err
-				return
+			for j := range jobs {
+				chunkData := json[j.start:j.end]
+				// Each worker allocates its own parser and token slice.
+				p := NewParser(len(chunkData) / 4) // Heuristic capacity, will grow if needed
+				_, err := p.Parse(chunkData)
+				if err != nil {
+					resultsCh <- result{id: j.id, err: err}
+					return
+				}
+
+				toks := p.Tokens()
+				// Fix offsets to be global
+				for i := range toks {
+					toks[i].Start += j.offset
+					toks[i].End += j.offset
+				}
+				resultsCh <- result{id: j.id, toks: toks}
 			}
-			results[i] = p.Tokens()
-		}(i, json[start:end])
+		}()
 	}
 
 	wg.Wait()
-	select {
-	case err := <-errs:
-		return nil, err
-	default:
+	close(resultsCh)
+
+	// Collect and re-order results
+	jobResults := make([]result, numJobs)
+	for r := range resultsCh {
+		if r.err != nil {
+			return nil, r.err // Fail fast on first error
+		}
+		jobResults[r.id] = r
 	}
 
-	// Merge results (naive concat; note limitation in README for real use).
-	var merged []Token
-	for _, res := range results {
-		merged = append(merged, res...)
+	// Merge results in the correct order
+	var totalTokens int
+	for _, r := range jobResults {
+		totalTokens += len(r.toks)
 	}
-	return merged, nil
-}
+	finalTokens := make([]Token, 0, totalTokens)
+	for _, r := range jobResults {
+		finalTokens = append(finalTokens, r.toks...)
+	}
 
-// ParseStream tokenizes JSON from an io.Reader incrementally during I/O.
-func ParseStream(r io.Reader, numTokens int) ([]Token, error) {
-	dec := json.NewDecoder(r)
-	p := NewParser(numTokens)
-	pos := 0 // Track approximate position.
-	for {
-		tok, err := dec.Token()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("decoder error: %w", err)
-		}
-		ourTok := Token{Start: pos, End: pos + 1, ParentIdx: p.toksuper} // Stub positions; enhance with dec.Offset().
-		switch v := tok.(type) {
-		case json.Delim:
-			switch v {
-			case '{':
-				ourTok.Type = Object
-			case '[':
-				ourTok.Type = Array
-			case '}', ']':
-				if p.toksuper != -1 {
-					p.tokens[p.toksuper].End = pos
-					p.toksuper = p.tokens[p.toksuper].ParentIdx
-				}
-				pos++
-				continue
-			}
-		case string:
-			ourTok.Type = String
-			ourTok.End = pos + len(v)
-		default: // Primitives.
-			ourTok.Type = Primitive
-		}
-		if err := p.allocToken(ourTok); err != nil {
-			return nil, err
-		}
-		if ourTok.Type == Object || ourTok.Type == Array {
-			p.toksuper = p.toknext - 1
-		}
-		pos++
-	}
-	return p.Tokens(), nil
-}
-
-// ParseStreamDecoder uses json.Decoder for incremental tokenizing during I/O.
-func ParseStreamDecoder(r io.Reader, numTokens int) ([]Token, error) {
-	dec := json.NewDecoder(r)
-	p := NewParser(numTokens)
-	for {
-		tok, err := dec.Token()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("decoder error: %w", err)
-		}
-		// Map json.Token to our Token (basic; expand for full support).
-		ourTok := Token{ParentIdx: p.toksuper}
-		switch v := tok.(type) {
-		case json.Delim:
-			switch v {
-			case '{':
-				ourTok.Type = Object
-			case '[':
-				ourTok.Type = Array
-			case '}', ']':
-				if p.toksuper != -1 {
-					p.tokens[p.toksuper].End = p.pos + 1 // Approximate positions.
-					p.toksuper = p.tokens[p.toksuper].ParentIdx
-				}
-				continue // Delims like }/] don't need new tokens.
-			}
-		case string:
-			ourTok.Type = String
-		default: // Numbers, booleans, null.
-			ourTok.Type = Primitive
-		}
-		if err := p.allocToken(ourTok); err != nil {
-			return nil, err
-		}
-		p.toksuper = p.toknext - 1 // Update for containers.
-		p.pos++                    // Increment position (stub; track real offsets from dec).
-	}
-	return p.Tokens(), nil
+	return finalTokens, nil
 }
