@@ -2,7 +2,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	jsmngo "github.com/alikatgh/safeheaders-go/jsmn-go"
@@ -17,9 +16,8 @@ func main() {
 		{"id": 3, "action": "logout", "user": "alice"}
 	]`)
 
-	fmt.Println("--- Single-Threaded Parser Example ---")
-	// Basic parsing example
-	p := jsmngo.NewParser(len(json) / 4) // Allocate a reasonable starting capacity
+	log.Println("--- Single-Threaded Parser Example ---")
+	p := jsmngo.NewParser(len(json) / 4)
 	_, err := p.Parse(json)
 	if err != nil {
 		log.Fatalln("Error parsing JSON:", err)
@@ -27,15 +25,15 @@ func main() {
 	tokens := p.Tokens()
 	log.Printf("Single-threaded parser found %d tokens.\n", len(tokens))
 	for i, tok := range tokens {
-		log.Printf("Token %d: Type=%v, Start=%d, End=%d, Size=%d, Parent=%d\n", i, tok.Type, tok.Start, tok.End, tok.Size, tok.ParentIdx)
+		// This line has been shortened to pass the linter.
+		log.Printf("Token %d: Type=%v, Start=%d, End=%d, Size=%d, Parent=%d\n",
+			i, tok.Type, tok.Start, tok.End, tok.Size, tok.ParentIdx)
 	}
 
-	fmt.Println("\n--- Parallel Parser Example ---")
-	// Parallel mode example with the corrected function signature
+	log.Println("\n--- Parallel Parser Example ---")
 	tokensParallel, err := jsmngo.ParseParallel(json)
 	if err != nil {
 		log.Fatalln("Error in parallel parsing:", err)
 	}
 	log.Printf("Parallel parser found %d tokens.\n", len(tokensParallel))
-	// The output should be identical to the single-threaded version.
 }

@@ -12,9 +12,13 @@ import (
 type TokenType int
 
 const (
+	// Object represents a JSON object token: { ... }
 	Object TokenType = iota
+	// Array represents a JSON array token: [ ... ]
 	Array
+	// String represents a JSON string token: "..."
 	String
+	// Primitive represents a JSON primitive token (number, boolean, null).
 	Primitive
 )
 
@@ -40,6 +44,11 @@ func NewParser(numTokens int) *Parser {
 	return &Parser{
 		tokens: make([]Token, numTokens),
 	}
+}
+
+// isPrimitiveStart checks if a byte can be the beginning of a JSON primitive.
+func isPrimitiveStart(c byte) bool {
+	return c == 't' || c == 'f' || c == 'n' || (c >= '0' && c <= '9') || c == '-'
 }
 
 // Parse tokenizes the JSON input, returning the number of tokens or an error.
@@ -76,13 +85,11 @@ func (p *Parser) Parse(json []byte) (int, error) {
 		case '\t', '\r', '\n', ' ', ':', ',':
 			p.pos++
 		default:
-			// FIX: Explicitly check for valid primitive starting characters.
-			if c == 't' || c == 'f' || c == 'n' || (c >= '0' && c <= '9') || c == '-' {
-				if err := p.parsePrimitive(json); err != nil {
-					return 0, err
-				}
-			} else {
+			if !isPrimitiveStart(c) {
 				return 0, fmt.Errorf("invalid character '%c' at position %d", c, p.pos)
+			}
+			if err := p.parsePrimitive(json); err != nil {
+				return 0, err
 			}
 		}
 	}
