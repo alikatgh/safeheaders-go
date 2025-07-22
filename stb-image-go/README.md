@@ -1,7 +1,7 @@
 # stb-image-go
 
-[](https://goreportcard.com/report/github.com/alikatgh/stb-image-go)
-[](https://github.com/alikatgh/stb-image-go/actions/workflows/go.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alikatgh/safeheaders-go/stb-image-go)](https://goreportcard.com/report/github.com/alikatgh/safeheaders-go/stb-image-go)
+[![Go CI](https://github.com/alikatgh/safeheaders-go/stb-image-go/actions/workflows/go.yml/badge.svg)](https://github.com/alikatgh/safeheaders-go/stb-image-go/actions/workflows/go.yml)
 
 > **Zero-dependency, high-performance image loader for Go.**
 > A faithful **Go port** of `stb_image.h` (`stb_image 2.x`) with **concurrent batch decoding**, **HDR support**, and **raw pixel access**.
@@ -12,8 +12,8 @@
 
 | Goal | Status |
 |---|---|
-| **Memory-safe** | [ ] No C, no CGO, no buffer overflows |
-| **Concurrent** | [ ] `LoadBatchConcurrent` uses goroutines |
+| **Memory-safe** | [x] No C, no CGO, no buffer overflows |
+| **Concurrent** | [x] `LoadBatchConcurrent` uses goroutines |
 | **Format Parity** | [ ] Port JPEG, PNG, GIF, TGA, BMP, PSD, HDR |
 | **Zero Dependencies** | [ ] Pure Go, no external libraries |
 
@@ -51,14 +51,11 @@ rgba, width, height, err := stbimagego.LoadRaw(data) // []uint8, int, int
 
 ## Current Status
 
-| Format | Bits / Channel | Status |
-|---|---|---|
-| JPEG | 8 / 16 / 24 | [ ] Planned |
-| PNG  | 8 / 16       | [ ] Planned |
-| GIF  | 8            | [ ] Planned |
-| TGA  | 8 / 16 / 24  | [ ] Planned ([\#2](https://github.com/alikatgh/stb-image-go/issues/2)) |
-| BMP  | 8 / 16 / 24  | [ ] Planned ([\#3](https://github.com/alikatgh/stb-image-go/issues/3)) |
-| HDR  | 32-bit float | [ ] Planned ([\#4](https://github.com/alikatgh/stb-image-go/issues/4)) |
+The stable `v0.1.0` tag represents a fast, concurrent loader for standard formats (JPEG, PNG, GIF) that wraps Go's standard library.
+
+The `main` branch now contains the foundational skeleton for a **pure-Go port** of `stb_image.h`. The primary goal is to implement these decoders to achieve full feature-parity with the original C library.
+
+You can follow the porting progress in our main tracking issue: **[#5 Port stb_image.h Decoders](https://github.com/alikatgh/stb-image-go/issues/5)**.
 
 -----
 
