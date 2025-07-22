@@ -22,7 +22,7 @@
 ## Installation
 
 ```bash
-go get github.com/alikatgh/stb-image-go
+go get github.com/alikatgh/safeheaders-go/stb-image-go
 ```
 
 -----
@@ -84,10 +84,8 @@ go test -bench=. -benchmem
 2.  **Add tests** – include sample images in the `testdata/` directory.
 3.  **Add benchmarks** – show before and after CPU and memory usage.
 
-See [CONTRIBUTING.md](https://www.google.com/search?q=./CONTRIBUTING.md) for the style guide.
-
 -----
 
 ## License
 
-MIT – same as `stb_image.h`.
+MIT
