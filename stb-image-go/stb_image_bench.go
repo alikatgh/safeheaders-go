@@ -1,12 +1,25 @@
 package stbimagego
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func BenchmarkLoadBatchConcurrent(b *testing.B) {
-	datas := make([][]byte, 10) // Dummy; use real images.
-	for i := 0; i < len(datas); i++ {
-		datas[i] = []byte("\x89PNG\r\n\x1a\n")
+	// This benchmark requires a real image file in a `testdata` directory.
+	// Example: testdata/4k.jpg
+	data, err := os.ReadFile("testdata/4k.jpg")
+	if err != nil {
+		b.Fatalf("Skipping benchmark: failed to read benchmark image 'testdata/4k.jpg': %v", err)
 	}
+
+	const N = 100
+	datas := make([][]byte, N)
+	for i := 0; i < N; i++ {
+		datas[i] = data
+	}
+
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		LoadBatchConcurrent(datas)
 	}
