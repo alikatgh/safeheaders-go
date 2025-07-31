@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"strings"
@@ -24,50 +25,46 @@ type XMLDocument struct {
 	Root        *Node
 }
 
-// Parse builds a complete DOM tree.
+// Parse builds a full DOM tree.
 func Parse(data []byte) (*XMLDocument, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
+	doc := &XMLDocument{}
 
-	doc := &XMLDocument{
-		Declaration: "",
-		Root:        nil,
-	}
-
-	// 1. Declaration
-	if bytes.HasPrefix(data, []byte("<?xml")) {
-		end := bytes.Index(data, []byte("?>"))
-		if end == -1 {
-			return nil, errors.New("unclosed XML declaration")
-		}
-		doc.Declaration = strings.TrimSpace(string(data[:end+2]))
-		data = data[end+2:]
-		dec = xml.NewDecoder(bytes.NewReader(data))
-	}
-
-	// 2. Root element
+	// Find the first token to get the XML declaration if it exists.
+	// This approach is simpler than the previous one.
 	for {
 		tok, err := dec.Token()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, err // Return the original, accurate error from the decoder.
 		}
-		if se, ok := tok.(xml.StartElement); ok {
-			root, err := parseElement(dec, se)
+
+		switch v := tok.(type) {
+		case xml.ProcInst:
+			if v.Target == "xml" {
+				doc.Declaration = fmt.Sprintf("<?%s %s?>", v.Target, string(v.Inst))
+			}
+		case xml.Comment:
+			// Skip
+		case xml.StartElement:
+			// Once we find the first element, we start parsing the tree.
+			root, err := parseElement(dec, v) // Pass the decoder and the first token.
 			if err != nil {
 				return nil, err
 			}
 			doc.Root = root
-			break
+			return doc, nil
 		}
 	}
 
-	if doc.Root == nil {
-		return nil, errors.New("no root element found")
-	}
-	return doc, nil
+	return nil, errors.New("no root element found")
 }
+
+// The recursive parseElement helper needs only a minor change
+// to remove the 'parser' struct dependency.
+// func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) { ... }
 
 // parseElement recursively builds the tree.
 func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) {
@@ -126,16 +123,14 @@ func TraverseConcurrent(root *Node) ([]string, error) {
 	if len(children) < numWorkers {
 		numWorkers = len(children)
 	}
+	chunk := (len(children) + numWorkers - 1) / numWorkers
 
-	chunkSize := (len(children) + numWorkers - 1) / numWorkers
 	var wg sync.WaitGroup
 	results := make([][]string, numWorkers)
-	errs := make(chan error, 1)
 
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		start := i * chunkSize
-		end := start + chunkSize
+		start, end := i*chunk, (i+1)*chunk
 		if start >= len(children) {
 			wg.Done()
 			continue
@@ -144,21 +139,15 @@ func TraverseConcurrent(root *Node) ([]string, error) {
 			end = len(children)
 		}
 		results[i] = make([]string, 0, end-start)
-		go func(children []*Node, res *[]string) {
+		go func(slice []*Node, res *[]string) {
 			defer wg.Done()
-			for _, c := range children {
-				*res = append(*res, c.Name)
+			for _, n := range slice {
+				*res = append(*res, n.Name)
 			}
 		}(children[start:end], &results[i])
 	}
 	wg.Wait()
-	select {
-	case err := <-errs:
-		return nil, err
-	default:
-	}
 
-	// Flatten
 	var out []string
 	for _, r := range results {
 		out = append(out, r...)
