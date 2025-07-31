@@ -2,56 +2,121 @@ package tinyxml2go
 
 import (
 	"bytes"
+	"encoding/xml"
 	"errors"
+	"io"
+	"runtime"
+	"sync"
 )
 
-// XMLElement mirrors the structure of tinyxml2::XMLElement.
-type XMLElement struct {
-	Name string
-	Text string
-	// Children, Parent, Attributes to be added later.
+// Node represents a node in the XML DOM tree.
+type Node struct {
+	Name       string
+	Attributes map[string]string
+	Text       string
+	Children   []Node
 }
 
-// XMLDocument mirrors the tinyxml2::XMLDocument.
-type XMLDocument struct {
-	Declaration string
-	RootElement *XMLElement
-}
-
-// trimWhitespace trims leading whitespace from a byte slice.
-func trimWhitespace(data []byte) []byte {
-	return bytes.TrimLeft(data, " \t\n\r")
-}
-
-// Parse is the main entry point. This version is a minimal but real
-// implementation that parses the declaration and root element.
-func Parse(data []byte) (*XMLDocument, error) {
-	doc := &XMLDocument{}
-	data = trimWhitespace(data)
-
-	// 1. A real (though simple) piece of parsing: The XML Declaration
-	if bytes.HasPrefix(data, []byte("<?xml")) {
-		endDecl := bytes.Index(data, []byte("?>"))
-		if endDecl == -1 {
-			return nil, errors.New("unclosed XML declaration")
+// Parse builds a DOM tree from XML data using a recursive helper.
+func Parse(data []byte) (*Node, error) {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	// Skip to the first real token, ignoring declarations etc.
+	for {
+		t, err := dec.Token()
+		if err == io.EOF {
+			break
 		}
-		doc.Declaration = string(data[:endDecl+2])
-		data = trimWhitespace(data[endDecl+2:])
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := t.(xml.StartElement); ok {
+			// Found the root, start parsing from here.
+			// We need to construct a "fake" StartElement token to re-feed the parser.
+			return parseElement(dec, t.(xml.StartElement))
+		}
+	}
+	return nil, errors.New("no root element found in XML")
+}
+
+// parseElement recursively parses tokens into a Node tree.
+func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) {
+	node := &Node{Name: se.Name.Local, Attributes: make(map[string]string)}
+	for _, attr := range se.Attr {
+		node.Attributes[attr.Name.Local] = attr.Value
 	}
 
-	// 2. A second real piece of parsing: Find the root element name
-	if !bytes.HasPrefix(data, []byte("<")) {
-		return nil, errors.New("expected '<' for root element")
+	for {
+		t, err := dec.Token()
+		if err == io.EOF {
+			break // Should be handled by matching EndElement
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		switch v := t.(type) {
+		case xml.StartElement:
+			child, err := parseElement(dec, v)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, *child)
+		case xml.CharData:
+			node.Text = string(v)
+		case xml.EndElement:
+			// When we find the end tag matching our start tag, we're done.
+			if v.Name.Local == se.Name.Local {
+				return node, nil
+			}
+		}
 	}
-	endRootName := bytes.IndexAny(data, " \t\n\r>")
-	if endRootName == -1 {
-		return nil, errors.New("unclosed root element tag")
+	return nil, errors.New("unexpected EOF - unclosed tag " + se.Name.Local)
+}
+
+// TraverseConcurrent traverses the direct children of a node concurrently.
+func TraverseConcurrent(root *Node) ([]string, error) {
+	if root == nil || len(root.Children) == 0 {
+		return []string{}, nil
+	}
+	numWorkers := runtime.NumCPU()
+	if len(root.Children) < numWorkers {
+		numWorkers = len(root.Children)
 	}
 
-	doc.RootElement = &XMLElement{
-		Name: string(data[1:endRootName]),
-	}
+	var wg sync.WaitGroup
+	results := make([]string, 0, len(root.Children))
+	mu := sync.Mutex{}
+	errs := make(chan error, numWorkers)
 
-	// The rest of the document is not yet parsed.
-	return doc, nil
+	chunkSize := (len(root.Children) + numWorkers - 1) / numWorkers // Ceiling division
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		start := i * chunkSize
+		end := start + chunkSize
+		if start >= len(root.Children) {
+			wg.Done()
+			continue
+		}
+		if end > len(root.Children) {
+			end = len(root.Children)
+		}
+		go func(children []Node) {
+			defer wg.Done()
+			localResults := make([]string, 0, len(children))
+			for _, child := range children {
+				// In a real scenario, you would do more work here.
+				localResults = append(localResults, child.Name)
+			}
+			mu.Lock()
+			results = append(results, localResults...)
+			mu.Unlock()
+		}(root.Children[start:end])
+	}
+	wg.Wait()
+	select {
+	case err := <-errs:
+		return nil, err
+	default:
+	}
+	return results, nil
 }

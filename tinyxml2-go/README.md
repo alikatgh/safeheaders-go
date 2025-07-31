@@ -1,8 +1,5 @@
 # tinyxml2-go
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/alikatgh/safeheaders-go/tinyxml2-go)](https://goreportcard.com/report/github.com/alikatgh/safeheaders-go/tinyxml2-go)
-[![Go CI](https://github.com/alikatgh/safeheaders-go/actions/workflows/go.yml/badge.svg)](https://github.com/alikatgh/safeheaders-go/actions/workflows/go.yml)
-
 An idiomatic, zero-CGO Go port of the `tinyxml2.h` C library for XML parsing.
 
 ## Current Status: v0.1.0
