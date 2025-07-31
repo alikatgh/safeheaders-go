@@ -19,6 +19,7 @@ Idiomatic Go rewrites of single-header C libs with opt-in goroutine helpers and 
 - [cgltf-go](./cgltf-go): glTF 3D model loading with parallel asset loading.
 - [cjson-go](./cjson-go): JSON parsing with parallel deserialization.
 - [nuklear-go](./nuklear-go): GUI with concurrent rendering.
+- [tinyxml2-go](./tinyxml2-go/): Concurrent node traversal and querying
 
 ## Usage Snippets
 Basic parsing:
@@ -97,7 +98,7 @@ Pick a single-header C lib from the wishlist below, port it to pure Go, add one 
 | [x] | [nuklear.h](https://github.com/Immediate-Mode-UI/Nuklear/blob/master/nuklear.h) (GUI) | Concurrent rendering of UI elements | Hard | Synchronizing immediate-mode GUI state in multi-threaded environments |
 | [x] | [cJSON.h](https://github.com/DaveGamble/cJSON) (JSON parsing) | Parallel object deserialization | Medium | Avoiding data races in recursive JSON structures |
 | [ ] | [dr_wav.h](https://github.com/mackron/dr_libs/blob/master/dr_wav.h) (WAV audio loading) | Goroutine-based audio stream decoding | Medium | Handling multi-channel audio with parallel chunk processing |
-| [ ] | [tinyxml2.h](https://github.com/leethomason/tinyxml2/blob/master/tinyxml2.h) (XML parsing) | Concurrent node traversal and querying | Hard | Managing XML tree state safely across goroutines |
+| [x] | [tinyxml2.h](https://github.com/leethomason/tinyxml2/blob/master/tinyxml2.h) (XML parsing) | Concurrent node traversal and querying | Hard | Managing XML tree state safely across goroutines |
 | [x] | [cgltf.h](https://github.com/jkuhlmann/cgltf/blob/master/cgltf.h) (glTF 3D model loading) | Parallel asset loading for models | Hard | Coordinating binary data parsing and asset dependencies in parallel |
 | [ ] | [stb_vorbis.h](https://github.com/nothings/stb/blob/master/stb_vorbis.c) (Ogg Vorbis audio decoding) | Multi-channel parallel decoding | Medium | Optimizing audio decoding pipelines for concurrency without latency spikes |
 | [ ] | [easytab.h](https://github.com/ApoorvaJ/EasyTab) (table layout) | Async data filling for dynamic tables | Easy | Ensuring layout consistency in asynchronous updates |
