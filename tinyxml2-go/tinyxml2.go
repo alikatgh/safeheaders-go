@@ -6,111 +6,150 @@ import (
 	"errors"
 	"io"
 	"runtime"
+	"strings"
 	"sync"
 )
 
-// Node represents a node in the XML DOM tree.
+// Node represents an XML DOM node.
 type Node struct {
 	Name       string
 	Attributes map[string]string
 	Text       string
-	Children   []Node
+	Children   []*Node
 }
 
-// Parse builds a DOM tree from XML data using a recursive helper.
-func Parse(data []byte) (*Node, error) {
+// XMLDocument is the top-level container.
+type XMLDocument struct {
+	Declaration string
+	Root        *Node
+}
+
+// Parse builds a complete DOM tree.
+func Parse(data []byte) (*XMLDocument, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
-	// Skip to the first real token, ignoring declarations etc.
+
+	doc := &XMLDocument{
+		Declaration: "",
+		Root:        nil,
+	}
+
+	// 1. Declaration
+	if bytes.HasPrefix(data, []byte("<?xml")) {
+		end := bytes.Index(data, []byte("?>"))
+		if end == -1 {
+			return nil, errors.New("unclosed XML declaration")
+		}
+		doc.Declaration = strings.TrimSpace(string(data[:end+2]))
+		data = data[end+2:]
+		dec = xml.NewDecoder(bytes.NewReader(data))
+	}
+
+	// 2. Root element
 	for {
-		t, err := dec.Token()
+		tok, err := dec.Token()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		if _, ok := t.(xml.StartElement); ok {
-			// Found the root, start parsing from here.
-			// We need to construct a "fake" StartElement token to re-feed the parser.
-			return parseElement(dec, t.(xml.StartElement))
+		if se, ok := tok.(xml.StartElement); ok {
+			root, err := parseElement(dec, se)
+			if err != nil {
+				return nil, err
+			}
+			doc.Root = root
+			break
 		}
 	}
-	return nil, errors.New("no root element found in XML")
+
+	if doc.Root == nil {
+		return nil, errors.New("no root element found")
+	}
+	return doc, nil
 }
 
-// parseElement recursively parses tokens into a Node tree.
+// parseElement recursively builds the tree.
 func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) {
-	node := &Node{Name: se.Name.Local, Attributes: make(map[string]string)}
-	for _, attr := range se.Attr {
-		node.Attributes[attr.Name.Local] = attr.Value
+	node := &Node{
+		Name:       se.Name.Local,
+		Attributes: make(map[string]string),
+	}
+
+	for _, a := range se.Attr {
+		node.Attributes[a.Name.Local] = a.Value
 	}
 
 	for {
-		t, err := dec.Token()
+		tok, err := dec.Token()
 		if err == io.EOF {
-			break // Should be handled by matching EndElement
+			return nil, errors.New("unexpected EOF")
 		}
 		if err != nil {
 			return nil, err
 		}
 
-		switch v := t.(type) {
+		switch v := tok.(type) {
 		case xml.StartElement:
 			child, err := parseElement(dec, v)
 			if err != nil {
 				return nil, err
 			}
-			node.Children = append(node.Children, *child)
+			node.Children = append(node.Children, child)
+
 		case xml.CharData:
-			node.Text = string(v)
+			text := strings.TrimSpace(string(v))
+			if text != "" {
+				// Append to existing text if already present
+				if node.Text == "" {
+					node.Text = text
+				} else {
+					node.Text += text
+				}
+			}
+
 		case xml.EndElement:
-			// When we find the end tag matching our start tag, we're done.
 			if v.Name.Local == se.Name.Local {
 				return node, nil
 			}
 		}
 	}
-	return nil, errors.New("unexpected EOF - unclosed tag " + se.Name.Local)
 }
 
-// TraverseConcurrent traverses the direct children of a node concurrently.
+// TraverseConcurrent walks direct children in parallel.
 func TraverseConcurrent(root *Node) ([]string, error) {
 	if root == nil || len(root.Children) == 0 {
-		return []string{}, nil
+		return nil, nil
 	}
+	children := root.Children
 	numWorkers := runtime.NumCPU()
-	if len(root.Children) < numWorkers {
-		numWorkers = len(root.Children)
+	if len(children) < numWorkers {
+		numWorkers = len(children)
 	}
 
+	chunkSize := (len(children) + numWorkers - 1) / numWorkers
 	var wg sync.WaitGroup
-	results := make([]string, 0, len(root.Children))
-	mu := sync.Mutex{}
-	errs := make(chan error, numWorkers)
+	results := make([][]string, numWorkers)
+	errs := make(chan error, 1)
 
-	chunkSize := (len(root.Children) + numWorkers - 1) / numWorkers // Ceiling division
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		start := i * chunkSize
 		end := start + chunkSize
-		if start >= len(root.Children) {
+		if start >= len(children) {
 			wg.Done()
 			continue
 		}
-		if end > len(root.Children) {
-			end = len(root.Children)
+		if end > len(children) {
+			end = len(children)
 		}
-		go func(children []Node) {
+		results[i] = make([]string, 0, end-start)
+		go func(children []*Node, res *[]string) {
 			defer wg.Done()
-			localResults := make([]string, 0, len(children))
-			for _, child := range children {
-				// In a real scenario, you would do more work here.
-				localResults = append(localResults, child.Name)
+			for _, c := range children {
+				*res = append(*res, c.Name)
 			}
-			mu.Lock()
-			results = append(results, localResults...)
-			mu.Unlock()
-		}(root.Children[start:end])
+		}(children[start:end], &results[i])
 	}
 	wg.Wait()
 	select {
@@ -118,5 +157,11 @@ func TraverseConcurrent(root *Node) ([]string, error) {
 		return nil, err
 	default:
 	}
-	return results, nil
+
+	// Flatten
+	var out []string
+	for _, r := range results {
+		out = append(out, r...)
+	}
+	return out, nil
 }
