@@ -1,8 +1,5 @@
 # stb-image-go
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/alikatgh/safeheaders-go/stb-image-go)](https://goreportcard.com/report/github.com/alikatgh/safeheaders-go/stb-image-go)
-[![Go CI](https://github.com/alikatgh/safeheaders-go/stb-image-go/actions/workflows/go.yml/badge.svg)](https://github.com/alikatgh/safeheaders-go/stb-image-go/actions/workflows/go.yml)
-
 > **Zero-dependency, high-performance image loader for Go.**
 > A faithful **Go port** of `stb_image.h` (`stb_image 2.x`) with **concurrent batch decoding**, **HDR support**, and **raw pixel access**.
 
