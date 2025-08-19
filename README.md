@@ -20,6 +20,7 @@ Idiomatic Go rewrites of single-header C libs with opt-in goroutine helpers and 
 - [cjson-go](./cjson-go): JSON parsing with parallel deserialization.
 - [nuklear-go](./nuklear-go): GUI with concurrent rendering.
 - [tinyxml2-go](./tinyxml2-go/): Concurrent node traversal and querying
+- [stb-truetype-go](./stb-truetype-go): Concurrent glyph caching
 
 ## Usage Snippets
 Basic parsing:
@@ -92,7 +93,7 @@ Pick a single-header C lib from the wishlist below, port it to pure Go, add one 
 |--------|---------|-------------|------------|-----------|
 | [x] | [jsmn.h](https://github.com/zserge/jsmn) (JSON tokenizing) | Goroutine-based parallel parsing | Medium | Handling chunk boundaries in parallel without misalignment |
 | [x] | [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (images) | Goroutine-based batch decoding | Easy | Ensuring thread-safe image format parsing |
-| [ ] | [stb_truetype.h](https://github.com/nothings/stb/blob/master/stb_truetype.h) (fonts) | Concurrent glyph caching | Medium | Managing font state across goroutines for efficient rendering |
+| [x] | [stb_truetype.h](https://github.com/nothings/stb/blob/master/stb_truetype.h) (fonts) | Concurrent glyph caching | Medium | Managing font state across goroutines for efficient rendering |
 | [x] | [miniz.h](https://github.com/richgel999/miniz) (compression) | Parallel compression of chunks | Easy | Balancing compression ratios with concurrency overhead |
 | [ ] | [linenoise.h](https://github.com/antirez/linenoise/blob/master/linenoise.h) (CLI input) | Async history search with goroutines | Easy | Integrating non-blocking input with Go's terminal handling |
 | [x] | [nuklear.h](https://github.com/Immediate-Mode-UI/Nuklear/blob/master/nuklear.h) (GUI) | Concurrent rendering of UI elements | Hard | Synchronizing immediate-mode GUI state in multi-threaded environments |
