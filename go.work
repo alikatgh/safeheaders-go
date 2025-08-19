@@ -8,5 +8,6 @@ use (
 	./miniz-go
 	./nuklear-go
 	./stb-image-go
+	./stb-truetype-go
 	./tinyxml2-go
 )
