@@ -2,10 +2,12 @@ package stbimagego
 
 import (
 	"bytes"
+	"context" // Imported context package
 	"errors"
+	"fmt"
 	"image"
 	"io"
-	"runtime" // Imported runtime package
+	"runtime"
 	"sync"
 )
 
@@ -18,47 +20,67 @@ func Load(data []byte) (image.Image, error) {
 	return img, nil
 }
 
-// LoadBatchConcurrent decodes multiple images in parallel using goroutines.
-func LoadBatchConcurrent(datas [][]byte) ([]image.Image, error) {
-	// P2 FIX: numWorkers is now dynamic.
+// LoadBatchConcurrent decodes multiple images in parallel with context support and full error reporting.
+func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, error) {
 	numWorkers := runtime.NumCPU()
 	if len(datas) < numWorkers {
-		numWorkers = len(datas) // Don't spin up more workers than jobs.
+		numWorkers = len(datas)
 	}
 
-	var wg sync.WaitGroup
-	results := make([]image.Image, len(datas))
-	errs := make(chan error, len(datas))
+	// jobs channel sends indices of images to be processed.
 	jobs := make(chan int, len(datas))
-
-	// Fill the jobs channel with indices.
 	for i := 0; i < len(datas); i++ {
 		jobs <- i
 	}
 	close(jobs)
+
+	results := make([]image.Image, len(datas))
+	errs := make(chan error, len(datas))
+
+	var wg sync.WaitGroup
 
 	// Start workers.
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for idx := range jobs {
-				img, err := Load(datas[idx])
-				if err != nil {
-					errs <- err
+			for {
+				select {
+				case idx, ok := <-jobs:
+					// 'ok' will be false if the jobs channel is closed and empty.
+					if !ok {
+						return
+					}
+					img, err := Load(datas[idx])
+					if err != nil {
+						errs <- fmt.Errorf("failed to decode image at index %d: %w", idx, err)
+					} else {
+						results[idx] = img
+					}
+				case <-ctx.Done():
+					// The context was cancelled, so stop processing.
+					errs <- ctx.Err()
 					return
 				}
-				results[idx] = img
 			}
 		}()
 	}
 
 	wg.Wait()
-	select {
-	case err := <-errs:
-		return nil, err // Return the first error encountered.
-	default:
+	close(errs) // Close the error channel after all workers are done.
+
+	// Collect all errors into a slice.
+	var multiErr []error
+	for err := range errs {
+		multiErr = append(multiErr, err)
 	}
+
+	if len(multiErr) > 0 {
+		// You can use a custom error type or just return the slice.
+		// For simplicity, we'll just format them into a single error.
+		return nil, errors.New(fmt.Sprintf("%v", multiErr))
+	}
+
 	return results, nil
 }
 

@@ -2,6 +2,7 @@ package stbimagego
 
 import (
 	"bytes"
+	"context" // Import the context package
 	"image"
 	"image/color"
 	"image/png"
@@ -49,7 +50,8 @@ func TestLoadBatchConcurrent(t *testing.T) {
 	pngData := createTestPNG()
 	datas := [][]byte{pngData, pngData, pngData}
 
-	images, err := LoadBatchConcurrent(datas)
+	// Pass a background context for the standard test case.
+	images, err := LoadBatchConcurrent(context.Background(), datas)
 	if err != nil {
 		t.Fatalf("LoadBatchConcurrent() failed with error: %v", err)
 	}
@@ -60,5 +62,31 @@ func TestLoadBatchConcurrent(t *testing.T) {
 		if img == nil {
 			t.Errorf("Image at index %d is nil", i)
 		}
+	}
+}
+
+// NEW TEST: Verify that context cancellation works correctly.
+func TestLoadBatchConcurrent_Cancellation(t *testing.T) {
+	pngData := createTestPNG()
+	// Create a large batch to ensure the operation takes some time.
+	datas := make([][]byte, 100)
+	for i := range datas {
+		datas[i] = pngData
+	}
+
+	// Create a context that we can cancel.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Cancel the context immediately.
+	cancel()
+
+	_, err := LoadBatchConcurrent(ctx, datas)
+	if err == nil {
+		t.Fatal("LoadBatchConcurrent() did not return an error on a cancelled context")
+	}
+
+	// Check if the error is a context cancellation error.
+	if err != context.Canceled {
+		t.Errorf("Expected error to be context.Canceled, but got: %v", err)
 	}
 }
