@@ -2,70 +2,338 @@ package drwavgo
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
+	"runtime"
 	"sync"
 )
 
-// LoadWAV loads WAV audio samples (basic RIFF header parsing).
-func LoadWAV(data []byte) ([]byte, error) {
-	r := bytes.NewReader(data)
-	var header [4]byte
-	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
-		return nil, err
-	}
-	if string(header[:]) != "RIFF" {
-		return nil, errors.New("invalid WAV header")
-	}
-	// Skip size, WAVE, fmt, etc. (stub; full would read channels, sample rate).
-	// For MVP, return raw data after header.
-	samples := data[44:] // Typical header size; adjust for real.
-	return samples, nil
+// WAVHeader represents the WAV file header.
+type WAVHeader struct {
+	AudioFormat   uint16 // 1 = PCM
+	NumChannels   uint16
+	SampleRate    uint32
+	ByteRate      uint32
+	BlockAlign    uint16
+	BitsPerSample uint16
 }
 
-// LoadStreamConcurrent loads and decodes WAV from a stream in parallel chunks.
-func LoadStreamConcurrent(r io.Reader) ([]byte, error) {
-	// Read full data sequentially to handle header.
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	// Parse header and get samples.
-	samples, parseErr := LoadWAV(data)
-	if parseErr != nil {
-		return nil, parseErr
+// WAV represents a parsed WAV audio file.
+type WAV struct {
+	Header WAVHeader
+	Data   []byte // Raw PCM data
+}
+
+// Parse parses WAV file data.
+func Parse(data []byte) (*WAV, error) {
+	if len(data) < 44 {
+		return nil, errors.New("data too short for WAV header")
 	}
 
-	// Concurrent "decoding" on sample chunks (stub for parallelism).
-	numWorkers := 4
-	chunkSize := len(samples) / numWorkers
+	r := bytes.NewReader(data)
+
+	// Read RIFF header
+	var riff [4]byte
+	if err := binary.Read(r, binary.LittleEndian, &riff); err != nil {
+		return nil, fmt.Errorf("failed to read RIFF: %w", err)
+	}
+	if string(riff[:]) != "RIFF" {
+		return nil, errors.New("invalid RIFF header")
+	}
+
+	// Read chunk size
+	var chunkSize uint32
+	if err := binary.Read(r, binary.LittleEndian, &chunkSize); err != nil {
+		return nil, fmt.Errorf("failed to read chunk size: %w", err)
+	}
+
+	// Read WAVE header
+	var wave [4]byte
+	if err := binary.Read(r, binary.LittleEndian, &wave); err != nil {
+		return nil, fmt.Errorf("failed to read WAVE: %w", err)
+	}
+	if string(wave[:]) != "WAVE" {
+		return nil, errors.New("invalid WAVE header")
+	}
+
+	// Read fmt subchunk
+	var fmtTag [4]byte
+	if err := binary.Read(r, binary.LittleEndian, &fmtTag); err != nil {
+		return nil, fmt.Errorf("failed to read fmt: %w", err)
+	}
+	if string(fmtTag[:]) != "fmt " {
+		return nil, errors.New("invalid fmt subchunk")
+	}
+
+	var subchunk1Size uint32
+	if err := binary.Read(r, binary.LittleEndian, &subchunk1Size); err != nil {
+		return nil, fmt.Errorf("failed to read subchunk1 size: %w", err)
+	}
+
+	// Read format details
+	var header WAVHeader
+	if err := binary.Read(r, binary.LittleEndian, &header.AudioFormat); err != nil {
+		return nil, fmt.Errorf("failed to read audio format: %w", err)
+	}
+	if err := binary.Read(r, binary.LittleEndian, &header.NumChannels); err != nil {
+		return nil, fmt.Errorf("failed to read num channels: %w", err)
+	}
+	if err := binary.Read(r, binary.LittleEndian, &header.SampleRate); err != nil {
+		return nil, fmt.Errorf("failed to read sample rate: %w", err)
+	}
+	if err := binary.Read(r, binary.LittleEndian, &header.ByteRate); err != nil {
+		return nil, fmt.Errorf("failed to read byte rate: %w", err)
+	}
+	if err := binary.Read(r, binary.LittleEndian, &header.BlockAlign); err != nil {
+		return nil, fmt.Errorf("failed to read block align: %w", err)
+	}
+	if err := binary.Read(r, binary.LittleEndian, &header.BitsPerSample); err != nil {
+		return nil, fmt.Errorf("failed to read bits per sample: %w", err)
+	}
+
+	// Skip any extra format bytes
+	if subchunk1Size > 16 {
+		extra := make([]byte, subchunk1Size-16)
+		if _, err := r.Read(extra); err != nil {
+			return nil, fmt.Errorf("failed to skip extra format bytes: %w", err)
+		}
+	}
+
+	// Find data subchunk
+	for {
+		var subchunkID [4]byte
+		if err := binary.Read(r, binary.LittleEndian, &subchunkID); err != nil {
+			return nil, fmt.Errorf("failed to find data subchunk: %w", err)
+		}
+
+		var subchunkSize uint32
+		if err := binary.Read(r, binary.LittleEndian, &subchunkSize); err != nil {
+			return nil, fmt.Errorf("failed to read subchunk size: %w", err)
+		}
+
+		if string(subchunkID[:]) == "data" {
+			// Read PCM data
+			pcmData := make([]byte, subchunkSize)
+			if _, err := io.ReadFull(r, pcmData); err != nil && err != io.EOF {
+				return nil, fmt.Errorf("failed to read PCM data: %w", err)
+			}
+
+			return &WAV{
+				Header: header,
+				Data:   pcmData,
+			}, nil
+		}
+
+		// Skip this subchunk
+		if _, err := r.Seek(int64(subchunkSize), io.SeekCurrent); err != nil {
+			return nil, fmt.Errorf("failed to skip subchunk: %w", err)
+		}
+	}
+}
+
+// GetDuration returns the duration of the audio in seconds.
+func (w *WAV) GetDuration() float64 {
+	if w.Header.ByteRate == 0 {
+		return 0
+	}
+	return float64(len(w.Data)) / float64(w.Header.ByteRate)
+}
+
+// GetSampleCount returns the total number of samples.
+func (w *WAV) GetSampleCount() int {
+	bytesPerSample := int(w.Header.BitsPerSample) / 8
+	if bytesPerSample == 0 {
+		return 0
+	}
+	return len(w.Data) / bytesPerSample / int(w.Header.NumChannels)
+}
+
+// ValidateWAV performs basic validation on WAV data.
+func ValidateWAV(wav *WAV) error {
+	if wav == nil {
+		return errors.New("nil WAV")
+	}
+
+	// Check audio format (1 = PCM)
+	if wav.Header.AudioFormat != 1 {
+		return fmt.Errorf("unsupported audio format: %d (only PCM supported)", wav.Header.AudioFormat)
+	}
+
+	// Check channels
+	if wav.Header.NumChannels == 0 {
+		return errors.New("invalid number of channels: 0")
+	}
+
+	// Check sample rate
+	if wav.Header.SampleRate == 0 {
+		return errors.New("invalid sample rate: 0")
+	}
+
+	// Check bits per sample
+	if wav.Header.BitsPerSample != 8 && wav.Header.BitsPerSample != 16 &&
+	   wav.Header.BitsPerSample != 24 && wav.Header.BitsPerSample != 32 {
+		return fmt.Errorf("unsupported bits per sample: %d", wav.Header.BitsPerSample)
+	}
+
+	return nil
+}
+
+// ParseBatch parses multiple WAV files concurrently.
+func ParseBatch(ctx context.Context, dataList [][]byte) ([]*WAV, error) {
+	if len(dataList) == 0 {
+		return nil, errors.New("empty data list")
+	}
+
+	numWorkers := runtime.NumCPU()
+	if numWorkers > len(dataList) {
+		numWorkers = len(dataList)
+	}
+
+	type result struct {
+		wav   *WAV
+		err   error
+		index int
+	}
+
+	dataChan := make(chan struct {
+		data  []byte
+		index int
+	}, len(dataList))
+	resultChan := make(chan result, len(dataList))
+
 	var wg sync.WaitGroup
-	results := make([][]byte, numWorkers)
-	errs := make(chan error, numWorkers)
 
+	// Start workers
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		start := i * chunkSize
-		end := start + chunkSize
-		if i == numWorkers-1 {
-			end = len(samples)
-		}
-		go func(i int, chunk []byte) {
+		go func() {
 			defer wg.Done()
-			// "Decode" chunk (stub; real could process channels/samples).
-			results[i] = chunk // Return as-is for MVP.
-		}(i, samples[start:end])
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case work, ok := <-dataChan:
+					if !ok {
+						return
+					}
+
+					wav, err := Parse(work.data)
+					resultChan <- result{
+						wav:   wav,
+						err:   err,
+						index: work.index,
+					}
+				}
+			}
+		}()
 	}
-	wg.Wait()
-	select {
-	case err := <-errs:
-		return nil, err
-	default:
+
+	// Send work
+	go func() {
+		for i, data := range dataList {
+			select {
+			case <-ctx.Done():
+				close(dataChan)
+				return
+			case dataChan <- struct {
+				data  []byte
+				index int
+			}{data, i}:
+			}
+		}
+		close(dataChan)
+	}()
+
+	// Collect results
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	results := make([]*WAV, len(dataList))
+	for res := range resultChan {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if res.err != nil {
+			return nil, fmt.Errorf("failed to parse WAV at index %d: %w", res.index, res.err)
+		}
+		results[res.index] = res.wav
 	}
-	var merged []byte
-	for _, res := range results {
-		merged = append(merged, res...)
+
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
-	return merged, nil
+
+	return results, nil
+}
+
+// ExtractChannels splits multi-channel WAV data into separate channel slices.
+func (w *WAV) ExtractChannels() ([][]byte, error) {
+	if w.Header.NumChannels == 0 {
+		return nil, errors.New("no channels")
+	}
+
+	bytesPerSample := int(w.Header.BitsPerSample) / 8
+	if bytesPerSample == 0 {
+		return nil, errors.New("invalid bits per sample")
+	}
+
+	numChannels := int(w.Header.NumChannels)
+	sampleCount := len(w.Data) / bytesPerSample / numChannels
+
+	channels := make([][]byte, numChannels)
+	for i := range channels {
+		channels[i] = make([]byte, sampleCount*bytesPerSample)
+	}
+
+	// Deinterleave channels
+	for sample := 0; sample < sampleCount; sample++ {
+		for ch := 0; ch < numChannels; ch++ {
+			srcIdx := (sample*numChannels + ch) * bytesPerSample
+			dstIdx := sample * bytesPerSample
+
+			copy(channels[ch][dstIdx:dstIdx+bytesPerSample],
+				w.Data[srcIdx:srcIdx+bytesPerSample])
+		}
+	}
+
+	return channels, nil
+}
+
+// Serialize converts a WAV structure back to WAV file format.
+func Serialize(wav *WAV) ([]byte, error) {
+	if wav == nil {
+		return nil, errors.New("nil WAV")
+	}
+
+	var buf bytes.Buffer
+
+	// Write RIFF header
+	buf.Write([]byte("RIFF"))
+	chunkSize := uint32(36 + len(wav.Data))
+	binary.Write(&buf, binary.LittleEndian, chunkSize)
+	buf.Write([]byte("WAVE"))
+
+	// Write fmt subchunk
+	buf.Write([]byte("fmt "))
+	subchunk1Size := uint32(16)
+	binary.Write(&buf, binary.LittleEndian, subchunk1Size)
+	binary.Write(&buf, binary.LittleEndian, wav.Header.AudioFormat)
+	binary.Write(&buf, binary.LittleEndian, wav.Header.NumChannels)
+	binary.Write(&buf, binary.LittleEndian, wav.Header.SampleRate)
+	binary.Write(&buf, binary.LittleEndian, wav.Header.ByteRate)
+	binary.Write(&buf, binary.LittleEndian, wav.Header.BlockAlign)
+	binary.Write(&buf, binary.LittleEndian, wav.Header.BitsPerSample)
+
+	// Write data subchunk
+	buf.Write([]byte("data"))
+	subchunk2Size := uint32(len(wav.Data))
+	binary.Write(&buf, binary.LittleEndian, subchunk2Size)
+	buf.Write(wav.Data)
+
+	return buf.Bytes(), nil
 }
