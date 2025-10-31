@@ -76,9 +76,13 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 	}
 
 	if len(multiErr) > 0 {
-		// You can use a custom error type or just return the slice.
-		// For simplicity, we'll just format them into a single error.
-		return nil, errors.New(fmt.Sprintf("%v", multiErr))
+		// If the context was cancelled, return context.Canceled directly
+		// (multiple workers may report the same cancellation)
+		if errors.Is(multiErr[0], context.Canceled) || errors.Is(multiErr[0], context.DeadlineExceeded) {
+			return nil, multiErr[0]
+		}
+		// For other errors, aggregate them into a formatted error message
+		return nil, fmt.Errorf("multiple errors occurred: %v", multiErr)
 	}
 
 	return results, nil
