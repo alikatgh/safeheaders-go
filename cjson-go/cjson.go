@@ -1,75 +1,148 @@
 package cjsongo
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"runtime"
 	"sync"
 )
 
-// Unmarshal parses JSON to a map (stubbed with stdlib; expand for custom).
-func Unmarshal(data []byte) (map[string]interface{}, error) {
+// Unmarshal parses JSON data into the provided interface.
+func Unmarshal(data []byte, v interface{}) error {
+	if len(data) == 0 {
+		return errors.New("empty JSON data")
+	}
+	if err := json.Unmarshal(data, v); err != nil {
+		return fmt.Errorf("unmarshal error: %w", err)
+	}
+	return nil
+}
+
+// UnmarshalToMap parses JSON into a map.
+func UnmarshalToMap(data []byte) (map[string]interface{}, error) {
 	var m map[string]interface{}
-	err := json.Unmarshal(data, &m)
-	if err != nil {
-		return nil, errors.New("unmarshal error: " + err.Error())
+	if err := Unmarshal(data, &m); err != nil {
+		return nil, err
 	}
 	return m, nil
 }
 
-// UnmarshalParallel deserializes JSON objects in parallel (for large/nested data).
-func UnmarshalParallel(data []byte) (map[string]interface{}, error) {
-	// First, unmarshal top-level to map.
-	m, err := Unmarshal(data)
-	if err != nil {
+// UnmarshalToSlice parses JSON array into a slice.
+func UnmarshalToSlice(data []byte) ([]interface{}, error) {
+	var s []interface{}
+	if err := Unmarshal(data, &s); err != nil {
 		return nil, err
 	}
-	// Concurrent deserialization on sub-objects (stub: process values in parallel).
-	numWorkers := 4
-	var wg sync.WaitGroup
-	errs := make(chan error, numWorkers)
+	return s, nil
+}
 
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+// Marshal serializes the provided value to JSON.
+func Marshal(v interface{}) ([]byte, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
 	}
-	chunkSize := len(keys) / numWorkers
+	return data, nil
+}
+
+// MarshalIndent serializes with indentation for readability.
+func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
+	data, err := json.MarshalIndent(v, prefix, indent)
+	if err != nil {
+		return nil, fmt.Errorf("marshal indent error: %w", err)
+	}
+	return data, nil
+}
+
+// UnmarshalStream parses JSON from an io.Reader.
+func UnmarshalStream(r io.Reader, v interface{}) error {
+	decoder := json.NewDecoder(r)
+	if err := decoder.Decode(v); err != nil {
+		return fmt.Errorf("stream unmarshal error: %w", err)
+	}
+	return nil
+}
+
+// MarshalStream writes JSON to an io.Writer.
+func MarshalStream(w io.Writer, v interface{}) error {
+	encoder := json.NewEncoder(w)
+	if err := encoder.Encode(v); err != nil {
+		return fmt.Errorf("stream marshal error: %w", err)
+	}
+	return nil
+}
+
+// UnmarshalArrayParallel deserializes JSON array items in parallel.
+// Useful for large arrays where each item can be processed independently.
+func UnmarshalArrayParallel(data []byte) ([]map[string]interface{}, error) {
+	// First unmarshal to raw array
+	var rawArray []json.RawMessage
+	if err := json.Unmarshal(data, &rawArray); err != nil {
+		return nil, fmt.Errorf("failed to parse array: %w", err)
+	}
+
+	if len(rawArray) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+
+	// Process items in parallel
+	numWorkers := runtime.NumCPU()
+	if len(rawArray) < numWorkers {
+		numWorkers = len(rawArray)
+	}
+
+	results := make([]map[string]interface{}, len(rawArray))
+	errs := make(chan error, numWorkers)
+	jobs := make(chan int, len(rawArray))
+
+	var wg sync.WaitGroup
+
+	// Send jobs
+	for i := range rawArray {
+		jobs <- i
+	}
+	close(jobs)
+
+	// Start workers
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		start := i * chunkSize
-		end := start + chunkSize
-		if i == numWorkers-1 {
-			end = len(keys)
-		}
-		go func(keys []string) {
+		go func() {
 			defer wg.Done()
-			for _, k := range keys {
-				// "Deserialize" sub-value (stub; real would recurse if object).
-				if _, ok := m[k].(map[string]interface{}); ok {
-					// Parallel processing placeholder.
+			for idx := range jobs {
+				var item map[string]interface{}
+				if err := json.Unmarshal(rawArray[idx], &item); err != nil {
+					errs <- fmt.Errorf("failed to unmarshal item %d: %w", idx, err)
+					return
 				}
+				results[idx] = item
 			}
-		}(keys[start:end])
+		}()
 	}
+
 	wg.Wait()
-	select {
-	case err := <-errs:
-		return nil, err
-	default:
-	}
-	return m, nil
-}
+	close(errs)
 
-// Marshal serializes to JSON.
-func Marshal(v interface{}) ([]byte, error) {
-	return json.Marshal(v)
-}
-
-// UnmarshalStream parses from reader.
-func UnmarshalStream(r io.Reader) (map[string]interface{}, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
+	// Check for errors
+	if err := <-errs; err != nil {
 		return nil, err
 	}
-	return Unmarshal(data)
+
+	return results, nil
+}
+
+// Valid checks if the data is valid JSON without fully parsing it.
+func Valid(data []byte) bool {
+	return json.Valid(data)
+}
+
+// Compact removes insignificant whitespace from JSON.
+func Compact(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, data); err != nil {
+		return nil, fmt.Errorf("compact error: %w", err)
+	}
+	return buf.Bytes(), nil
 }
