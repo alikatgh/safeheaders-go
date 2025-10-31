@@ -113,6 +113,81 @@ func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) {
 	}
 }
 
+// Find searches for the first child node with the given name.
+func (n *Node) Find(name string) *Node {
+	if n == nil {
+		return nil
+	}
+	for _, child := range n.Children {
+		if child.Name == name {
+			return child
+		}
+	}
+	return nil
+}
+
+// FindAll searches for all child nodes with the given name.
+func (n *Node) FindAll(name string) []*Node {
+	if n == nil {
+		return nil
+	}
+	var results []*Node
+	for _, child := range n.Children {
+		if child.Name == name {
+			results = append(results, child)
+		}
+	}
+	return results
+}
+
+// FindDeep recursively searches for the first node with the given name in the entire subtree.
+func (n *Node) FindDeep(name string) *Node {
+	if n == nil {
+		return nil
+	}
+	if n.Name == name {
+		return n
+	}
+	for _, child := range n.Children {
+		if found := child.FindDeep(name); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// FindAllDeep recursively searches for all nodes with the given name in the entire subtree.
+func (n *Node) FindAllDeep(name string) []*Node {
+	if n == nil {
+		return nil
+	}
+	var results []*Node
+	if n.Name == name {
+		results = append(results, n)
+	}
+	for _, child := range n.Children {
+		results = append(results, child.FindAllDeep(name)...)
+	}
+	return results
+}
+
+// GetAttribute returns the value of an attribute, or empty string if not found.
+func (n *Node) GetAttribute(key string) string {
+	if n == nil || n.Attributes == nil {
+		return ""
+	}
+	return n.Attributes[key]
+}
+
+// HasAttribute checks if an attribute exists.
+func (n *Node) HasAttribute(key string) bool {
+	if n == nil || n.Attributes == nil {
+		return false
+	}
+	_, ok := n.Attributes[key]
+	return ok
+}
+
 // TraverseConcurrent walks direct children in parallel.
 func TraverseConcurrent(root *Node) ([]string, error) {
 	if root == nil || len(root.Children) == 0 {

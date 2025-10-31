@@ -46,15 +46,15 @@ func main() {
 |--------|--------|-------------|
 | [jsmn-go](./jsmn-go) | 🟢 **Stable** | JSON tokenizer with parallel parsing |
 | [stb-truetype-go](./stb-truetype-go) | 🟢 **Stable** | TrueType font parsing with LRU glyph cache |
-| [stb-image-go](./stb-image-go) | 🟡 Beta | Image loading with batch decoding |
-| [tinyxml2-go](./tinyxml2-go) | 🟡 Beta | XML DOM parsing with concurrent traversal |
+| [stb-image-go](./stb-image-go) | 🟢 **Stable** | Image loading with batch decoding (PNG, JPEG, GIF) |
+| [tinyxml2-go](./tinyxml2-go) | 🟢 **Stable** | XML DOM parsing with XPath-like queries |
 | [cjson-go](./cjson-go) | 🔴 Alpha | JSON parser with parallel deserialization |
 | [miniz-go](./miniz-go) | 🔴 Alpha | ZIP compression with chunking |
 | [cgltf-go](./cgltf-go) | 🔴 Alpha | glTF 3D model loading |
 | [dr-wav-go](./dr-wav-go) | 🔴 Alpha | WAV audio file parsing |
 | [nuklear-go](./nuklear-go) | 🔴 Alpha | Immediate-mode GUI (WIP) |
 
-**Legend**: 🟢 Production-Ready | 🟡 Usable with limitations | 🔴 Experimental
+**Legend**: 🟢 Production-Ready | 🔴 Experimental
 
 ## Performance
 
