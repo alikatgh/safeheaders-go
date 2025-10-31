@@ -2,21 +2,58 @@ package stbimagego
 
 import (
 	"bytes"
-	"context" // Imported context package
+	"context"
 	"errors"
 	"fmt"
 	"image"
+	_ "image/gif"  // Register GIF format
+	_ "image/jpeg" // Register JPEG format
+	_ "image/png"  // Register PNG format
 	"io"
 	"runtime"
 	"sync"
 )
 
+// ImageInfo contains metadata about an image without decoding the full image.
+type ImageInfo struct {
+	Width  int
+	Height int
+	Format string
+}
+
+// GetInfo returns image metadata without fully decoding the image.
+func GetInfo(data []byte) (*ImageInfo, error) {
+	if len(data) == 0 {
+		return nil, errors.New("empty image data")
+	}
+
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode config: %w", err)
+	}
+
+	return &ImageInfo{
+		Width:  cfg.Width,
+		Height: cfg.Height,
+		Format: format,
+	}, nil
+}
+
 // Load decodes an image from data.
 func Load(data []byte) (image.Image, error) {
-	img, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return nil, errors.New("failed to decode image: " + err.Error())
+	if len(data) == 0 {
+		return nil, errors.New("empty image data")
 	}
+
+	img, format, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	if img == nil {
+		return nil, fmt.Errorf("decoded nil image (format: %s)", format)
+	}
+
 	return img, nil
 }
 
