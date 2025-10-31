@@ -6,7 +6,6 @@ use (
 	./dr-wav-go
 	./jsmn-go
 	./miniz-go
-	./nuklear-go
 	./stb-image-go
 	./stb-truetype-go
 	./tinyxml2-go

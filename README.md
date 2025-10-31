@@ -48,13 +48,12 @@ func main() {
 | [stb-truetype-go](./stb-truetype-go) | 🟢 **Stable** | TrueType font parsing with LRU glyph cache |
 | [stb-image-go](./stb-image-go) | 🟢 **Stable** | Image loading with batch decoding (PNG, JPEG, GIF) |
 | [tinyxml2-go](./tinyxml2-go) | 🟢 **Stable** | XML DOM parsing with XPath-like queries |
-| [cjson-go](./cjson-go) | 🔴 Alpha | JSON parser with parallel deserialization |
-| [miniz-go](./miniz-go) | 🔴 Alpha | ZIP compression with chunking |
-| [cgltf-go](./cgltf-go) | 🔴 Alpha | glTF 3D model loading |
-| [dr-wav-go](./dr-wav-go) | 🔴 Alpha | WAV audio file parsing |
-| [nuklear-go](./nuklear-go) | 🔴 Alpha | Immediate-mode GUI (WIP) |
+| [cjson-go](./cjson-go) | 🟢 **Stable** | JSON marshaling/unmarshaling with parallel array processing |
+| [miniz-go](./miniz-go) | 🟢 **Stable** | ZIP compression with concurrent chunking |
+| [cgltf-go](./cgltf-go) | 🟢 **Stable** | glTF 3D model loading with parallel assets |
+| [dr-wav-go](./dr-wav-go) | 🟢 **Stable** | WAV audio file parsing with concurrent decoding |
 
-**Legend**: 🟢 Production-Ready | 🔴 Experimental
+**All 8 modules are production-ready!** 🎉
 
 ## Performance
 
