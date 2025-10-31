@@ -1,3 +1,3 @@
 module github.com/alikatgh/safeheaders-go/stb-image-go
 
-go 1.24.4
+go 1.23

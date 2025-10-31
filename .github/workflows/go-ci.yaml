@@ -9,13 +9,25 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module:
+          - jsmn-go
+          - stb-image-go
+          - stb-truetype-go
+          - tinyxml2-go
+          - cjson-go
+          - cgltf-go
+          - dr-wav-go
+          - miniz-go
+          - nuklear-go
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Restore cache
         uses: actions/cache@v4
@@ -24,41 +36,56 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
-      - name: Install golangci-lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.6
-
       - name: Install dependencies
-        working-directory: jsmn-go
+        working-directory: ${{ matrix.module }}
         run: go mod tidy
 
-      - name: Lint with golangci-lint
-        working-directory: jsmn-go
-        run: golangci-lint run --config ../.golangci.yml
-
       - name: Test
-        working-directory: jsmn-go
+        working-directory: ${{ matrix.module }}
         run: go test -v
 
       - name: Benchmark
-        working-directory: jsmn-go
-        run: go test -bench .
+        working-directory: ${{ matrix.module }}
+        run: go test -bench . -benchmem
 
       - name: Test with Coverage
-        working-directory: jsmn-go
-        run: go test -coverprofile=coverage.txt -v
-      - name: Upload Coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./jsmn-go/coverage.txt
-    
-      - name: Test with Coverage  # New: Generate coverage file.
-        working-directory: jsmn-go
-        run: go test -coverprofile=coverage.txt -v
+        working-directory: ${{ matrix.module }}
+        run: go test -coverprofile=coverage.txt -covermode=atomic -v
 
-      - name: Upload Coverage to Codecov  # New: Upload file.
+      - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: ./jsmn-go/coverage.txt
-          token: ${{ secrets.CODECOV_TOKEN }}  # Optional if public repo.
+          files: ./${{ matrix.module }}/coverage.txt
+          flags: ${{ matrix.module }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
+
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module:
+          - jsmn-go
+          - stb-image-go
+          - stb-truetype-go
+          - tinyxml2-go
+          - cjson-go
+          - cgltf-go
+          - dr-wav-go
+          - miniz-go
+          - nuklear-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+
+      - name: Lint with golangci-lint
+        working-directory: ${{ matrix.module }}
+        run: golangci-lint run --config ../.golangci.yml

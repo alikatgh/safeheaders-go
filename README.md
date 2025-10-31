@@ -13,14 +13,20 @@ Idiomatic Go rewrites of single-header C libs with opt-in goroutine helpers and 
 - **Modernized**: Application of Go-idiomatic features like streaming I/O to classic C libraries for real-time data (e.g., IoT JSON streams).
 
 ## Current Ports
-- [jsmn-go](./jsmn-go): Lightweight JSON tokenizer with parallel and streaming support.
-- [stb-image-go](./stb-image-go): Image loading with concurrent batch decoding.
-- [miniz-go](./miniz-go): ZIP compression with concurrent chunk processing.
-- [cgltf-go](./cgltf-go): glTF 3D model loading with parallel asset loading.
-- [cjson-go](./cjson-go): JSON parsing with parallel deserialization.
-- [nuklear-go](./nuklear-go): GUI with concurrent rendering.
-- [tinyxml2-go](./tinyxml2-go/): Concurrent node traversal and querying
-- [stb-truetype-go](./stb-truetype-go): Concurrent glyph caching
+
+**Maturity Legend**: 🟢 Stable (Production-Ready) | 🟡 Beta (Partial Features) | 🔴 Alpha (Experimental)
+
+- 🟢 **[jsmn-go](./jsmn-go)** - Lightweight JSON tokenizer with parallel and streaming support. _Ready for production._
+- 🟢 **[stb-truetype-go](./stb-truetype-go)** - TrueType font parsing with concurrent glyph caching (LRU). _Ready for production._
+- 🟡 **[stb-image-go](./stb-image-go)** - Image loading with concurrent batch decoding. _Wraps stdlib, basic functionality works._
+- 🟡 **[tinyxml2-go](./tinyxml2-go)** - XML DOM parsing with concurrent node traversal. _Basic parsing works, XPath queries planned._
+- 🔴 **[cjson-go](./cjson-go)** - JSON parsing with parallel deserialization. _Experimental: wraps stdlib, minimal parallel logic._
+- 🔴 **[miniz-go](./miniz-go)** - ZIP compression with concurrent chunk processing. _Experimental: basic compression works, naive chunking._
+- 🔴 **[cgltf-go](./cgltf-go)** - glTF 3D model loading with parallel asset loading. _Experimental: header validation only._
+- 🔴 **[dr-wav-go](./dr-wav-go)** - WAV audio loading with concurrent decoding. _Experimental: basic RIFF parsing, multi-channel WIP._
+- 🔴 **[nuklear-go](./nuklear-go)** - Immediate-mode GUI with concurrent rendering. _Proof-of-concept: empty stubs, contributions welcome!_
+
+See [ISSUES.md](./ISSUES.md) for detailed module status and planned improvements.
 
 ## Usage Snippets
 Basic parsing:
