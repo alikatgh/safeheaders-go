@@ -42,7 +42,7 @@ grep "BenchmarkParse" benchmarks/jsmn-go-bench.txt
 
 ---
 
-### 🧪 `generate-testdata.sh`
+### 🧪 `generate-testdata.sh` / `generate-testdata.go`
 
 Generate test data files for benchmarking and testing.
 
@@ -56,6 +56,11 @@ Generate test data files for benchmarking and testing.
 - `testdata/nested.json` - Deeply nested JSON (100 levels)
 - `testdata/primitives.json` - Array of 10,000 primitives
 
+**Implementation:**
+- Uses Go-based generator (`generate-testdata.go`) for performance
+- ~5 seconds to generate all files (vs 10+ minutes with bash)
+- Bash wrapper (`generate-testdata.sh`) for convenience
+
 **Why this is needed:**
 - Realistic benchmark data
 - Test parser performance with large inputs
@@ -66,6 +71,9 @@ Generate test data files for benchmarking and testing.
 ```bash
 rm -rf testdata/*.json testdata/*.xml
 ./scripts/generate-testdata.sh
+
+# Or run Go directly for more control:
+go run scripts/generate-testdata.go
 ```
 
 ---
@@ -179,7 +187,7 @@ Automated release process with all checks.
 | Script | Required Tools | Installation |
 |--------|---------------|-------------|
 | `benchmark.sh` | `go`, `benchstat` (optional) | `go install golang.org/x/tools/cmd/benchstat@latest` |
-| `generate-testdata.sh` | `bash` | Built-in |
+| `generate-testdata.sh` | `go`, `bash` | - |
 | `integration-test.sh` | `go`, `docker` (optional) | - |
 | `release.sh` | `go`, `git` | - |
 
