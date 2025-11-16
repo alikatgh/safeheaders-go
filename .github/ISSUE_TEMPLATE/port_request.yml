@@ -1,0 +1,135 @@
+name: 📦 Port New C Library
+description: Request a new C library to be ported to Go
+title: "[Port]: "
+labels: ["enhancement", "new-module", "needs-triage"]
+assignees:
+  - alikatgh
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want to see a new C library ported to SafeHeaders-Go? Fill out the details below!
+
+  - type: input
+    id: library-name
+    attributes:
+      label: Library Name
+      description: Name of the C library to port
+      placeholder: stb_vorbis.h
+    validations:
+      required: true
+
+  - type: input
+    id: library-url
+    attributes:
+      label: Library URL
+      description: GitHub or website URL for the original C library
+      placeholder: https://github.com/nothings/stb/blob/master/stb_vorbis.c
+    validations:
+      required: true
+
+  - type: dropdown
+    id: license
+    attributes:
+      label: Original Library License
+      description: What license does the original C library use?
+      options:
+        - MIT
+        - BSD (2-clause)
+        - BSD (3-clause)
+        - Public Domain
+        - zlib
+        - Apache 2.0
+        - Other (specify in description)
+        - Unknown (needs investigation)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Library Description
+      description: What does this library do?
+      placeholder: |
+        stb_vorbis is an Ogg Vorbis audio decoder. It provides functions to decode
+        .ogg files into PCM audio samples.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Why would this library be useful? What problems does it solve?
+      placeholder: |
+        Many games and applications use Ogg Vorbis for compressed audio.
+        Having a pure Go decoder would enable:
+        - Game engines written in Go
+        - Audio processing tools without CGO
+        - Cross-platform audio playback
+    validations:
+      required: true
+
+  - type: textarea
+    id: concurrency
+    attributes:
+      label: Concurrency Potential
+      description: How could this library benefit from parallel processing?
+      placeholder: |
+        - Batch decoding multiple audio files concurrently
+        - Parallel decoding of multi-channel audio streams
+        - Streaming decoding with worker pools
+    validations:
+      required: false
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated Complexity
+      description: How complex is this library to port?
+      options:
+        - Simple (< 500 lines, straightforward logic)
+        - Medium (500-2000 lines, some complex algorithms)
+        - Complex (> 2000 lines, advanced algorithms, extensive state management)
+        - Unknown
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: requirements
+    attributes:
+      label: Library Requirements
+      description: Check all that apply
+      options:
+        - label: Header-only or single-file C library
+        - label: Permissive license (MIT, BSD, Public Domain, zlib)
+        - label: No external dependencies (besides stdlib)
+        - label: Well-documented API
+        - label: Active maintenance
+        - label: Has test suite or examples
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to work on porting this library
+          required: false
+        - label: I can provide test data and examples
+          required: false
+        - label: I can help with testing and benchmarking
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information about this library
+      placeholder: |
+        - Similar libraries in other languages
+        - Existing Go ports (and why a new one is needed)
+        - Performance benchmarks from C version
+        - Example code using the C library
+    validations:
+      required: false

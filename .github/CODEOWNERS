@@ -1,0 +1,37 @@
+# Code Owners for SafeHeaders-Go
+#
+# This file defines who is responsible for reviewing changes in different parts of the codebase.
+# GitHub will automatically request reviews from these users when PRs modify the specified files.
+#
+# Documentation: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @alikatgh
+
+# Core infrastructure and documentation
+/.github/ @alikatgh
+/README.md @alikatgh
+/CONTRIBUTING.md @alikatgh
+/SECURITY.md @alikatgh
+/CODE_OF_CONDUCT.md @alikatgh
+/CHANGELOG.md @alikatgh
+/ISSUES.md @alikatgh
+/.golangci.yml @alikatgh
+/go.work @alikatgh
+
+# Module-specific ownership
+/jsmn-go/ @alikatgh
+/stb-image-go/ @alikatgh
+/stb-truetype-go/ @alikatgh
+/tinyxml2-go/ @alikatgh
+/cjson-go/ @alikatgh
+/miniz-go/ @alikatgh
+/cgltf-go/ @alikatgh
+/dr-wav-go/ @alikatgh
+
+# Examples and testdata
+/examples/ @alikatgh
+/testdata/ @alikatgh
+
+# CI/CD workflows
+/.github/workflows/ @alikatgh

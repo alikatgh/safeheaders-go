@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item id="1" name="Test Item">
+    <description>Sample XML document for testing</description>
+    <active>true</active>
+    <value>42.5</value>
+    <tags>
+      <tag>test</tag>
+      <tag>benchmark</tag>
+      <tag>sample</tag>
+    </tags>
+  </item>
+</root>

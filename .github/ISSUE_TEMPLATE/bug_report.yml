@@ -1,0 +1,160 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees:
+  - alikatgh
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us investigate.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected Module
+      description: Which module is affected by this bug?
+      options:
+        - jsmn-go
+        - stb-image-go
+        - stb-truetype-go
+        - tinyxml2-go
+        - cjson-go
+        - miniz-go
+        - cgltf-go
+        - dr-wav-go
+        - Other / Multiple modules
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: When I call ParseParallel with a 10MB JSON file, the function panics with...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide detailed steps to reproduce the bug.
+      placeholder: |
+        1. Create a JSON file with 100,000 objects
+        2. Call ParseParallel(jsonData)
+        3. Observe panic: "index out of range"
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: The function should parse the JSON without errors and return tokens.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: The function panicked with "index out of range" error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code Sample
+      description: Provide a minimal code sample that reproduces the bug.
+      render: go
+      placeholder: |
+        package main
+
+        import (
+            "github.com/alikatgh/safeheaders-go/jsmn-go"
+        )
+
+        func main() {
+            json := []byte(`{"test": "value"}`)
+            p := jsmngo.NewParser(10)
+            _, err := p.Parse(json)
+            // Bug occurs here
+        }
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide information about your environment.
+      value: |
+        - Go version:
+        - OS:
+        - Architecture:
+        - Module version:
+        - GOMAXPROCS:
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs / Stack Trace
+      description: If applicable, paste any error messages or stack traces.
+      render: shell
+      placeholder: |
+        panic: runtime error: index out of range [1000] with length 100
+
+        goroutine 1 [running]:
+        github.com/alikatgh/safeheaders-go/jsmn-go.(*Parser).Parse(...)
+            /path/to/jsmn.go:123
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (crashes, data loss, security issue)
+        - High (major functionality broken)
+        - Medium (functionality impaired)
+        - Low (minor inconvenience)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have provided a minimal code sample to reproduce the bug
+          required: false
+        - label: I have included error logs or stack traces
+          required: false
+        - label: This is not a security vulnerability (if it is, please report privately via SECURITY.md)
+          required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here (screenshots, workarounds, etc.).
+    validations:
+      required: false

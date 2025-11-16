@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "name": "Test Object",
+  "active": true,
+  "value": 42.5,
+  "tags": ["test", "benchmark", "sample"],
+  "metadata": {
+    "created": "2025-01-01T00:00:00Z",
+    "version": "1.0"
+  }
+}
