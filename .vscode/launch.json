@@ -1,0 +1,44 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Current Test",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/${relativeFileDirname}",
+      "args": ["-test.v", "-test.run", "${selectedText}"]
+    },
+    {
+      "name": "Debug Current File",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${file}"
+    },
+    {
+      "name": "Debug Production Server Example",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/examples/production-usage/main.go",
+      "env": {
+        "PORT": "8080"
+      }
+    },
+    {
+      "name": "Debug JSON Parser Example",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/examples/json-parser/main.go"
+    },
+    {
+      "name": "Attach to Process",
+      "type": "go",
+      "request": "attach",
+      "mode": "local",
+      "processId": 0
+    }
+  ]
+}

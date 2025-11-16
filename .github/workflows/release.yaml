@@ -1,0 +1,220 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.5.0)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    name: Pre-release Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run tests
+        run: |
+          for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do
+            echo "Testing $dir..."
+            (cd $dir && go test -race -v ./...)
+          done
+
+      - name: Run linter
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+          for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do
+            (cd $dir && golangci-lint run --config ../.golangci.yml)
+          done
+
+  build-binaries:
+    name: Build Release Binaries
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Build examples
+        run: |
+          mkdir -p dist
+          cd examples/json-parser
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" -o ../../dist/json-parser-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} main.go
+          cd ../production-usage
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" -o ../../dist/production-server-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} main.go
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: dist/*
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -lh release/
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          VERSION_NO_V=${VERSION#v}
+
+          # Extract changelog section for this version
+          if grep -q "## \[$VERSION_NO_V\]" CHANGELOG.md; then
+            sed -n "/## \[$VERSION_NO_V\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
+          else
+            echo "Release $VERSION" > release_notes.md
+            echo "" >> release_notes.md
+            echo "See [CHANGELOG.md](./CHANGELOG.md) for details." >> release_notes.md
+          fi
+
+          cat release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') || contains(steps.get_version.outputs.VERSION, 'rc') }}
+          files: release/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-docker:
+    name: Publish Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  notify:
+    name: Post-release Notifications
+    needs: [create-release, publish-docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Release ${{ steps.get_version.outputs.VERSION }} Complete! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Assets" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker Image: ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Update CHANGELOG.md if needed" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Announce release on discussions" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Update documentation if needed" >> $GITHUB_STEP_SUMMARY

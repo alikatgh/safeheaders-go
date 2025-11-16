@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Production HTTP server example
+  production-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: safeheaders-production
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - GOMAXPROCS=4
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - safeheaders-net
+
+  # JSON parser example (one-shot)
+  json-parser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: safeheaders-json-parser
+    command: ["/app/json-parser"]
+    profiles:
+      - tools
+    networks:
+      - safeheaders-net
+
+  # Development environment
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: dev
+    container_name: safeheaders-dev
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+    working_dir: /app
+    command: ["sleep", "infinity"]
+    profiles:
+      - dev
+    networks:
+      - safeheaders-net
+
+networks:
+  safeheaders-net:
+    driver: bridge
+
+volumes:
+  go-mod-cache:

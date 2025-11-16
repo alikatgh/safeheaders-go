@@ -1,0 +1,39 @@
+# Git
+.git/
+.github/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+bin/
+*.test
+*.out
+coverage.txt
+coverage.out
+*.prof
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in container)
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Development
+Dockerfile.dev
+docker-compose.yml
+Makefile
+
+# Temporary files
+tmp/
+temp/

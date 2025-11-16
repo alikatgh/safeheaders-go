@@ -76,7 +76,7 @@ func FuzzParseParallel(f *testing.F) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		_, err := ParseParallel(ctx, data)
+		_, err := ParseParallelWithContext(ctx, data)
 		_ = err // We don't care if parsing fails
 	})
 }
@@ -105,7 +105,7 @@ func FuzzParseConsistency(f *testing.F) {
 		// Parse in parallel
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		tokensParallel, errParallel := ParseParallel(ctx, data)
+		tokensParallel, errParallel := ParseParallelWithContext(ctx, data)
 
 		// Both should either succeed or fail together
 		if (errSerial == nil) != (errParallel == nil) {
@@ -150,7 +150,7 @@ func FuzzLargeInput(f *testing.F) {
 		_ = err
 
 		// Also test parallel
-		_, err = ParseParallel(ctx, data)
+		_, err = ParseParallelWithContext(ctx, data)
 		_ = err
 	})
 }
