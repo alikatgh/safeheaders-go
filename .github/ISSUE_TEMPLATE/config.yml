@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/alikatgh/safeheaders-go/discussions
+    about: Ask questions, share ideas, or discuss the project
+  - name: 📖 Documentation
+    url: https://github.com/alikatgh/safeheaders-go#readme
+    about: Read the project documentation and module READMEs
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/alikatgh/safeheaders-go/security/advisories/new
+    about: Report a security vulnerability privately (preferred method)

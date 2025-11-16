@@ -1,0 +1,175 @@
+# Dependabot configuration for automated dependency updates
+# Documentation: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # Update GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - jsmn-go
+  - package-ecosystem: "gomod"
+    directory: "/jsmn-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "jsmn-go"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - stb-image-go
+  - package-ecosystem: "gomod"
+    directory: "/stb-image-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "stb-image-go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - stb-truetype-go
+  - package-ecosystem: "gomod"
+    directory: "/stb-truetype-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "stb-truetype-go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - tinyxml2-go
+  - package-ecosystem: "gomod"
+    directory: "/tinyxml2-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "tinyxml2-go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - cjson-go
+  - package-ecosystem: "gomod"
+    directory: "/cjson-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "cjson-go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - miniz-go
+  - package-ecosystem: "gomod"
+    directory: "/miniz-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "miniz-go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - cgltf-go
+  - package-ecosystem: "gomod"
+    directory: "/cgltf-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "cgltf-go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "alikatgh"
+
+  # Update Go modules - dr-wav-go
+  - package-ecosystem: "gomod"
+    directory: "/dr-wav-go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "dr-wav-go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "alikatgh"

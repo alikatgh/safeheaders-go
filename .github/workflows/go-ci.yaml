@@ -5,11 +5,21 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Run weekly security scans on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
 
 jobs:
-  lint-and-test:
+  test:
+    name: Test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         module:
           - jsmn-go
@@ -20,49 +30,66 @@ jobs:
           - cgltf-go
           - dr-wav-go
           - miniz-go
-          - nuklear-go
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          cache: true
 
-      - name: Restore cache
+      - name: Restore Go module cache
         uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: ${{ runner.os }}-go-
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-      - name: Install dependencies
+      - name: Download dependencies
         working-directory: ${{ matrix.module }}
-        run: go mod tidy
+        run: go mod download
 
-      - name: Test
+      - name: Verify dependencies
         working-directory: ${{ matrix.module }}
-        run: go test -v
+        run: go mod verify
 
-      - name: Benchmark
+      - name: Run tests
         working-directory: ${{ matrix.module }}
-        run: go test -bench . -benchmem
+        run: go test -v -race -timeout 5m ./...
 
-      - name: Test with Coverage
+      - name: Run tests with coverage
         working-directory: ${{ matrix.module }}
-        run: go test -coverprofile=coverage.txt -covermode=atomic -v
+        run: go test -coverprofile=coverage.txt -covermode=atomic -v ./...
 
-      - name: Upload Coverage to Codecov
+      - name: Check coverage threshold
+        working-directory: ${{ matrix.module }}
+        run: |
+          coverage=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: $coverage%"
+          if (( $(echo "$coverage < 70.0" | bc -l) )); then
+            echo "❌ Coverage $coverage% is below 70% threshold"
+            exit 1
+          else
+            echo "✅ Coverage $coverage% meets threshold"
+          fi
+
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: ./${{ matrix.module }}/coverage.txt
           flags: ${{ matrix.module }}
           token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
           verbose: true
 
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         module:
           - jsmn-go
@@ -73,19 +100,142 @@ jobs:
           - cgltf-go
           - dr-wav-go
           - miniz-go
-          - nuklear-go
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          cache: true
 
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
 
-      - name: Lint with golangci-lint
+      - name: Run golangci-lint
         working-directory: ${{ matrix.module }}
-        run: golangci-lint run --config ../.golangci.yml
+        run: golangci-lint run --config ../.golangci.yml --timeout 5m
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - jsmn-go
+          - stb-image-go
+          - stb-truetype-go
+          - tinyxml2-go
+          - cjson-go
+          - cgltf-go
+          - dr-wav-go
+          - miniz-go
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run gosec security scanner
+        uses: securego/gosec@master
+        with:
+          args: '-fmt sarif -out results.sarif ${{ matrix.module }}/...'
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
+          category: ${{ matrix.module }}
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          cd ${{ matrix.module }}
+          govulncheck ./...
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        module:
+          - jsmn-go
+          - stb-image-go
+          - stb-truetype-go
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run benchmarks
+        working-directory: ${{ matrix.module }}
+        run: |
+          go test -bench=. -benchmem -benchtime=5s -run=^$ > new.txt
+          cat new.txt
+
+      - name: Comment PR with benchmark results
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            const benchmarkResults = fs.readFileSync('${{ matrix.module }}/new.txt', 'utf8');
+
+            const body = `## Benchmark Results - ${{ matrix.module }}
+
+            \`\`\`
+            ${benchmarkResults}
+            \`\`\`
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        module:
+          - jsmn-go
+          - stb-image-go
+          - stb-truetype-go
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Build
+        working-directory: ${{ matrix.module }}
+        run: go build -v ./...
+
+      - name: Test build on ${{ matrix.os }}
+        working-directory: ${{ matrix.module }}
+        run: go test -v -short ./...
