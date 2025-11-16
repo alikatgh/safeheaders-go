@@ -1,0 +1,16 @@
+{
+  // Recommended extensions for SafeHeaders-Go development
+  "recommendations": [
+    "golang.go",
+    "ms-vscode.makefile-tools",
+    "eamodio.gitlens",
+    "streetsidesoftware.code-spell-checker",
+    "ms-azuretools.vscode-docker",
+    "github.vscode-pull-request-github",
+    "davidanson.vscode-markdownlint",
+    "yzhang.markdown-all-in-one",
+    "editorconfig.editorconfig"
+  ],
+  // Extensions that conflict or are not needed
+  "unwantedRecommendations": []
+}

@@ -1,0 +1,74 @@
+{
+  // Go configuration
+  "go.useLanguageServer": true,
+  "go.lintTool": "golangci-lint",
+  "go.lintOnSave": "workspace",
+  "go.formatTool": "gofmt",
+  "go.formatOnSave": true,
+  "go.testOnSave": false,
+  "go.coverOnSave": false,
+  "go.testFlags": ["-v", "-race"],
+  "go.buildFlags": ["-v"],
+  "go.testTimeout": "5m",
+
+  // Go workspace configuration
+  "gopls": {
+    "ui.semanticTokens": true,
+    "ui.codelenses": {
+      "gc_details": false,
+      "generate": true,
+      "test": true,
+      "tidy": true,
+      "upgrade_dependency": true,
+      "vendor": false
+    },
+    "formatting.gofumpt": false,
+    "formatting.local": "github.com/alikatgh/safeheaders-go"
+  },
+
+  // Editor configuration
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "editor.rulers": [80, 120],
+  "editor.tabSize": 4,
+  "editor.insertSpaces": false,
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // Exclude patterns
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/vendor": true,
+    "**/bin": true,
+    "**/*.test": true,
+    "**/*.out": true
+  },
+
+  // Search exclude patterns
+  "search.exclude": {
+    "**/vendor": true,
+    "**/bin": true,
+    "**/*.test": true,
+    "**/*.out": true,
+    "**/coverage.txt": true,
+    "**/testdata": false
+  },
+
+  // File associations
+  "files.associations": {
+    "*.go": "go",
+    "go.work": "go.mod",
+    "Makefile": "makefile",
+    "Dockerfile*": "dockerfile"
+  },
+
+  // Terminal
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.osx": "bash",
+
+  // Extensions recommendations are in extensions.json
+}
