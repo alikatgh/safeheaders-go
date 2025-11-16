@@ -62,34 +62,30 @@ func smallExample() {
 }
 
 func validatedExample() {
-	fmt.Println("Example 2: Parse with Input Validation")
-	fmt.Println("---------------------------------------")
+	fmt.Println("Example 2: Parse with Input Validation (NEW API)")
+	fmt.Println("------------------------------------------------")
 
 	json := []byte(`{"status": "ok", "data": [1, 2, 3]}`)
 
-	// Validate input size
-	if len(json) > MaxJSONSize {
-		log.Fatalf("❌ Input too large: %d bytes (max: %d)", len(json), MaxJSONSize)
-	}
+	// Use the new Config API with strict limits
+	ctx, cancel := context.WithTimeout(context.Background(), ParseTimeout)
+	defer cancel()
 
-	// Basic validation
-	if len(json) == 0 {
-		log.Fatal("❌ Empty input")
-	}
-
-	p := jsmngo.NewParser(1000)
-	count, err := p.Parse(json)
+	config := jsmngo.StrictConfig() // 10MB limit, 100K tokens
+	tokens, err := jsmngo.ParseWithConfig(ctx, json, config)
 	if err != nil {
 		log.Fatalf("❌ Parse failed: %v", err)
 	}
 
-	fmt.Printf("✅ Validated and parsed %d tokens\n", count)
-	fmt.Printf("   Input size: %d bytes\n\n", len(json))
+	fmt.Printf("✅ Validated and parsed %d tokens\n", len(tokens))
+	fmt.Printf("   Input size: %d bytes\n", len(json))
+	fmt.Printf("   Config: MaxInputSize=%d, MaxTokens=%d\n\n",
+		config.MaxInputSize, config.MaxTokens)
 }
 
 func parallelExample() {
-	fmt.Println("Example 3: Parallel Parsing")
-	fmt.Println("----------------------------")
+	fmt.Println("Example 3: Parallel Parsing with Context (NEW API)")
+	fmt.Println("-------------------------------------------------")
 
 	// Generate a larger JSON array
 	json := []byte(`[
@@ -104,15 +100,17 @@ func parallelExample() {
 	defer cancel()
 
 	start := time.Now()
-	tokens, err := jsmngo.ParseParallel(ctx, json)
+	// Use new context-aware API
+	tokens, err := jsmngo.ParseParallelWithContext(ctx, json)
 	elapsed := time.Since(start)
 
 	if err != nil {
 		log.Fatalf("❌ Parallel parse failed: %v", err)
 	}
 
-	fmt.Printf("✅ Parsed %d tokens in %v (parallel)\n", len(tokens), elapsed)
-	fmt.Printf("   Input size: %d bytes\n\n", len(json))
+	fmt.Printf("✅ Parsed %d tokens in %v (parallel, context-aware)\n", len(tokens), elapsed)
+	fmt.Printf("   Input size: %d bytes\n", len(json))
+	fmt.Printf("   Context: Timeout protection enabled\n\n")
 }
 
 func errorHandlingExample() {
@@ -181,50 +179,37 @@ type ParseResult struct {
 }
 
 // parseJSON is a production-ready JSON parsing function with:
-// - Input validation
-// - Size limits
+// - Input validation with configurable limits
+// - Size and token limits
 // - Timeout protection
 // - Automatic parallel mode for large inputs
+// - Context cancellation support
 func parseJSON(data []byte) (*ParseResult, error) {
 	start := time.Now()
 
-	// 1. Validate input
-	if len(data) == 0 {
-		return nil, fmt.Errorf("empty input")
-	}
+	// Use the new Config API for production safety
+	config := jsmngo.DefaultConfig()
+	config.MaxInputSize = MaxJSONSize
+	config.ParallelThreshold = 4 * 1024 // 4KB
 
-	if len(data) > MaxJSONSize {
-		return nil, fmt.Errorf("input too large: %d bytes (max: %d)", len(data), MaxJSONSize)
-	}
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), ParseTimeout)
+	defer cancel()
 
-	// 2. Choose parsing strategy
-	const parallelThreshold = 4 * 1024 // 4KB
-	var tokenCount int
-	var err error
-	method := "serial"
-
-	if len(data) >= parallelThreshold {
-		// Use parallel parsing for large inputs
-		ctx, cancel := context.WithTimeout(context.Background(), ParseTimeout)
-		defer cancel()
-
-		tokens, parseErr := jsmngo.ParseParallel(ctx, data)
-		tokenCount = len(tokens)
-		err = parseErr
-		method = "parallel"
-	} else {
-		// Use serial parsing for small inputs
-		p := jsmngo.NewParser(10000)
-		tokenCount, err = p.Parse(data)
-		method = "serial"
-	}
-
+	// Parse with validation and automatic strategy selection
+	tokens, err := jsmngo.ParseWithConfig(ctx, data, config)
 	if err != nil {
 		return nil, fmt.Errorf("parse failed: %w", err)
 	}
 
+	// Determine which method was used
+	method := "serial"
+	if len(data) >= config.ParallelThreshold {
+		method = "parallel (context-aware)"
+	}
+
 	return &ParseResult{
-		TokenCount: tokenCount,
+		TokenCount: len(tokens),
 		Duration:   time.Since(start),
 		InputSize:  len(data),
 		Method:     method,

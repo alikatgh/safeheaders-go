@@ -1,0 +1,87 @@
+# Pre-commit hooks for SafeHeaders-Go
+# See https://pre-commit.com for more information
+
+default_language_version:
+  python: python3
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--unsafe']  # Allow !!str in YAML
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Go-specific hooks
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+        args: ['-w']
+      - id: go-vet
+      - id: go-imports
+        args: ['-w']
+      - id: go-unit-tests
+        args: ['-timeout=5m']
+      - id: go-build
+      - id: go-mod-tidy
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        args: ['--fix']
+        exclude: '^(CHANGELOG\.md|ISSUES\.md)$'
+
+  # EditorConfig checker
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 2.7.3
+    hooks:
+      - id: editorconfig-checker
+        alias: ec
+
+# Custom local hooks
+  - repo: local
+    hooks:
+      - id: go-no-printf
+        name: Disallow fmt.Printf in tests
+        entry: 'fmt\.Printf'
+        language: pygrep
+        types: [go]
+        files: '_test\.go$'
+        exclude: 'jsmn_bench\.go|stb_image_bench\.go'  # Allow in benchmarks
+
+      - id: go-test-race
+        name: Run tests with race detector
+        entry: bash -c 'cd jsmn-go && go test -race ./...'
+        language: system
+        pass_filenames: false
+        files: '\.go$'
+        stages: [push]
+
+      - id: golangci-lint
+        name: Run golangci-lint
+        entry: bash -c 'make lint'
+        language: system
+        pass_filenames: false
+        files: '\.go$'
+
+# Configuration for specific hooks
+files: ''
+exclude: '^(vendor/|\.git/|\.github/workflows/|testdata/|benchmarks/|bin/)'
+
+# Only run on commit (not push) for faster local workflow
+default_stages: [commit]
+
+# Fail fast - stop on first failure
+fail_fast: false
