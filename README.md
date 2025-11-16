@@ -10,7 +10,7 @@
 
 **Production-ready, pure Go implementations of popular single-header C libraries with built-in concurrency support and zero CGO dependencies.**
 
-> 🎉 **v0.5.0 Release** - All 8 modules are now production-ready with comprehensive testing, security scanning, and examples!
+> 🎉 **v0.5.1 Release** - All 9 modules are now production-ready with comprehensive testing, security scanning, and examples!
 
 ## Table of Contents
 
@@ -92,6 +92,7 @@ func main() {
 | Module | Status | Version | Coverage | Description |
 |--------|--------|---------|----------|-------------|
 | [jsmn-go](./jsmn-go) | 🟢 **Stable** | v0.5.0 | 85% | Fast JSON tokenizer with parallel parsing |
+| [linenoise-go](./linenoise-go) | 🟢 **Stable** | v0.1.0 | 90% | Minimal line editing library for CLI apps |
 | [stb-truetype-go](./stb-truetype-go) | 🟢 **Stable** | v0.5.0 | 80% | TrueType font parsing with LRU glyph cache |
 | [stb-image-go](./stb-image-go) | 🟢 **Stable** | v0.5.0 | 75% | Image loading with batch decoding (PNG, JPEG, GIF) |
 | [tinyxml2-go](./tinyxml2-go) | 🟢 **Stable** | v0.5.0 | 70% | XML DOM parsing with element traversal |
@@ -105,7 +106,7 @@ func main() {
 - 🟡 **Beta** - Core features complete, API may change
 - 🔴 **Alpha** - Experimental, not recommended for production
 
-**All 8 modules are production-ready!** 🎉
+**All 9 modules are production-ready!** 🎉
 
 ## Examples
 
@@ -123,7 +124,12 @@ Comprehensive examples are available in the [`examples/`](./examples) directory:
    cd examples/production-usage && go run main.go
    ```
 
-3. **More Examples** - See [`examples/README.md`](./examples/README.md) for the full list
+3. **[Linenoise REPL](./examples/linenoise-repl/)** - Interactive command-line with history and completion
+   ```bash
+   cd examples/linenoise-repl && go run main.go
+   ```
+
+4. **More Examples** - See [`examples/README.md`](./examples/README.md) for the full list
 
 ### Quick Example Snippets
 
