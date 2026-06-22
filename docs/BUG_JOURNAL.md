@@ -6,6 +6,7 @@
 - **Fuzz test token bounds check on error**: When a parser fails partway through, partial tokens with End=-1 remain accessible via Tokens(). Fuzz tests that validate token bounds must skip the check when Parse() returns an error, or the test will report false positives.
 - **Size-gated parallel code path in tests**: If parallel processing only activates above a byte threshold (e.g. >4096 bytes), test data must exceed that threshold or the parallel path is never exercised and coverage is misleadingly low.
 - **OO API fuzz test referencing wrong API**: Auto-generated fuzz tests can reference an OO-style API (NewDocument/doc.Parse) when the actual package exposes a functional API (Parse(data) (*Doc, error)). Always compile-check fuzz tests before merging.
+- **Unbounded recursive parser = stack-overflow DoS**: Recursive descent parsers (XML elements, JSON values) that recurse once per nesting level will exhaust the stack on adversarial deeply-nested input. Guard with a MaxNestingDepth limit checked at the top of the recursive function, plus MaxInputSize and a shared MaxNodeCount counter. Follow the jsmn-go Config pattern (DefaultConfig/StrictConfig/UnlimitedConfig + sentinel errors via errors.Is); add limits as a NEW ParseWithConfig entrypoint so the existing Parse signature stays back-compatible.
 
 ## Chronological Log
 

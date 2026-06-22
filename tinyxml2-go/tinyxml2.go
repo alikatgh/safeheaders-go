@@ -62,6 +62,119 @@ func Parse(data []byte) (*XMLDocument, error) {
 	return nil, errors.New("no root element found")
 }
 
+// ParseWithConfig builds a full DOM tree while enforcing the limits in config
+// (input size, total node count, and nesting depth) to guard against
+// denial-of-service from oversized or maliciously nested XML.
+//
+// If config is nil, DefaultConfig is used. The original Parse function is
+// unchanged and applies no limits; use ParseWithConfig for untrusted input.
+func ParseWithConfig(data []byte, config *Config) (*XMLDocument, error) {
+	if config == nil {
+		config = DefaultConfig()
+	}
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	if err := config.validateInput(data); err != nil {
+		return nil, err
+	}
+
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	doc := &XMLDocument{}
+	nodeCount := 0
+
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		switch v := tok.(type) {
+		case xml.ProcInst:
+			if v.Target == "xml" {
+				doc.Declaration = fmt.Sprintf("<?%s %s?>", v.Target, string(v.Inst))
+			}
+		case xml.Comment:
+			// Skip
+		case xml.StartElement:
+			root, err := parseElementLimited(dec, v, config, 1, &nodeCount)
+			if err != nil {
+				return nil, err
+			}
+			doc.Root = root
+			return doc, nil
+		}
+	}
+
+	return nil, errors.New("no root element found")
+}
+
+// parseElementLimited mirrors parseElement but enforces depth and node-count
+// limits. depth is the depth of se (root == 1). nodeCount is shared across the
+// whole document and incremented once per element node.
+func parseElementLimited(
+	dec *xml.Decoder,
+	se xml.StartElement,
+	config *Config,
+	depth int,
+	nodeCount *int,
+) (*Node, error) {
+	if config.MaxNestingDepth > 0 && depth > config.MaxNestingDepth {
+		return nil, ErrNestingTooDeep
+	}
+
+	*nodeCount++
+	if config.MaxNodeCount > 0 && *nodeCount > config.MaxNodeCount {
+		return nil, ErrTooManyNodes
+	}
+
+	node := &Node{
+		Name:       se.Name.Local,
+		Attributes: make(map[string]string),
+	}
+
+	for _, a := range se.Attr {
+		node.Attributes[a.Name.Local] = a.Value
+	}
+
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			return nil, errors.New("unexpected EOF")
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		switch v := tok.(type) {
+		case xml.StartElement:
+			child, err := parseElementLimited(dec, v, config, depth+1, nodeCount)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, child)
+
+		case xml.CharData:
+			text := strings.TrimSpace(string(v))
+			if text != "" {
+				if node.Text == "" {
+					node.Text = text
+				} else {
+					node.Text += text
+				}
+			}
+
+		case xml.EndElement:
+			if v.Name.Local == se.Name.Local {
+				return node, nil
+			}
+		}
+	}
+}
+
 // The recursive parseElement helper needs only a minor change
 // to remove the 'parser' struct dependency.
 // func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) { ... }
