@@ -43,10 +43,14 @@ func FuzzParse(f *testing.F) {
 		p := NewParser(10000)
 		_, err := p.Parse(data)
 
-		// We don't care if parsing fails, we just care that it doesn't crash
-		_ = err
+		// We don't care if parsing fails, we just care that it doesn't crash.
+		// Only verify token bounds on successful parses; partial tokens may
+		// remain after an error and will have End=-1.
+		if err != nil {
+			return
+		}
 
-		// Verify tokens are within bounds
+		// Verify tokens are within bounds (valid parse only)
 		tokens := p.Tokens()
 		for i, tok := range tokens {
 			if tok.Start > len(data) || tok.End > len(data) || tok.Start > tok.End {

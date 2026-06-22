@@ -33,25 +33,20 @@ func FuzzParse(f *testing.F) {
 			}
 		}()
 
-		doc := NewDocument()
-		err := doc.Parse(data)
+		doc, err := Parse(data)
 		_ = err // We don't care if parsing fails, just that it doesn't crash
 
-		// If parsing succeeded, verify the document structure
-		if err == nil {
-			root := doc.RootElement()
-			if root != nil {
-				// Traverse the tree to ensure no crashes
-				var traverse func(*Element)
-				traverse = func(elem *Element) {
-					_ = elem.Name()
-					_ = elem.Text()
-					for child := elem.FirstChildElement(); child != nil; child = child.NextSiblingElement() {
-						traverse(child)
-					}
+		// If parsing succeeded, verify the document structure by traversing
+		if err == nil && doc != nil && doc.Root != nil {
+			var traverse func(*Node)
+			traverse = func(n *Node) {
+				_ = n.Name
+				_ = n.Text
+				for _, child := range n.Children {
+					traverse(child)
 				}
-				traverse(root)
 			}
+			traverse(doc.Root)
 		}
 	})
 }
@@ -73,8 +68,7 @@ func FuzzParseLarge(f *testing.F) {
 			}
 		}()
 
-		doc := NewDocument()
-		err := doc.Parse(data)
+		_, err := Parse(data)
 		_ = err
 	})
 }
@@ -95,8 +89,7 @@ func FuzzSpecialChars(f *testing.F) {
 			}
 		}()
 
-		doc := NewDocument()
-		err := doc.Parse(data)
+		_, err := Parse(data)
 		_ = err
 	})
 }
@@ -114,16 +107,12 @@ func FuzzAttributes(f *testing.F) {
 			}
 		}()
 
-		doc := NewDocument()
-		err := doc.Parse(data)
-		if err == nil {
-			root := doc.RootElement()
-			if root != nil {
-				// Access attributes without crashing
-				for attr := root.FirstAttribute(); attr != nil; attr = attr.Next() {
-					_ = attr.Name()
-					_ = attr.Value()
-				}
+		doc, err := Parse(data)
+		if err == nil && doc != nil && doc.Root != nil {
+			// Access attributes without crashing
+			for key, val := range doc.Root.Attributes {
+				_ = key
+				_ = val
 			}
 		}
 	})
@@ -145,8 +134,7 @@ func FuzzDeepNesting(f *testing.F) {
 			}
 		}()
 
-		doc := NewDocument()
-		err := doc.Parse(data)
+		_, err := Parse(data)
 		_ = err
 	})
 }
