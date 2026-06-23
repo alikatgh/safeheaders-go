@@ -135,7 +135,7 @@ func Parse(json []byte) (int, error) {
 ### Function Length
 
 - **Prefer small functions**: Max ~50 lines
-- **Cyclomatic complexity**: Max 15 (enforced by golangci-lint)
+- **Cyclomatic complexity**: Max 20, cognitive complexity max 30 (enforced by golangci-lint)
 - **Extract helpers**: If a function is complex, break it into smaller private functions
 
 ---
@@ -144,7 +144,7 @@ func Parse(json []byte) (int, error) {
 
 ### Test Coverage
 
-- **Minimum**: 75% coverage for production modules (🟢 Stable)
+- **Minimum**: 70% coverage (enforced in CI)
 - **Target**: 80%+ coverage for all modules
 - **Critical paths**: 100% coverage for concurrency, error handling
 

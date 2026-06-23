@@ -53,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Inconsistent error handling across modules
 - Missing input size limits (DoS vulnerability)
-- golangci-lint version too old (v2.1.6 → v1.61.0)
+- golangci-lint runner/config mismatch — a v2-schema config was paired with a
+  v1.61 runner that could not parse it; both are now on v2 (see Fixed, above)
 
 ### Security
 - Added configurable input size limits to all parser modules
