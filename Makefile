@@ -109,6 +109,7 @@ fuzz:
 	@(cd tinyxml2-go && go test -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) .) || exit 1
 	@(cd dr-wav-go && go test -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) .) || exit 1
 	@(cd miniz-go && go test -run='^$$' -fuzz='^FuzzExtract$$' -fuzztime=$(FUZZTIME) .) || exit 1
+	@(cd cgltf-go && go test -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) .) || exit 1
 	@echo "✅ Fuzz smoke tests passed!"
 
 # Build every example module (they are standalone modules with replace

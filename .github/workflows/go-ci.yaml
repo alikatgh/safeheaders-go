@@ -234,6 +234,8 @@ jobs:
             target: FuzzParse
           - module: miniz-go
             target: FuzzExtract
+          - module: cgltf-go
+            target: FuzzParse
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
