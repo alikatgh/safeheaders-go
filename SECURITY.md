@@ -135,20 +135,33 @@ if m.Alloc > 1*1024*1024*1024 { // 1GB
 }
 ```
 
+## Built-in DoS Protections
+
+These guards ship enabled by default. Each is configurable so callers can tune
+or disable it; all are conservative enough not to affect legitimate inputs.
+
+| Module | Protection | Knob (default) |
+|--------|------------|----------------|
+| jsmn-go | Max input size + max token count | `ParseWithConfig` / `Config.MaxInputSize` (100 MB), `MaxTokens` (1,000,000); `StrictConfig` is tighter |
+| tinyxml2-go | Max input size, node count, nesting depth | `ParseWithConfig` / `Config` |
+| dr-wav-go | Data/`fmt` chunk allocation capped to bytes actually present (a size header can't force an OOM) | always on |
+| stb-image-go | Decode-bomb guard — rejects images over a pixel cap before decoding | `MaxImagePixels` (64 MP; 0 disables) |
+| miniz-go | Decompression-bomb guard — caps DEFLATE/ZIP output | `MaxDecompressedSize` (256 MiB; 0 disables) |
+
+Defense in depth on top of these: set application-level size limits, use context
+timeouts, and limit `GOMAXPROCS` for concurrent batch APIs.
+
 ## Known Security Considerations
 
 ### DoS via Large Inputs
 
 **Affected Modules**: All parsing modules (jsmn-go, tinyxml2-go, etc.)
 
-**Risk**: Unbounded input can cause memory exhaustion
+**Risk**: Unbounded input can cause memory exhaustion.
 
-**Mitigation**:
-- Set input size limits in your application
-- Use context timeouts
-- Monitor memory usage
-
-**Future Plans**: Add built-in limits with configurable options (tracked in ISSUES.md)
+**Mitigation**: built-in limits are enabled by default (see *Built-in DoS
+Protections* above). Additionally set application-level input-size limits, use
+context timeouts, and monitor memory usage for defense in depth.
 
 ### Parallel Processing Amplification
 
@@ -165,12 +178,13 @@ if m.Alloc > 1*1024*1024*1024 { // 1GB
 
 **Affected Modules**: stb-image-go, stb-truetype-go, dr-wav-go
 
-**Risk**: Malformed image/font/audio files can cause excessive memory allocation
+**Risk**: Malformed image/font/audio files can cause excessive memory allocation.
 
-**Mitigation**:
-- Validate file headers before processing
-- Reject files exceeding reasonable size limits
-- Use sandboxing for untrusted file processing
+**Mitigation**: built-in guards reject the common attacks before allocating —
+stb-image rejects decode bombs (`MaxImagePixels`), dr-wav caps chunk allocations
+to the bytes present, and miniz caps decompression output (`MaxDecompressedSize`).
+For additional safety, sandbox untrusted file processing and set
+application-level size limits.
 
 ## Security Audit Status
 
@@ -190,4 +204,4 @@ No vulnerabilities have been publicly disclosed yet.
 ---
 
 **Maintainer**: @alikatgh
-**Last Updated**: 2025-11-16
+**Last Updated**: 2026-06-23
