@@ -52,9 +52,11 @@ type Font struct {
 	rawData []byte
 }
 
-// LoadFont reads a .ttf file from disk.
+// LoadFont reads a .ttf file from disk. The path is supplied by the caller by
+// design (this is a font loader), so the variable-path read is intentional.
 func LoadFont(path string) (*Font, error) {
 	data, err := os.ReadFile(path)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to read font file: %w", err)
 	}
@@ -69,9 +71,12 @@ func LoadFontFromBytes(data []byte) (*Font, error) {
 	return font, nil
 }
 
-// defaultRasterizer is the default placeholder for rendering a glyph.
-func defaultRasterizer(font *Font, r rune, size float64) (*image.Gray, GlyphMetrics, error) {
-	time.Sleep(10 * time.Millisecond) // Reduced sleep to keep tests fast
+// defaultRasterizer is a PLACEHOLDER rasterizer: it does not parse the TrueType
+// glyf table and returns a blank 24x24 bitmap regardless of the requested rune.
+// It exists so the cache/concurrency machinery can be exercised; supply a real
+// rasterizer via the cache constructor for actual glyph rendering.
+func defaultRasterizer(_ *Font, _ rune, size float64) (*image.Gray, GlyphMetrics, error) {
+	time.Sleep(10 * time.Millisecond) // simulate work so concurrency tests are meaningful
 	img := image.NewGray(image.Rect(0, 0, 24, 24))
 	metrics := GlyphMetrics{AdvanceWidth: 24, BearingX: 0, BearingY: 18, Scale: size}
 	return img, metrics, nil
@@ -145,8 +150,9 @@ func (gc *GlyphCache) GetGlyph(r rune) (*Glyph, error) {
 	if gc.maxEntries > 0 && gc.lru.Len() > gc.maxEntries {
 		lruElement := gc.lru.Back()
 		if lruElement != nil {
-			evictRune := gc.lru.Remove(lruElement).(rune)
-			delete(gc.cache, evictRune)
+			if evictRune, ok := gc.lru.Remove(lruElement).(rune); ok {
+				delete(gc.cache, evictRune)
+			}
 		}
 	}
 

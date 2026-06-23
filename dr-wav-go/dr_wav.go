@@ -1,3 +1,6 @@
+// Package drwavgo provides a pure-Go parser and serializer for WAV (RIFF) audio
+// files, with support for decoding multiple files concurrently. It is a port of
+// the dr_wav C library (github.com/mackron/dr_libs).
 package drwavgo
 
 import (
@@ -7,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"runtime"
 	"sync"
 )
@@ -102,7 +106,18 @@ func Parse(data []byte) (*WAV, error) {
 		}
 	}
 
-	// Find data subchunk
+	pcmData, err := readDataChunk(r)
+	if err != nil {
+		return nil, err
+	}
+	return &WAV{Header: header, Data: pcmData}, nil
+}
+
+// readDataChunk scans subchunks until it finds the "data" chunk and returns its
+// PCM payload. The allocation is capped at the bytes actually remaining in the
+// reader so a malformed or malicious header that declares a huge data size
+// cannot trigger an out-of-memory allocation.
+func readDataChunk(r *bytes.Reader) ([]byte, error) {
 	for {
 		var subchunkID [4]byte
 		if err := binary.Read(r, binary.LittleEndian, &subchunkID); err != nil {
@@ -115,19 +130,18 @@ func Parse(data []byte) (*WAV, error) {
 		}
 
 		if string(subchunkID[:]) == "data" {
-			// Read PCM data
-			pcmData := make([]byte, subchunkSize)
+			allocSize := int(subchunkSize)
+			if allocSize > r.Len() {
+				allocSize = r.Len() // never trust the declared size past EOF
+			}
+			pcmData := make([]byte, allocSize)
 			if _, err := io.ReadFull(r, pcmData); err != nil && err != io.EOF {
 				return nil, fmt.Errorf("failed to read PCM data: %w", err)
 			}
-
-			return &WAV{
-				Header: header,
-				Data:   pcmData,
-			}, nil
+			return pcmData, nil
 		}
 
-		// Skip this subchunk
+		// Skip this subchunk.
 		if _, err := r.Seek(int64(subchunkSize), io.SeekCurrent); err != nil {
 			return nil, fmt.Errorf("failed to skip subchunk: %w", err)
 		}
@@ -174,7 +188,7 @@ func ValidateWAV(wav *WAV) error {
 
 	// Check bits per sample
 	if wav.Header.BitsPerSample != 8 && wav.Header.BitsPerSample != 16 &&
-	   wav.Header.BitsPerSample != 24 && wav.Header.BitsPerSample != 32 {
+		wav.Header.BitsPerSample != 24 && wav.Header.BitsPerSample != 32 {
 		return fmt.Errorf("unsupported bits per sample: %d", wav.Header.BitsPerSample)
 	}
 
@@ -304,36 +318,53 @@ func (w *WAV) ExtractChannels() ([][]byte, error) {
 	return channels, nil
 }
 
+// maxWAVDataSize is the largest PCM payload that fits in the 32-bit RIFF size
+// fields (total file size must also fit, hence the 44-byte header allowance).
+const maxWAVDataSize = math.MaxUint32 - 44
+
 // Serialize converts a WAV structure back to WAV file format.
 func Serialize(wav *WAV) ([]byte, error) {
 	if wav == nil {
 		return nil, errors.New("nil WAV")
 	}
+	if len(wav.Data) > maxWAVDataSize {
+		return nil, fmt.Errorf("WAV data too large to serialize: %d bytes", len(wav.Data))
+	}
 
 	var buf bytes.Buffer
 
-	// Write RIFF header
-	buf.Write([]byte("RIFF"))
-	chunkSize := uint32(36 + len(wav.Data))
-	binary.Write(&buf, binary.LittleEndian, chunkSize)
-	buf.Write([]byte("WAVE"))
+	// All binary.Write calls below target a bytes.Buffer with fixed-size values,
+	// so they cannot actually fail; the closure records the first error anyway.
+	var werr error
+	put := func(v any) {
+		if werr == nil {
+			werr = binary.Write(&buf, binary.LittleEndian, v)
+		}
+	}
 
-	// Write fmt subchunk
-	buf.Write([]byte("fmt "))
-	subchunk1Size := uint32(16)
-	binary.Write(&buf, binary.LittleEndian, subchunk1Size)
-	binary.Write(&buf, binary.LittleEndian, wav.Header.AudioFormat)
-	binary.Write(&buf, binary.LittleEndian, wav.Header.NumChannels)
-	binary.Write(&buf, binary.LittleEndian, wav.Header.SampleRate)
-	binary.Write(&buf, binary.LittleEndian, wav.Header.ByteRate)
-	binary.Write(&buf, binary.LittleEndian, wav.Header.BlockAlign)
-	binary.Write(&buf, binary.LittleEndian, wav.Header.BitsPerSample)
+	// RIFF header. len(wav.Data) is bounded by maxWAVDataSize above, so the
+	// uint32 conversions below cannot overflow.
+	buf.WriteString("RIFF")
+	put(uint32(36 + len(wav.Data))) //nolint:gosec // G115: len bounded by maxWAVDataSize
+	buf.WriteString("WAVE")
 
-	// Write data subchunk
-	buf.Write([]byte("data"))
-	subchunk2Size := uint32(len(wav.Data))
-	binary.Write(&buf, binary.LittleEndian, subchunk2Size)
+	// fmt subchunk.
+	buf.WriteString("fmt ")
+	put(uint32(16))
+	put(wav.Header.AudioFormat)
+	put(wav.Header.NumChannels)
+	put(wav.Header.SampleRate)
+	put(wav.Header.ByteRate)
+	put(wav.Header.BlockAlign)
+	put(wav.Header.BitsPerSample)
+
+	// data subchunk.
+	buf.WriteString("data")
+	put(uint32(len(wav.Data))) //nolint:gosec // G115: len bounded by maxWAVDataSize
 	buf.Write(wav.Data)
 
+	if werr != nil {
+		return nil, fmt.Errorf("serialize WAV: %w", werr)
+	}
 	return buf.Bytes(), nil
 }

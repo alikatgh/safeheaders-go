@@ -194,10 +194,10 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		"status":    "healthy",
 		"timestamp": time.Now().Format(time.RFC3339),
 		"memory": map[string]interface{}{
-			"allocMB":   m.Alloc / 1024 / 1024,
-			"totalMB":   m.TotalAlloc / 1024 / 1024,
-			"sysMB":     m.Sys / 1024 / 1024,
-			"numGC":     m.NumGC,
+			"allocMB":    m.Alloc / 1024 / 1024,
+			"totalMB":    m.TotalAlloc / 1024 / 1024,
+			"sysMB":      m.Sys / 1024 / 1024,
+			"numGC":      m.NumGC,
 			"goroutines": runtime.NumGoroutine(),
 		},
 	}

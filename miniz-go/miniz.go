@@ -1,3 +1,6 @@
+// Package minizgo provides ZIP archive creation and extraction plus raw DEFLATE
+// compression helpers, with support for compressing archive entries in parallel.
+// It is inspired by the miniz C library (github.com/richgel999/miniz).
 package minizgo
 
 import (
@@ -7,7 +10,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
+	"math"
 	"runtime"
 	"sync"
 )
@@ -93,6 +98,17 @@ func ExtractArchive(data []byte) ([]ZipFile, error) {
 	return files, nil
 }
 
+// compressedFile holds one file's raw DEFLATE stream plus the metadata needed
+// to assemble it into a ZIP entry without re-compressing it.
+type compressedFile struct {
+	name       string
+	compressed []byte
+	crc        uint32
+	rawSize    uint64
+	index      int
+	err        error
+}
+
 // CreateArchiveConcurrent creates a ZIP archive from files using parallel compression.
 func CreateArchiveConcurrent(ctx context.Context, files []FileEntry) ([]byte, error) {
 	if len(files) == 0 {
@@ -104,24 +120,14 @@ func CreateArchiveConcurrent(ctx context.Context, files []FileEntry) ([]byte, er
 		numWorkers = len(files)
 	}
 
-	// Compress files in parallel
-	type compressedFile struct {
-		name       string
-		compressed []byte
-		err        error
-		index      int
-	}
-
-	results := make([]compressedFile, len(files))
-	fileChan := make(chan struct {
+	type job struct {
 		entry FileEntry
 		index int
-	}, len(files))
+	}
+	jobCh := make(chan job, len(files))
+	resultCh := make(chan compressedFile, len(files))
 
 	var wg sync.WaitGroup
-	resultChan := make(chan compressedFile, len(files))
-
-	// Start workers
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
@@ -130,96 +136,101 @@ func CreateArchiveConcurrent(ctx context.Context, files []FileEntry) ([]byte, er
 				select {
 				case <-ctx.Done():
 					return
-				case work, ok := <-fileChan:
+				case j, ok := <-jobCh:
 					if !ok {
 						return
 					}
-
-					var buf bytes.Buffer
-					w, err := flate.NewWriter(&buf, flate.BestCompression)
-					if err != nil {
-						resultChan <- compressedFile{err: err, index: work.index}
-						continue
-					}
-
-					_, err = w.Write(work.entry.Data)
-					w.Close()
-					if err != nil {
-						resultChan <- compressedFile{err: err, index: work.index}
-						continue
-					}
-
-					resultChan <- compressedFile{
-						name:       work.entry.Name,
-						compressed: buf.Bytes(),
-						index:      work.index,
-					}
+					cf := compressEntry(j.entry)
+					cf.index = j.index
+					resultCh <- cf
 				}
 			}
 		}()
 	}
 
-	// Send work
 	go func() {
+		defer close(jobCh)
 		for i, file := range files {
 			select {
 			case <-ctx.Done():
-				close(fileChan)
 				return
-			case fileChan <- struct {
-				entry FileEntry
-				index int
-			}{file, i}:
+			case jobCh <- job{entry: file, index: i}:
 			}
 		}
-		close(fileChan)
 	}()
 
-	// Collect results
 	go func() {
 		wg.Wait()
-		close(resultChan)
+		close(resultCh)
 	}()
 
-	for result := range resultChan {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
+	results := make([]compressedFile, len(files))
+	for r := range resultCh {
+		if r.err != nil {
+			return nil, fmt.Errorf("failed to compress %q: %w", r.name, r.err)
 		}
-		if result.err != nil {
-			return nil, fmt.Errorf("failed to compress file: %w", result.err)
-		}
-		results[result.index] = result
+		results[r.index] = r
 	}
 
-	// Check for context cancellation
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
 
-	// Build ZIP archive with pre-compressed data
+	return buildRawZip(results)
+}
+
+// compressEntry produces the raw DEFLATE stream for one file along with the CRC
+// and uncompressed size that a ZIP entry needs. Errors are carried on the
+// returned value so workers stay branch-light.
+func compressEntry(entry FileEntry) compressedFile {
 	var buf bytes.Buffer
-	w := zip.NewWriter(&buf)
+	w, err := flate.NewWriter(&buf, flate.BestCompression)
+	if err != nil {
+		return compressedFile{name: entry.Name, err: err}
+	}
+	if _, err := w.Write(entry.Data); err != nil {
+		_ = w.Close()
+		return compressedFile{name: entry.Name, err: err}
+	}
+	if err := w.Close(); err != nil {
+		return compressedFile{name: entry.Name, err: err}
+	}
+	return compressedFile{
+		name:       entry.Name,
+		compressed: buf.Bytes(),
+		crc:        crc32.ChecksumIEEE(entry.Data),
+		rawSize:    uint64(len(entry.Data)),
+	}
+}
 
-	for _, result := range results {
-		fw, err := w.CreateHeader(&zip.FileHeader{
-			Name:   result.name,
-			Method: zip.Deflate,
-		})
-		if err != nil {
-			w.Close()
-			return nil, fmt.Errorf("failed to create file header: %w", err)
+// buildRawZip assembles already-compressed entries into a ZIP using CreateRaw,
+// so the parallel compression work is preserved and the archive round-trips
+// correctly (writing pre-deflated bytes into a Deflate entry would double-
+// compress them).
+func buildRawZip(results []compressedFile) ([]byte, error) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, r := range results {
+		fh := &zip.FileHeader{
+			Name:               r.name,
+			Method:             zip.Deflate,
+			CRC32:              r.crc,
+			CompressedSize64:   uint64(len(r.compressed)),
+			UncompressedSize64: r.rawSize,
 		}
-
-		if _, err := fw.Write(result.compressed); err != nil {
-			w.Close()
-			return nil, fmt.Errorf("failed to write compressed data: %w", err)
+		w, err := zw.CreateRaw(fh)
+		if err != nil {
+			_ = zw.Close()
+			return nil, fmt.Errorf("failed to create zip entry %q: %w", r.name, err)
+		}
+		if _, err := w.Write(r.compressed); err != nil {
+			_ = zw.Close()
+			return nil, fmt.Errorf("failed to write zip entry %q: %w", r.name, err)
 		}
 	}
-
-	if err := w.Close(); err != nil {
+	if err := zw.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close archive: %w", err)
 	}
-
 	return buf.Bytes(), nil
 }
 
@@ -236,9 +247,13 @@ func ListArchive(data []byte) ([]ZipFile, error) {
 
 	files := make([]ZipFile, len(r.File))
 	for i, f := range r.File {
+		size := f.UncompressedSize64
+		if size > math.MaxInt64 {
+			size = math.MaxInt64 // clamp absurd/hostile sizes rather than overflow
+		}
 		files[i] = ZipFile{
 			Name: f.Name,
-			Size: int64(f.UncompressedSize64),
+			Size: int64(size), //nolint:gosec // G115: clamped to MaxInt64 above
 		}
 	}
 

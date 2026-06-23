@@ -7,8 +7,28 @@
 - **Size-gated parallel code path in tests**: If parallel processing only activates above a byte threshold (e.g. >4096 bytes), test data must exceed that threshold or the parallel path is never exercised and coverage is misleadingly low.
 - **OO API fuzz test referencing wrong API**: Auto-generated fuzz tests can reference an OO-style API (NewDocument/doc.Parse) when the actual package exposes a functional API (Parse(data) (*Doc, error)). Always compile-check fuzz tests before merging.
 - **Unbounded recursive parser = stack-overflow DoS**: Recursive descent parsers (XML elements, JSON values) that recurse once per nesting level will exhaust the stack on adversarial deeply-nested input. Guard with a MaxNestingDepth limit checked at the top of the recursive function, plus MaxInputSize and a shared MaxNodeCount counter. Follow the jsmn-go Config pattern (DefaultConfig/StrictConfig/UnlimitedConfig + sentinel errors via errors.Is); add limits as a NEW ParseWithConfig entrypoint so the existing Parse signature stays back-compatible.
+- **`make([]byte, untrustedSize)` from a header field = OOM DoS**: Any binary parser that reads a length/size field from input and allocates that many bytes (WAV data chunk, image dimensions, ZIP entry size) can be driven to allocate gigabytes by a tiny malicious file. Cap the allocation to the bytes actually remaining in the reader (`if n > r.Len() { n = r.Len() }`) before `make`, then `io.ReadFull`.
+- **Pre-compressed data written into a recompressing container = double compression**: Writing an already-`flate`-compressed stream into an `archive/zip` entry with `Method: zip.Deflate` deflates it AGAIN, so the archive does not round-trip (extraction yields the intermediate stream). To keep pre-compression, use `zip.Writer.CreateRaw` with a `FileHeader` carrying `Method`, `CRC32` (of the *uncompressed* data), `CompressedSize64`, `UncompressedSize64`. ALWAYS add a round-trip test (`Create → Extract → bytes.Equal`), not just a "no error / non-empty" assertion.
+- **Config schema-version mismatch silently disables all settings**: A `.golangci.yml` declaring `version: "2"` while using v1-style `linters-settings:` is *invalid* — `golangci-lint run` tolerates it but ignores every setting (thresholds, ignore-sigs, etc.), so the linter runs on defaults and CI that installs the wrong major version fails to parse it entirely. Validate with `golangci-lint config verify` and keep the installed CLI major version (CI/Makefile/pre-commit/release) in lockstep with the config's `version:`.
+- **`testing` imported into a non-`_test.go` file**: Benchmark helpers placed in `foo_bench.go` (not `foo_bench_test.go`) compile `testing` into the production binary and dodge `tests: false` lint scope. Benchmarks belong in `*_test.go` files.
 
 ## Chronological Log
+
+### 2026-06-23 — miniz-go: CreateArchiveConcurrent double-compresses → archives don't round-trip
+
+- **File**: `miniz-go/miniz.go` (`CreateArchiveConcurrent`)
+- **Symptom**: `Create → Extract` returns the intermediate flate stream, not the original bytes (e.g. 35-byte input extracts as 20 bytes). Existing tests missed it — they only checked for no error / non-empty output.
+- **Cause**: Each file was pre-compressed with raw `flate`, then written into a `zip.Deflate` entry, which deflates it a second time.
+- **Fix**: Assemble entries with `zip.Writer.CreateRaw` (Method/CRC32/CompressedSize64/UncompressedSize64 set from the worker), preserving parallel compression while round-tripping correctly. Added an explicit round-trip test.
+- **Lesson**: Never feed pre-compressed data into a recompressing writer; assert round-trip equality, not just "no error".
+
+### 2026-06-23 — dr-wav-go: Parse allocates an attacker-controlled size (OOM DoS)
+
+- **File**: `dr-wav-go/dr_wav.go` (`readDataChunk`, extracted from `Parse`)
+- **Symptom**: A 44-byte file declaring a 4 GB `data` subchunk drives `make([]byte, subchunkSize)` to allocate 4 GB before `io.ReadFull` fails.
+- **Cause**: The declared 32-bit subchunk size was trusted as the allocation length.
+- **Fix**: Cap the allocation to `r.Len()` (bytes actually remaining) before `make`.
+- **Lesson**: Treat every size field from untrusted input as a hint, never an allocation length.
 
 ### 2026-06-22 — tinyxml2-go: fuzz test references non-existent OO API
 

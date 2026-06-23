@@ -1,3 +1,6 @@
+// Package cgltfgo provides a pure-Go loader for glTF 2.0 3D models, with
+// support for parsing multiple assets concurrently. It is a port of the
+// cgltf C library (github.com/jkuhlmann/cgltf).
 package cgltfgo
 
 import (
@@ -63,11 +66,11 @@ type Primitive struct {
 
 // Accessor defines how to read data from a buffer view.
 type Accessor struct {
-	BufferView    int    `json:"bufferView,omitempty"`
-	ByteOffset    int    `json:"byteOffset,omitempty"`
-	ComponentType int    `json:"componentType"`
-	Count         int    `json:"count"`
-	Type          string `json:"type"`
+	BufferView    int       `json:"bufferView,omitempty"`
+	ByteOffset    int       `json:"byteOffset,omitempty"`
+	ComponentType int       `json:"componentType"`
+	Count         int       `json:"count"`
+	Type          string    `json:"type"`
 	Max           []float64 `json:"max,omitempty"`
 	Min           []float64 `json:"min,omitempty"`
 }
@@ -89,18 +92,18 @@ type Buffer struct {
 
 // Material represents a material definition.
 type Material struct {
-	Name                 string            `json:"name,omitempty"`
+	Name                 string                `json:"name,omitempty"`
 	PBRMetallicRoughness *PBRMetallicRoughness `json:"pbrMetallicRoughness,omitempty"`
-	EmissiveFactor       []float64         `json:"emissiveFactor,omitempty"`
-	AlphaMode            string            `json:"alphaMode,omitempty"`
-	DoubleSided          bool              `json:"doubleSided,omitempty"`
+	EmissiveFactor       []float64             `json:"emissiveFactor,omitempty"`
+	AlphaMode            string                `json:"alphaMode,omitempty"`
+	DoubleSided          bool                  `json:"doubleSided,omitempty"`
 }
 
 // PBRMetallicRoughness contains PBR material parameters.
 type PBRMetallicRoughness struct {
-	BaseColorFactor          []float64 `json:"baseColorFactor,omitempty"`
-	MetallicFactor           float64   `json:"metallicFactor,omitempty"`
-	RoughnessFactor          float64   `json:"roughnessFactor,omitempty"`
+	BaseColorFactor []float64 `json:"baseColorFactor,omitempty"`
+	MetallicFactor  float64   `json:"metallicFactor,omitempty"`
+	RoughnessFactor float64   `json:"roughnessFactor,omitempty"`
 }
 
 // Parse parses glTF JSON data.

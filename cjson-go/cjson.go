@@ -1,3 +1,6 @@
+// Package cjsongo provides JSON marshaling and unmarshaling helpers, including
+// parallel processing of large JSON arrays. It is a port of the cJSON C library
+// (github.com/DaveGamble/cJSON).
 package cjsongo
 
 import (

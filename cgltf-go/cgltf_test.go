@@ -132,8 +132,8 @@ func TestValidateGLTF(t *testing.T) {
 		{
 			name: "Invalid scene index",
 			gltf: &GLTF{
-				Asset: Asset{Version: "2.0"},
-				Scene: 5,
+				Asset:  Asset{Version: "2.0"},
+				Scene:  5,
 				Scenes: []Scene{},
 			},
 			wantError: true,

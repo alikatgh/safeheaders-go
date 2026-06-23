@@ -6,15 +6,15 @@ import (
 	"errors"
 )
 
-// Common errors
+// Common errors.
 var (
-	// ErrInputTooLarge is returned when input exceeds MaxInputSize
+	// ErrInputTooLarge is returned when input exceeds MaxInputSize.
 	ErrInputTooLarge = errors.New("input size exceeds maximum allowed")
 
-	// ErrTooManyTokens is returned when token count exceeds MaxTokens
+	// ErrTooManyTokens is returned when token count exceeds MaxTokens.
 	ErrTooManyTokens = errors.New("token count exceeds maximum allowed")
 
-	// ErrEmptyInput is returned when input is empty
+	// ErrEmptyInput is returned when input is empty.
 	ErrEmptyInput = errors.New("empty input")
 )
 

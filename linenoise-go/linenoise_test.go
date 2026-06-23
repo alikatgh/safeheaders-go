@@ -24,11 +24,11 @@ func TestNew(t *testing.T) {
 
 func TestInsertChar(t *testing.T) {
 	tests := []struct {
-		name     string
-		initial  string
-		pos      int
-		char     rune
-		expected string
+		name        string
+		initial     string
+		pos         int
+		char        rune
+		expected    string
 		expectedPos int
 	}{
 		{"append", "hello", 5, '!', "hello!", 6},

@@ -1,3 +1,6 @@
+// Package stbimagego provides image loading (PNG, JPEG, GIF) with support for
+// decoding batches of images concurrently. It mirrors the role of the
+// stb_image C library (github.com/nothings/stb) using the Go image stdlib.
 package stbimagego
 
 import (
@@ -95,7 +98,7 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 						results[idx] = img
 					}
 				case <-ctx.Done():
-					// The context was cancelled, so stop processing.
+					// The context was canceled, so stop processing.
 					errs <- ctx.Err()
 					return
 				}
@@ -107,13 +110,13 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 	close(errs) // Close the error channel after all workers are done.
 
 	// Collect all errors into a slice.
-	var multiErr []error
+	multiErr := make([]error, 0, len(errs))
 	for err := range errs {
 		multiErr = append(multiErr, err)
 	}
 
 	if len(multiErr) > 0 {
-		// If the context was cancelled, return context.Canceled directly
+		// If the context was canceled, return context.Canceled directly
 		// (multiple workers may report the same cancellation)
 		if errors.Is(multiErr[0], context.Canceled) || errors.Is(multiErr[0], context.DeadlineExceeded) {
 			return nil, multiErr[0]
@@ -127,7 +130,10 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 
 // LoadStream decodes from an io.Reader without buffering the entire stream.
 func LoadStream(r io.Reader) (image.Image, error) {
-	// P2 FIX: This now decodes directly from the stream.
+	// Decodes directly from the stream without buffering the whole input.
 	img, _, err := image.Decode(r)
-	return img, err
+	if err != nil {
+		return nil, fmt.Errorf("decode image stream: %w", err)
+	}
+	return img, nil
 }

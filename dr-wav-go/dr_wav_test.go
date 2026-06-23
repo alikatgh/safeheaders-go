@@ -382,11 +382,11 @@ func TestSerialize_Nil(t *testing.T) {
 
 func TestRoundTrip(t *testing.T) {
 	tests := []struct {
-		name         string
-		sampleRate   uint32
-		numChannels  uint16
+		name          string
+		sampleRate    uint32
+		numChannels   uint16
 		bitsPerSample uint16
-		numSamples   int
+		numSamples    int
 	}{
 		{"8-bit mono 22050Hz", 22050, 1, 8, 100},
 		{"16-bit stereo 44100Hz", 44100, 2, 16, 500},
@@ -440,8 +440,8 @@ func TestRoundTrip(t *testing.T) {
 
 func TestMultipleFormats(t *testing.T) {
 	formats := []struct {
-		sampleRate   uint32
-		numChannels  uint16
+		sampleRate    uint32
+		numChannels   uint16
 		bitsPerSample uint16
 	}{
 		{8000, 1, 8},

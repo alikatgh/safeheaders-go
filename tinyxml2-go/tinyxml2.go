@@ -38,7 +38,8 @@ func Parse(data []byte) (*XMLDocument, error) {
 			break
 		}
 		if err != nil {
-			return nil, err // Return the original, accurate error from the decoder.
+			// %w preserves the decoder's original, accurate error for errors.Is/As.
+			return nil, fmt.Errorf("parse XML declaration: %w", err)
 		}
 
 		switch v := tok.(type) {
@@ -89,7 +90,7 @@ func ParseWithConfig(data []byte, config *Config) (*XMLDocument, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse XML token: %w", err)
 		}
 
 		switch v := tok.(type) {
@@ -146,7 +147,7 @@ func parseElementLimited(
 			return nil, errors.New("unexpected EOF")
 		}
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse XML token: %w", err)
 		}
 
 		switch v := tok.(type) {
@@ -196,7 +197,7 @@ func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) {
 			return nil, errors.New("unexpected EOF")
 		}
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse XML token: %w", err)
 		}
 
 		switch v := tok.(type) {

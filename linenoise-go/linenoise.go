@@ -37,17 +37,17 @@ import (
 	"golang.org/x/term"
 )
 
-// Version information
+// Version information.
 const (
 	Version = "0.1.0"
 )
 
-// Common errors
+// Common errors.
 var (
-	ErrNotTTY        = errors.New("not a terminal")
-	ErrUnsupported   = errors.New("unsupported terminal")
-	ErrInterrupted   = errors.New("interrupted")
-	ErrInvalidUTF8   = errors.New("invalid UTF-8 sequence")
+	ErrNotTTY      = errors.New("not a terminal")
+	ErrUnsupported = errors.New("unsupported terminal")
+	ErrInterrupted = errors.New("interrupted")
+	ErrInvalidUTF8 = errors.New("invalid UTF-8 sequence")
 )
 
 // CompletionCallback is called when the user presses Tab.
@@ -101,10 +101,14 @@ type State struct {
 	oldTerm *term.State
 
 	// Completion state
-	completions     []string
-	completionIndex int
+	completions      []string
+	completionIndex  int
 	completionActive bool
-	savedBuf        []rune
+	savedBuf         []rune
+
+	// History navigation state
+	historyIndex int    // cursor into history during Up/Down navigation
+	draftLine    []rune // the live line stashed when navigation begins
 }
 
 // New creates a new linenoise state with the given configuration.
@@ -137,11 +141,13 @@ func (s *State) ReadLine(prompt string) (string, error) {
 	s.buf = s.buf[:0]
 	s.pos = 0
 	s.completionActive = false
+	s.historyIndex = len(s.history)
+	s.draftLine = nil
 
 	// Enable raw mode
 	oldState, err := term.MakeRaw(int(s.config.Input.Fd()))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("enable raw mode: %w", err)
 	}
 	s.oldTerm = oldState
 	defer s.restore()
@@ -175,11 +181,15 @@ func (s *State) ReadLine(prompt string) (string, error) {
 	}
 }
 
-// readChar reads a single character or escape sequence
+// readChar reads a single character or escape sequence.
 func (s *State) readChar(reader *bufio.Reader) (rune, error) {
 	b, err := reader.ReadByte()
 	if err != nil {
-		return 0, err
+		// Pass EOF through unwrapped so callers can detect it with == io.EOF.
+		if errors.Is(err, io.EOF) {
+			return 0, io.EOF
+		}
+		return 0, fmt.Errorf("read input: %w", err)
 	}
 
 	// Check for escape sequences
@@ -198,20 +208,26 @@ func (s *State) readChar(reader *bufio.Reader) (rune, error) {
 
 			// Arrow keys and other special keys
 			switch b3 {
-			case 'A': return keyUp, nil
-			case 'B': return keyDown, nil
-			case 'C': return keyRight, nil
-			case 'D': return keyLeft, nil
-			case 'H': return keyHome, nil
-			case 'F': return keyEnd, nil
+			case 'A':
+				return keyUp, nil
+			case 'B':
+				return keyDown, nil
+			case 'C':
+				return keyRight, nil
+			case 'D':
+				return keyLeft, nil
+			case 'H':
+				return keyHome, nil
+			case 'F':
+				return keyEnd, nil
 			case '1', '7': // Home
-				reader.ReadByte() // consume ~
+				_, _ = reader.ReadByte() // consume ~
 				return keyHome, nil
 			case '3': // Delete
-				reader.ReadByte() // consume ~
+				_, _ = reader.ReadByte() // consume ~
 				return keyDelete, nil
 			case '4', '8': // End
-				reader.ReadByte() // consume ~
+				_, _ = reader.ReadByte() // consume ~
 				return keyEnd, nil
 			}
 		}
@@ -224,12 +240,15 @@ func (s *State) readChar(reader *bufio.Reader) (rune, error) {
 	}
 
 	// Multi-byte UTF-8 character
-	reader.UnreadByte()
+	_ = reader.UnreadByte()
 	r, _, err := reader.ReadRune()
-	return r, err
+	if err != nil {
+		return r, fmt.Errorf("read rune: %w", err)
+	}
+	return r, nil
 }
 
-// Special key codes
+// Special key codes.
 const (
 	keyUp rune = 0x10000 + iota
 	keyDown
@@ -241,9 +260,9 @@ const (
 )
 
 // processChar processes a single character and returns:
-// - cont: whether to continue reading
-// - result: the final line (if cont is false)
-// - err: any error that occurred
+//   - cont: whether to continue reading
+//   - result: the final line (if cont is false)
+//   - err: any error that occurred.
 func (s *State) processChar(ch rune) (cont bool, result string, err error) {
 	switch ch {
 	case '\r', '\n': // Enter
@@ -252,31 +271,42 @@ func (s *State) processChar(ch rune) (cont bool, result string, err error) {
 	case '\x03': // Ctrl+C
 		return false, "", ErrInterrupted
 
-	case '\x04': // Ctrl+D (EOF)
+	case '\x04': // Ctrl+D (EOF on empty line, else delete under cursor)
 		if len(s.buf) == 0 {
 			return false, "", io.EOF
 		}
-		// Delete character under cursor
 		s.deleteChar()
 
-	case '\x08', '\x7f': // Backspace / Delete
+	default:
+		s.handleEditKey(ch)
+	}
+
+	s.refresh()
+	return true, "", nil
+}
+
+// handleEditKey applies a cursor-movement or editing key to the line buffer.
+// Equivalent control characters and escape-sequence key codes share a case.
+func (s *State) handleEditKey(ch rune) {
+	switch ch {
+	case '\x08', '\x7f': // Backspace
 		s.backspace()
 
 	case '\t': // Tab (completion)
 		s.handleCompletion()
 
-	case '\x01': // Ctrl+A (Home)
+	case '\x01', keyHome: // Ctrl+A / Home
 		s.pos = 0
 
-	case '\x05': // Ctrl+E (End)
+	case '\x05', keyEnd: // Ctrl+E / End
 		s.pos = len(s.buf)
 
-	case '\x02': // Ctrl+B (Left)
+	case '\x02', keyLeft: // Ctrl+B / Left
 		if s.pos > 0 {
 			s.pos--
 		}
 
-	case '\x06': // Ctrl+F (Right)
+	case '\x06', keyRight: // Ctrl+F / Right
 		if s.pos < len(s.buf) {
 			s.pos++
 		}
@@ -300,37 +330,18 @@ func (s *State) processChar(ch rune) (cont bool, result string, err error) {
 	case keyDown:
 		s.historyNext()
 
-	case keyLeft:
-		if s.pos > 0 {
-			s.pos--
-		}
-
-	case keyRight:
-		if s.pos < len(s.buf) {
-			s.pos++
-		}
-
-	case keyHome:
-		s.pos = 0
-
-	case keyEnd:
-		s.pos = len(s.buf)
-
 	case keyDelete:
 		s.deleteChar()
 
 	default:
-		// Regular character - insert at cursor position
+		// Regular character - insert at cursor position.
 		if unicode.IsPrint(ch) || ch == ' ' {
 			s.insertChar(ch)
 		}
 	}
-
-	s.refresh()
-	return true, "", nil
 }
 
-// insertChar inserts a character at the cursor position
+// insertChar inserts a character at the cursor position.
 func (s *State) insertChar(ch rune) {
 	// Expand buffer if needed
 	if s.pos == len(s.buf) {
@@ -346,7 +357,7 @@ func (s *State) insertChar(ch rune) {
 	s.pos++
 }
 
-// deleteChar deletes the character under the cursor
+// deleteChar deletes the character under the cursor.
 func (s *State) deleteChar() {
 	if s.pos < len(s.buf) {
 		copy(s.buf[s.pos:], s.buf[s.pos+1:])
@@ -354,7 +365,7 @@ func (s *State) deleteChar() {
 	}
 }
 
-// backspace deletes the character before the cursor
+// backspace deletes the character before the cursor.
 func (s *State) backspace() {
 	if s.pos > 0 {
 		s.pos--
@@ -362,7 +373,7 @@ func (s *State) backspace() {
 	}
 }
 
-// deletePrevWord deletes the previous word (Ctrl+W)
+// deletePrevWord deletes the previous word (Ctrl+W).
 func (s *State) deletePrevWord() {
 	if s.pos == 0 {
 		return
@@ -382,7 +393,7 @@ func (s *State) deletePrevWord() {
 	s.buf = s.buf[:len(s.buf)-(oldPos-s.pos)]
 }
 
-// refresh redraws the line
+// refresh redraws the line.
 func (s *State) refresh() {
 	// Move cursor to start of line
 	fmt.Fprintf(s.config.Output, "\r\x1b[K")
@@ -417,7 +428,7 @@ func (s *State) refresh() {
 	fmt.Fprintf(s.config.Output, "\r\x1b[%dC", targetCol)
 }
 
-// handleCompletion handles tab completion
+// handleCompletion handles tab completion.
 func (s *State) handleCompletion() {
 	if s.config.CompletionCallback == nil {
 		return
@@ -442,30 +453,61 @@ func (s *State) handleCompletion() {
 	s.pos = len(s.buf)
 }
 
-// historyPrev moves to previous history entry
+// historyPrev recalls the previous (older) history entry into the line buffer.
+// The first move stashes the in-progress line so historyNext can restore it.
 func (s *State) historyPrev() {
-	// TODO: Implement history navigation
+	if len(s.history) == 0 {
+		return
+	}
+	if s.historyIndex == len(s.history) {
+		s.draftLine = append([]rune(nil), s.buf...)
+	}
+	if s.historyIndex == 0 {
+		return // already at the oldest entry
+	}
+	s.historyIndex--
+	s.buf = []rune(s.history[s.historyIndex])
+	s.pos = len(s.buf)
 }
 
-// historyNext moves to next history entry
+// historyNext moves toward newer history entries, restoring the stashed draft
+// line once it moves past the most recent entry.
 func (s *State) historyNext() {
-	// TODO: Implement history navigation
+	if len(s.history) == 0 || s.historyIndex >= len(s.history) {
+		return
+	}
+	s.historyIndex++
+	if s.historyIndex == len(s.history) {
+		s.buf = append([]rune(nil), s.draftLine...)
+	} else {
+		s.buf = []rune(s.history[s.historyIndex])
+	}
+	s.pos = len(s.buf)
 }
 
-// restore restores terminal to normal mode
+// restore restores terminal to normal mode.
 func (s *State) restore() {
 	if s.oldTerm != nil {
-		term.Restore(int(s.config.Input.Fd()), s.oldTerm)
+		_ = term.Restore(int(s.config.Input.Fd()), s.oldTerm)
 		s.oldTerm = nil
 	}
 }
 
-// readLineNoTTY reads a line when not connected to a terminal
+// readLineNoTTY reads a line when not connected to a terminal.
 func (s *State) readLineNoTTY() (string, error) {
 	reader := bufio.NewReader(s.config.Input)
 	line, err := reader.ReadString('\n')
 	if err != nil {
-		return "", err
+		// A final line without a trailing newline arrives together with io.EOF;
+		// return its content rather than discarding it.
+		if errors.Is(err, io.EOF) {
+			line = strings.TrimSuffix(line, "\n")
+			if line == "" {
+				return "", io.EOF
+			}
+			return line, nil
+		}
+		return "", fmt.Errorf("read line: %w", err)
 	}
 	return strings.TrimSuffix(line, "\n"), nil
 }
@@ -495,13 +537,13 @@ func (s *State) AddHistory(line string) {
 func (s *State) SaveHistory(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("create history file: %w", err)
 	}
 	defer f.Close()
 
 	for _, line := range s.history {
 		if _, err := fmt.Fprintln(f, line); err != nil {
-			return err
+			return fmt.Errorf("write history: %w", err)
 		}
 	}
 	return nil
@@ -514,7 +556,7 @@ func (s *State) LoadHistory(filename string) error {
 		if os.IsNotExist(err) {
 			return nil // Not an error if file doesn't exist
 		}
-		return err
+		return fmt.Errorf("open history file: %w", err)
 	}
 	defer f.Close()
 
