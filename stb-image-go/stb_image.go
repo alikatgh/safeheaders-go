@@ -42,10 +42,38 @@ func GetInfo(data []byte) (*ImageInfo, error) {
 	}, nil
 }
 
-// Load decodes an image from data.
+// MaxImagePixels caps the number of pixels Load will decode, guarding against
+// decode bombs — a tiny file whose header declares enormous dimensions can drive
+// image.Decode to allocate gigabytes. The default is 64 megapixels (e.g.
+// 8192x8192). Set it to 0 to disable the guard.
+var MaxImagePixels = 64 << 20
+
+// checkPixelLimit rejects images whose declared dimensions exceed MaxImagePixels,
+// reading only the (cheap) header. A header that won't even decode is left for
+// the full decode to report.
+func checkPixelLimit(data []byte) error {
+	if MaxImagePixels <= 0 {
+		return nil
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil //nolint:nilerr // let the full decode surface the real error
+	}
+	if cfg.Width > 0 && cfg.Height > 0 && int64(cfg.Width)*int64(cfg.Height) > int64(MaxImagePixels) {
+		return fmt.Errorf("image %dx%d exceeds the %d-pixel decode limit (adjust MaxImagePixels)",
+			cfg.Width, cfg.Height, MaxImagePixels)
+	}
+	return nil
+}
+
+// Load decodes an image from data. It rejects images larger than MaxImagePixels
+// before decoding, so untrusted input cannot trigger a decode-bomb allocation.
 func Load(data []byte) (image.Image, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty image data")
+	}
+	if err := checkPixelLimit(data); err != nil {
+		return nil, err
 	}
 
 	img, format, err := image.Decode(bytes.NewReader(data))

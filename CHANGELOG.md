@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **stb-image-go**: added a decode-bomb guard — `Load` now rejects images whose
+  header-declared dimensions exceed `MaxImagePixels` (default 64 MP; set 0 to
+  disable) before the full `image.Decode`, so a tiny malicious file can no longer
+  force a multi-gigabyte allocation. `LoadBatchConcurrent` inherits the guard.
+- **dr-wav-go**: fixed two fuzz-found crashes on malformed input — a divide-by-zero
+  in `GetSampleCount` (zero `NumChannels`) and an OOM in `Parse` (unbounded
+  `make` from the fmt-chunk size); added `FuzzParse` + regression seed.
+- **cgltf-go**: `ValidateGLTF` no longer rejects a valid scene-less glTF.
 - **miniz-go**: `CreateArchiveConcurrent` double-compressed every file (pre-deflated
   data written into a `zip.Deflate` entry), producing archives that did not
   round-trip. Rebuilt with `zip.CreateRaw`; added a round-trip regression test.
