@@ -406,13 +406,14 @@ See [SECURITY.md](./SECURITY.md) for complete details.
 
 ### Security Features
 
-- ✅ **Input Validation** - Configurable size limits (coming in v1.0)
+- ✅ **Input Validation** - Configurable size/token limits, plus decode- and
+  decompression-bomb guards enabled by default (see [SECURITY.md](./SECURITY.md))
 - ✅ **Bounds Checking** - No buffer overflows
 - ✅ **Context Timeouts** - Prevent DoS attacks
 - ✅ **Memory Safety** - Pure Go, no unsafe pointers
 - ✅ **Security Scanning** - Automated gosec and govulncheck in CI
+- ✅ **Fuzz Testing** - jsmn, tinyxml2, dr-wav, miniz fuzzed weekly in CI
 - ✅ **Dependency Management** - Zero external dependencies
-- ✅ **Regular Audits** - Automated security scans weekly
 
 ### Known Security Considerations
 
