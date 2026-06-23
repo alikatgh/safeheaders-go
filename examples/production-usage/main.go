@@ -156,7 +156,7 @@ func handleParse(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	start := time.Now()
-	tokens, err := jsmngo.ParseParallel(ctx, body)
+	tokens, err := jsmngo.ParseParallelWithContext(ctx, body)
 	duration := time.Since(start)
 
 	if err != nil {

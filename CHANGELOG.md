@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **miniz-go**: `CreateArchiveConcurrent` double-compressed every file (pre-deflated
+  data written into a `zip.Deflate` entry), producing archives that did not
+  round-trip. Rebuilt with `zip.CreateRaw`; added a round-trip regression test.
+- **dr-wav-go**: `Parse` allocated an attacker-controlled size from the WAV data
+  chunk header (OOM DoS); the allocation is now capped to the bytes available.
+  `Serialize` guards against payloads too large for the 32-bit RIFF size fields.
+- **linenoise-go**: command-history Up/Down navigation was an unimplemented TODO
+  stub; it now works (with draft-line stashing). Non-TTY reads no longer drop a
+  final line that lacks a trailing newline.
+- **golangci-lint config** was declared `version: "2"` but used v1-style
+  `linters-settings:`, which is invalid for v2 — all linter settings were
+  silently ignored and the v1.61 CI runner could not parse it. Rewritten as a
+  valid, verified v2 config; CI/Makefile/release now install golangci-lint v2.
+- All 9 modules are now genuinely lint-clean (golangci-lint, 0 issues) and gofmt
+  clean; benchmarks moved into `*_test.go` so `testing` is no longer linked into
+  production binaries; `linenoise-go` added to the CI test/lint/security matrices.
+- Raised test coverage above the 70% gate on the two modules that were below it
+  (`linenoise-go` 21%→77%, `jsmn-go` 54%→88%).
+
 ### Added
 - SECURITY.md with vulnerability reporting guidelines
 - CODE_OF_CONDUCT.md based on Contributor Covenant 2.1
@@ -18,13 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive examples directory with real-world use cases
 - Testdata directory with benchmark files
 - Security scanning in CI/CD (gosec)
-- Coverage threshold enforcement in CI (75% minimum)
+- Coverage threshold enforcement in CI (70% minimum)
 - Integration tests across modules
 - Root-level go.mod for easier imports
 - Versioning and release automation
 
 ### Changed
-- Updated golangci-lint to v1.61.0 in CI
+- Updated golangci-lint to v2 (valid v2 config) in CI, Makefile, and release
 - Standardized error handling across all modules using errors.Join
 - Improved CI/CD pipeline with security scanning and coverage requirements
 - Enhanced README with production-ready status badges

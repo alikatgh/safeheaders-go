@@ -216,6 +216,24 @@ jobs:
               body: body
             });
 
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Build and run examples
+        # Each example is a standalone module; `make examples` builds/vets them
+        # all and runs the non-interactive demos so they cannot silently rot.
+        run: make examples
+
   build:
     name: Build
     runs-on: ${{ matrix.os }}

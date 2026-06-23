@@ -10,7 +10,9 @@
 
 **Production-ready, pure Go implementations of popular single-header C libraries with built-in concurrency support and zero CGO dependencies.**
 
-> 🎉 **v0.5.1 Release** - All 9 modules are now production-ready with comprehensive testing, security scanning, and examples!
+> **Status:** 8 modules are production-ready; `stb-truetype-go` is Beta (font
+> parsing + glyph cache are solid, but the rasterizer is a placeholder). Every
+> module is lint-clean, race-tested, and above the 70% coverage gate.
 
 ## Table of Contents
 
@@ -89,24 +91,32 @@ func main() {
 
 ## Available Modules
 
+Coverage figures below are the measured `go test -cover` totals for each module
+(enforced at a 70% minimum in CI).
+
 | Module | Status | Version | Coverage | Description |
 |--------|--------|---------|----------|-------------|
-| [jsmn-go](./jsmn-go) | 🟢 **Stable** | v0.5.0 | 85% | Fast JSON tokenizer with parallel parsing |
-| [linenoise-go](./linenoise-go) | 🟢 **Stable** | v0.1.0 | 90% | Minimal line editing library for CLI apps |
-| [stb-truetype-go](./stb-truetype-go) | 🟢 **Stable** | v0.5.0 | 80% | TrueType font parsing with LRU glyph cache |
-| [stb-image-go](./stb-image-go) | 🟢 **Stable** | v0.5.0 | 75% | Image loading with batch decoding (PNG, JPEG, GIF) |
-| [tinyxml2-go](./tinyxml2-go) | 🟢 **Stable** | v0.5.0 | 70% | XML DOM parsing with element traversal |
-| [cjson-go](./cjson-go) | 🟢 **Stable** | v0.5.0 | 70% | JSON marshaling/unmarshaling with parallel processing |
-| [miniz-go](./miniz-go) | 🟢 **Stable** | v0.5.0 | 70% | ZIP compression with concurrent chunking |
-| [cgltf-go](./cgltf-go) | 🟢 **Stable** | v0.5.0 | 70% | glTF 3D model loading with parallel assets |
-| [dr-wav-go](./dr-wav-go) | 🟢 **Stable** | v0.5.0 | 70% | WAV audio file parsing with concurrent decoding |
+| [cgltf-go](./cgltf-go) | 🟢 **Stable** | v0.5.0 | 93% | glTF 3D model loading with parallel assets |
+| [tinyxml2-go](./tinyxml2-go) | 🟢 **Stable** | v0.5.0 | 89% | XML DOM parsing with element traversal |
+| [stb-image-go](./stb-image-go) | 🟢 **Stable** | v0.5.0 | 89% | Image loading with batch decoding (PNG, JPEG, GIF) |
+| [jsmn-go](./jsmn-go) | 🟢 **Stable** | v0.5.0 | 88% | Fast JSON tokenizer with parallel parsing |
+| [cjson-go](./cjson-go) | 🟢 **Stable** | v0.5.0 | 83% | JSON marshaling/unmarshaling with parallel processing |
+| [dr-wav-go](./dr-wav-go) | 🟢 **Stable** | v0.5.0 | 82% | WAV audio (RIFF/PCM) parsing with concurrent decoding |
+| [stb-truetype-go](./stb-truetype-go) | 🟡 **Beta** | v0.5.0 | 81% | TrueType font file loading + LRU glyph cache (rasterizer is a placeholder¹) |
+| [miniz-go](./miniz-go) | 🟢 **Stable** | v0.5.0 | 79% | ZIP compression with concurrent chunking |
+| [linenoise-go](./linenoise-go) | 🟢 **Stable** | v0.1.0 | 77% | Minimal line editing library for CLI apps |
+
+> ¹ `stb-truetype-go` parses font files and provides a thread-safe, bounded LRU
+> glyph cache, but ships a **placeholder rasterizer** that returns a blank
+> bitmap. Supply your own rasterizer for real glyph rendering. Treat the
+> glyph-image output as not-yet-production.
 
 **Status Legend:**
 - 🟢 **Stable** - Production-ready, full test coverage, security-audited
 - 🟡 **Beta** - Core features complete, API may change
 - 🔴 **Alpha** - Experimental, not recommended for production
 
-**All 9 modules are production-ready!** 🎉
+**8 of 9 modules are production-ready; `stb-truetype-go` is Beta** (see the note above).
 
 ## Examples
 
@@ -202,27 +212,27 @@ func parseXML(data []byte) error {
 
 ## Performance
 
-Benchmarks on modern hardware (Apple M3 Pro, Go 1.23) with 1MB JSON (10,000 objects):
+Each parser/codec module ships benchmarks. Run them on your own hardware:
 
-| Module | Mode | Throughput | Speedup | Notes |
-|--------|------|------------|---------|-------|
-| jsmn-go | Serial | 6.7 MB/s | 1.0x | Baseline |
-| jsmn-go | Parallel (2 CPU) | 10 MB/s | 1.5x | Good scaling |
-| jsmn-go | Parallel (4 CPU) | 13.3 MB/s | 2.0x | Better scaling |
-| jsmn-go | Parallel (8 CPU) | 14.3 MB/s | 2.1x | Optimal |
-| stb-image-go | Batch (4 CPU) | 50 images/s | 3.2x | I/O bound |
-| tinyxml2-go | Serial | 8.5 MB/s | 1.0x | DOM parsing |
+```bash
+make bench                       # jsmn-go, stb-image-go, stb-truetype-go
+cd jsmn-go && go test -bench=. -benchmem -run='^$' ./...
+```
 
-**vs Go Stdlib:**
-- `encoding/json`: Similar single-threaded performance, but SafeHeaders-Go offers 2x speedup with parallel mode
-- `image/png`: SafeHeaders-Go provides batch loading with 3x speedup for multiple images
+**Where the concurrency helps (and where it doesn't):**
 
-**vs C Libraries:**
-- Performance within 10-20% of original C implementations
-- No CGO overhead, easier deployment
-- Memory-safe with bounds checking
+- `jsmn-go` `ParseParallel` / `ParseWithConfig` split the input at **top-level
+  delimiters** and tokenize chunks concurrently. This pays off on large streams
+  of many top-level values; a single large object or array has no top-level
+  split points and **transparently falls back to serial parsing**. Inputs below
+  4 KB always parse serially (the goroutine overhead is not worth it).
+- `stb-image-go`, `cgltf-go`, `dr-wav-go`, `miniz-go` parallelize across
+  **independent items** (a batch of images / assets / files), so speedup scales
+  with the number of items, not the size of any single one.
 
-Full benchmarks available in each module's README.
+Because throughput depends heavily on CPU count, input shape, and allocator
+behavior, this README intentionally does not quote fixed numbers — measure on
+your target hardware with the commands above.
 
 ## Why SafeHeaders-Go?
 

@@ -20,7 +20,7 @@ const (
 
 func main() {
 	fmt.Println("SafeHeaders-Go JSON Parser Example")
-	fmt.Println("===================================\n")
+	fmt.Print("===================================\n\n")
 
 	// Example 1: Parse small JSON
 	smallExample()

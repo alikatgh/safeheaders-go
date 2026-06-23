@@ -105,13 +105,20 @@ fuzz:
 	@echo "Example: cd jsmn-go && go test -fuzz=FuzzParse -fuzztime=30s"
 	@(cd jsmn-go && go test -fuzz=FuzzParse -fuzztime=10s) || true
 
-# Run examples
+# Build every example module (they are standalone modules with replace
+# directives) and run the non-interactive demos. GOWORK=off so each example is
+# resolved exactly as an end user who cloned only that directory would see it.
 examples:
-	@echo "Running examples..."
-	@echo "Example 1: JSON Parser"
-	@(cd examples/json-parser && go run main.go) || exit 1
-	@echo ""
-	@echo "✅ Examples executed successfully!"
+	@echo "Building all examples..."
+	@for ex in examples/json-parser examples/jsmn-demo examples/production-usage examples/linenoise-repl; do \
+		echo "Building $$ex..."; \
+		(cd $$ex && GOWORK=off go build ./...) || exit 1; \
+		(cd $$ex && GOWORK=off go vet ./...) || exit 1; \
+	done
+	@echo "Running non-interactive demos..."
+	@(cd examples/json-parser && GOWORK=off go run .) || exit 1
+	@(cd examples/jsmn-demo && GOWORK=off go run .) || exit 1
+	@echo "✅ Examples build and run successfully!"
 
 # Clean build artifacts
 clean:

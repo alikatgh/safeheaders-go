@@ -19,7 +19,7 @@ func main() {
 		}
 	}`)
 
-	fmt.Println("=== JSON Tokenizer Demo ===\n")
+	fmt.Print("=== JSON Tokenizer Demo ===\n\n")
 	fmt.Printf("Input JSON:\n%s\n\n", string(json))
 
 	// Parse JSON
@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// Parallel parsing demo (for large JSON)
-	fmt.Println("\n=== Parallel Parsing Demo ===\n")
+	fmt.Print("\n=== Parallel Parsing Demo ===\n\n")
 
 	largeJSON := []byte(`[{"id":1},{"id":2},{"id":3},{"id":4},{"id":5}]`)
 	tokens, err = jsmngo.ParseParallel(largeJSON)
