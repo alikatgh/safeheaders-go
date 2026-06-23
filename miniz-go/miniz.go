@@ -324,3 +324,48 @@ func DecompressData(data []byte) ([]byte, error) {
 
 	return result, nil
 }
+
+// CompressStream DEFLATE-compresses everything read from src and writes it to
+// dst, without buffering the whole input or output in memory. Use it for large
+// files where DecompressData/CompressData's all-in-memory model is too costly.
+func CompressStream(dst io.Writer, src io.Reader) error {
+	if dst == nil || src == nil {
+		return errors.New("nil reader or writer")
+	}
+	w, err := flate.NewWriter(dst, flate.BestCompression)
+	if err != nil {
+		return fmt.Errorf("create compressor: %w", err)
+	}
+	if _, err := io.Copy(w, src); err != nil {
+		_ = w.Close()
+		return fmt.Errorf("compress stream: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("finalize compression: %w", err)
+	}
+	return nil
+}
+
+// DecompressStream inflates DEFLATE data from src into dst as a stream. The
+// output is capped at MaxDecompressedSize (set 0 to disable) so a decompression
+// bomb cannot exhaust memory or fill the destination unbounded.
+func DecompressStream(dst io.Writer, src io.Reader) error {
+	if dst == nil || src == nil {
+		return errors.New("nil reader or writer")
+	}
+	r := flate.NewReader(src)
+	defer r.Close()
+
+	var reader io.Reader = r
+	if MaxDecompressedSize > 0 {
+		reader = io.LimitReader(r, MaxDecompressedSize+1)
+	}
+	n, err := io.Copy(dst, reader)
+	if err != nil {
+		return fmt.Errorf("decompress stream: %w", err)
+	}
+	if MaxDecompressedSize > 0 && n > MaxDecompressedSize {
+		return fmt.Errorf("decompressed size exceeds %d-byte limit (adjust MaxDecompressedSize)", MaxDecompressedSize)
+	}
+	return nil
+}

@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **miniz-go**: streaming `CompressStream(dst, src)` / `DecompressStream(dst, src)`
+  for large files — DEFLATE through an `io.Reader`/`io.Writer` without buffering
+  the whole payload. `DecompressStream` honors `MaxDecompressedSize`. (Complements
+  the existing stream APIs: cjson `UnmarshalStream`/`MarshalStream`, stb-image
+  `LoadStream`.)
 - **stb-truetype-go**: a real pure-Go glyf rasterizer replaces the previous
   placeholder. It parses the sfnt tables (head/maxp/hhea/loca/cmap/glyf/hmtx),
   resolves runes via cmap (formats 0/4/6/12), decodes simple and composite
