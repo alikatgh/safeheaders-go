@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **stb-truetype-go**: a real pure-Go glyf rasterizer replaces the previous
+  placeholder. It parses the sfnt tables (head/maxp/hhea/loca/cmap/glyf/hmtx),
+  resolves runes via cmap (formats 0/4/6/12), decodes simple and composite
+  glyph outlines, flattens the quadratic Béziers, and scan-fills them with
+  nonzero-winding anti-aliasing. The module is now Stable; `LoadFontFromBytes`
+  validates the font and `FuzzLoadFont` guards the parser against malformed input.
+
 ### Fixed
 - **miniz-go**: added a decompression-bomb guard — `DecompressData` and
   `ExtractArchive` now cap output at `MaxDecompressedSize` (default 256 MiB; set 0

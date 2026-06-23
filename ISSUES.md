@@ -33,22 +33,19 @@ This document tracks known issues, technical debt, and planned improvements for 
 ## 🟡 Major Issues (P1)
 
 ### 1. Module Maturity / Scope
-**Priority**: High
-**Status**: 🟡 Partially addressed — maturity is now labeled honestly in the READMEs
+**Priority**: Low
+**Status**: ✅ Resolved — all 9 modules are Stable and maturity is labeled honestly
 
-The standout scope gap is **stb-truetype-go**, whose rasterizer is a documented
-**placeholder** (returns a blank bitmap); the module is now marked **Beta** and
-the limitation is called out in the top-level README. The remaining modules do
-real work but are deliberately thin wrappers/ports:
+The former scope gap, **stb-truetype-go**'s placeholder rasterizer, is now a real
+pure-Go glyf rasterizer (sfnt parsing, cmap formats, simple+composite outlines,
+anti-aliased scan-fill; fuzzed). The remaining modules do real work, deliberately
+scoped as ports/wrappers:
 - **dr-wav-go** - RIFF/PCM parse + serialize, concurrent batch decode (no float/ADPCM)
 - **cgltf-go** - full glTF 2.0 JSON parse/serialize, concurrent batch parse
 - **cjson-go** - marshaling helpers + parallel array unmarshal over `encoding/json`
 - **miniz-go** - ZIP create/extract + DEFLATE, parallel entry compression
 - **tinyxml2-go** - DOM parse + traversal queries (no XPath)
 - **stb-image-go** - PNG/JPEG/GIF decode + concurrent batch over the `image` stdlib
-
-**Done**: maturity badges added (Stable / Beta) and missing features documented.
-**Remaining**: implement a real TrueType rasterizer, or keep it clearly Beta.
 
 ---
 
@@ -388,11 +385,11 @@ Coverage = measured `go test -cover` total. Tests/Docs/Lint reflect current CI.
 | jsmn-go | 88% | ✅ race | ✅ | ✅ | 🟢 Stable |
 | cjson-go | 83% | ✅ race | ✅ | ✅ | 🟢 Stable |
 | dr-wav-go | 82% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| stb-truetype-go | 81% | ✅ race | ✅ | ✅ | 🟡 Beta (placeholder rasterizer) |
+| stb-truetype-go | 81% | ✅ race | ✅ | ✅ | 🟢 Stable |
 | miniz-go | 79% | ✅ race | ✅ | ✅ | 🟢 Stable |
 | linenoise-go | 77% | ✅ race | ✅ | ✅ | 🟢 Stable |
 
-**Legend**: ✅ = passing / present · 🟢 Stable · 🟡 Beta. All modules are
+**Legend**: ✅ = passing / present · 🟢 Stable. All 9 modules are Stable,
 race-tested, lint-clean (golangci-lint v2, 0 issues), and above the 70% gate.
 
 ---

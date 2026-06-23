@@ -1,6 +1,6 @@
 # stb-truetype-go
 
-TrueType font parsing with concurrent glyph caching.
+TrueType font parsing and anti-aliased glyph rasterization with concurrent glyph caching.
 
 ## Status
 
@@ -9,6 +9,8 @@ TrueType font parsing with concurrent glyph caching.
 ## Features
 
 - Load TrueType fonts from files or memory
+- Real glyf-outline rasterization: cmap lookup, simple + composite glyphs,
+  quadratic-Bézier flattening, nonzero-winding anti-aliased fill — pure Go
 - Thread-safe LRU glyph cache
 - O(1) cache lookups and updates
 - Immutable glyph bitmaps (safe for concurrent access)
@@ -59,7 +61,8 @@ func main() {
 
 ## Custom Rasterizer
 
-You can provide your own glyph rendering function:
+The built-in rasterizer (used when the `NewGlyphCache` rasterizer argument is
+`nil`) renders real glyphs. You can also supply your own rendering function:
 
 ```go
 func myRasterizer(font *truetype.Font, r rune, size float64) (*image.Gray, truetype.GlyphMetrics, error) {

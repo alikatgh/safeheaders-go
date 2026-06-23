@@ -10,9 +10,9 @@
 
 **Production-ready, pure Go implementations of popular single-header C libraries with built-in concurrency support and zero CGO dependencies.**
 
-> **Status:** 8 modules are production-ready; `stb-truetype-go` is Beta (font
-> parsing + glyph cache are solid, but the rasterizer is a placeholder). Every
-> module is lint-clean, race-tested, and above the 70% coverage gate.
+> **Status:** all 9 modules are production-ready. Every module is lint-clean,
+> race-tested, fuzzed where it parses untrusted input, and above the 70%
+> coverage gate.
 
 ## Table of Contents
 
@@ -102,21 +102,16 @@ Coverage figures below are the measured `go test -cover` totals for each module
 | [jsmn-go](./jsmn-go) | 🟢 **Stable** | v0.5.0 | 88% | Fast JSON tokenizer with parallel parsing |
 | [cjson-go](./cjson-go) | 🟢 **Stable** | v0.5.0 | 83% | JSON marshaling/unmarshaling with parallel processing |
 | [dr-wav-go](./dr-wav-go) | 🟢 **Stable** | v0.5.0 | 82% | WAV audio (RIFF/PCM) parsing with concurrent decoding |
-| [stb-truetype-go](./stb-truetype-go) | 🟡 **Beta** | v0.5.0 | 81% | TrueType font file loading + LRU glyph cache (rasterizer is a placeholder¹) |
+| [stb-truetype-go](./stb-truetype-go) | 🟢 **Stable** | v0.5.0 | 81% | TrueType glyph rasterization (glyf outlines, anti-aliased) + LRU cache |
 | [miniz-go](./miniz-go) | 🟢 **Stable** | v0.5.0 | 79% | ZIP compression with concurrent chunking |
 | [linenoise-go](./linenoise-go) | 🟢 **Stable** | v0.1.0 | 77% | Minimal line editing library for CLI apps |
-
-> ¹ `stb-truetype-go` parses font files and provides a thread-safe, bounded LRU
-> glyph cache, but ships a **placeholder rasterizer** that returns a blank
-> bitmap. Supply your own rasterizer for real glyph rendering. Treat the
-> glyph-image output as not-yet-production.
 
 **Status Legend:**
 - 🟢 **Stable** - Production-ready, race-tested, automated security scanning (gosec, govulncheck)
 - 🟡 **Beta** - Core features complete, API may change
 - 🔴 **Alpha** - Experimental, not recommended for production
 
-**8 of 9 modules are production-ready; `stb-truetype-go` is Beta** (see the note above).
+**All 9 modules are production-ready.**
 
 ## Examples
 
