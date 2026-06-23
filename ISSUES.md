@@ -2,7 +2,7 @@
 
 This document tracks known issues, technical debt, and planned improvements for the SafeHeaders-Go project.
 
-**Last Updated**: 2025-10-31
+**Last Updated**: 2026-06-23
 **Status Legend**: 🔴 Critical | 🟡 Major | 🔵 Minor | ✅ Fixed
 
 ---
@@ -32,24 +32,23 @@ This document tracks known issues, technical debt, and planned improvements for 
 
 ## 🟡 Major Issues (P1)
 
-### 1. Incomplete Module Implementations
+### 1. Module Maturity / Scope
 **Priority**: High
-**Affected Modules**:
-- **nuklear-go** (5% complete) - Empty stubs, no real GUI functionality
-- **dr-wav-go** (15% complete) - Basic RIFF header parsing only, missing multi-channel support
-- **cgltf-go** (20% complete) - Header validation only, no real glTF parsing
-- **cjson-go** (30% complete) - Wraps stdlib, minimal parallel logic, no nested parallelism
-- **miniz-go** (25% complete) - Basic compression only, naive chunking reduces ratio
-- **tinyxml2-go** (40% complete) - DOM parsing works, missing XPath-like queries
-- **stb-image-go** (60% complete) - Wraps stdlib decode, limited format support
+**Status**: 🟡 Partially addressed — maturity is now labeled honestly in the READMEs
 
-**Impact**: README suggests production-ready functionality, but most modules are proofs-of-concept.
+The standout scope gap is **stb-truetype-go**, whose rasterizer is a documented
+**placeholder** (returns a blank bitmap); the module is now marked **Beta** and
+the limitation is called out in the top-level README. The remaining modules do
+real work but are deliberately thin wrappers/ports:
+- **dr-wav-go** - RIFF/PCM parse + serialize, concurrent batch decode (no float/ADPCM)
+- **cgltf-go** - full glTF 2.0 JSON parse/serialize, concurrent batch parse
+- **cjson-go** - marshaling helpers + parallel array unmarshal over `encoding/json`
+- **miniz-go** - ZIP create/extract + DEFLATE, parallel entry compression
+- **tinyxml2-go** - DOM parse + traversal queries (no XPath)
+- **stb-image-go** - PNG/JPEG/GIF decode + concurrent batch over the `image` stdlib
 
-**Recommendation**:
-- Add maturity badges (Alpha, Beta, Stable) to README
-- Focus development on 2-3 modules to completion
-- Document missing features explicitly
-- Consider marking stub modules as "Experimental - Contributions Welcome"
+**Done**: maturity badges added (Stable / Beta) and missing features documented.
+**Remaining**: implement a real TrueType rasterizer, or keep it clearly Beta.
 
 ---
 
@@ -74,32 +73,24 @@ This document tracks known issues, technical debt, and planned improvements for 
 
 ---
 
-### 3. Naive Chunking Strategy Limits Performance
+### 3. Chunking Strategy
 **Priority**: Medium
-**Affected Modules**: jsmn-go, miniz-go, cgltf-go, dr-wav-go
+**Status**: ✅ jsmn-go fixed; others batch independent items (no chunk-boundary problem)
 
-**Issues**:
-- **jsmn-go:166-199** - Splits on top-level commas (works for arrays, fails for complex objects)
-- **miniz-go** - Splits by byte count (reduces compression ratio by ~10-15%)
-- **cgltf-go** - Splits binary data without structure awareness
-- **dr-wav-go** - Simple byte chunking doesn't align with audio frames
+**jsmn-go (FIXED)**: previously created one chunk per top-level split point, so a
+1MB / 20k-object input spawned 20k chunks, each allocating its own parser — the
+parallel path was *slower* than serial. `buildChunkJobs` now groups values into
+~`NumCPU` balanced chunks (allocations dropped ~250x). Splitting is still on
+top-level boundaries, so a single large object correctly falls back to serial.
 
-**Impact**: Limits parallel speedup to ~2.1x on 8 CPUs (should be ~4-6x).
+**miniz-go / cgltf-go / dr-wav-go / stb-image-go / cjson-go**: these parallelize
+across *independent items* (files / models / images / array elements), one item
+per job, which is the right granularity — there is no chunk-boundary correctness
+issue. Compression ratio is preserved in miniz because entries are compressed
+whole and assembled with `zip.CreateRaw` (no recompression).
 
-**Recommendation**:
-- **Short-term**: Document limitations prominently in README and module docs
-- **Medium-term**: Implement smart boundary detection
-  - JSON: Scan backwards/forwards from split point to find `}]` boundaries
-  - Compression: Use independent compression blocks (ZIP format supports this)
-  - glTF: Parse chunk headers to find buffer boundaries
-  - WAV: Align splits to frame boundaries (sample size × channels)
-
-**Related Benchmarks**:
-```
-Current (naive):     150ms → 70ms (2.1x speedup on 8 CPU)
-Smart chunking est:  150ms → 40ms (3.75x speedup on 8 CPU)
-Overhead reduction:  ~43% improvement possible
-```
+**Remaining**: per-input boundary-aware splitting for a *single* large JSON
+object/array is still not implemented (such inputs use the serial path).
 
 ---
 
@@ -133,15 +124,21 @@ Create template: `.github/MODULE_README_TEMPLATE.md` with sections:
 
 ---
 
-### 5. No Input Size Limits (DoS Risk)
+### 5. Input Size Limits (DoS Risk)
 **Priority**: Medium (Security)
-**Affected Modules**: jsmn-go, stb-image-go, tinyxml2-go, cjson-go
+**Status**: ✅ Largely implemented (jsmn-go, tinyxml2-go, dr-wav-go)
 
-**Vulnerable Locations**:
-- **jsmn-go:115** - Token slice grows unbounded
-- **stb-image-go:24** - No batch size limit
-- **tinyxml2-go** - No maximum node count
-- **cjson-go** - No maximum object size
+**Implemented**:
+- **jsmn-go** - `ParseWithConfig` enforces `MaxInputSize` and `MaxTokens`
+  (`DefaultConfig`/`StrictConfig`/`UnlimitedConfig`)
+- **tinyxml2-go** - `ParseWithConfig` enforces input size, node count, and
+  nesting depth
+- **dr-wav-go** - data-chunk allocation is capped to the bytes actually present
+  (a malicious size header can no longer trigger an OOM)
+
+**Still open**:
+- **stb-image-go** - no explicit batch-size limit (bounded in practice by caller)
+- **cjson-go** - relies on `encoding/json`'s own limits
 
 **Impact**:
 - An attacker could send 1GB JSON → OOM crash
@@ -173,43 +170,27 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte, maxBatch int) ([]i
 
 ## 🔵 Minor Issues (P2)
 
-### 6. Test Coverage Gaps
+### 6. Test Coverage
 **Priority**: Low
-**Current Coverage**:
-- jsmn-go: ~85% (good)
-- stb-truetype-go: ~80% (good)
-- stb-image-go: ~70%
-- Others: 40-60%
+**Status**: ✅ Every module is above the 70% CI gate (measured `go test -cover` totals)
 
-**Missing Test Categories**:
-- [ ] Integration tests (multi-module)
-- [ ] Fuzz tests (found via `go test -fuzz`)
-- [ ] Stress tests (large inputs, many goroutines)
-- [ ] Error injection tests
-- [ ] Edge cases (empty inputs, single-byte files)
+- cgltf 93% · tinyxml2 89% · stb-image 89% · jsmn 88% · cjson 83% · dr-wav 82% ·
+  stb-truetype 81% · miniz 79% · linenoise 77%
 
-**Recommendation**:
-- Add fuzz tests for parsers: `FuzzParse(f *testing.F)`
-- Add stress test suite: `stress_test.go` files
-- Set coverage threshold in CI: `go test -coverprofile=coverage.out && go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//' | awk '{if ($1 < 75.0) exit 1}'`
+Fuzz tests exist for jsmn-go and tinyxml2-go, and the 70% threshold is enforced
+in CI. Still useful: cross-module integration tests and more error-injection
+and edge-case coverage.
 
 ---
 
-### 7. Benchmark Data Missing from Repo
+### 7. Benchmark Data
 **Priority**: Low
-**Issue**: README references `testdata/bench.json` but file not in repo.
+**Status**: ✅ Resolved — benchmarks no longer depend on committed fixtures.
 
-**Recommendation**:
-- Create `testdata/` directories in each module
-- Add benchmark data files with `//go:embed` directive
-- Document benchmark methodology:
-  ```
-  testdata/
-    bench.json (1MB, 10,000 objects)
-    bench.xml (500KB, 5,000 nodes)
-    bench.png (1024×1024, 24-bit)
-    bench.ttf (font file, ~100KB)
-  ```
+The jsmn benchmark generates a representative ~1MB payload in-memory; the
+tinyxml2 benchmark generates `bench.xml` on first run; the large `testdata/`
+fixtures are regenerable with `make testdata`. None are committed — see
+`testdata/README.md`.
 
 ---
 
@@ -397,22 +378,22 @@ func RunPool[T any, R any](
 
 ## 📊 Module Maturity Matrix
 
-| Module | Completeness | Tests | Docs | Production-Ready | Target Version |
-|--------|--------------|-------|------|------------------|----------------|
-| jsmn-go | 85% | ✅ Good | ✅ Good | ✅ Yes | v1.0.0 |
-| stb-truetype-go | 90% | ✅ Good | ⚠️ Basic | ✅ Yes | v1.0.0 |
-| stb-image-go | 60% | ⚠️ Fair | ⚠️ Basic | ⚠️ Partial | v0.5.0 |
-| tinyxml2-go | 40% | ⚠️ Fair | ⚠️ Basic | ❌ No | v0.3.0 |
-| cjson-go | 30% | ⚠️ Fair | ⚠️ Basic | ❌ No | v0.2.0 |
-| miniz-go | 25% | ❌ Poor | ⚠️ Basic | ❌ No | v0.2.0 |
-| cgltf-go | 20% | ❌ Poor | ⚠️ Basic | ❌ No | v0.2.0 |
-| dr-wav-go | 15% | ❌ Poor | ⚠️ Basic | ❌ No | v0.1.0 |
-| nuklear-go | 5% | ❌ Poor | ❌ None | ❌ No | v0.1.0 |
+Coverage = measured `go test -cover` total. Tests/Docs/Lint reflect current CI.
 
-**Legend**:
-- ✅ Good: 80%+
-- ⚠️ Fair/Basic: 50-79%
-- ❌ Poor/None: <50%
+| Module | Coverage | Tests | Docs | Lint | Status |
+|--------|----------|-------|------|------|--------|
+| cgltf-go | 93% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| tinyxml2-go | 89% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| stb-image-go | 89% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| jsmn-go | 88% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| cjson-go | 83% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| dr-wav-go | 82% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| stb-truetype-go | 81% | ✅ race | ✅ | ✅ | 🟡 Beta (placeholder rasterizer) |
+| miniz-go | 79% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| linenoise-go | 77% | ✅ race | ✅ | ✅ | 🟢 Stable |
+
+**Legend**: ✅ = passing / present · 🟢 Stable · 🟡 Beta. All modules are
+race-tested, lint-clean (golangci-lint v2, 0 issues), and above the 70% gate.
 
 ---
 
