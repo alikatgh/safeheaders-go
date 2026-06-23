@@ -15,6 +15,14 @@
 
 ## Chronological Log
 
+### 2026-06-23 — jsmn-go: parallel tokenizer slower than serial (chunk granularity)
+
+- **File**: `jsmn-go/parallel.go` (`buildChunkJobs`)
+- **Symptom**: `BenchmarkParseParallel` was ~5.7x SLOWER than serial on a 1MB input (9.97ms vs 1.74ms) with 20,073 allocs.
+- **Cause**: chunking created ONE chunk per top-level split point — 20,000 objects → 20,000 chunks, each allocating its own parser + token slice. The per-chunk setup dwarfed the parsing.
+- **Fix**: group values into ~`numWorkers` balanced chunks (each still begins/ends on a top-level boundary). Allocs dropped 20,073 → 79 (~250x); parallel time fell ~27%.
+- **Lesson**: fan-out granularity matters as much as fan-out itself — one unit of work per item, each re-paying a fixed per-unit cost, is pathological. Batch items into ~`numWorkers` groups. (Same shape as the §4c fan-out economics note.) Verify token-for-token equality vs serial after changing chunk boundaries.
+
 ### 2026-06-23 — stb-image-go: flaky cancellation (select race) and broken examples
 
 - **File**: `stb-image-go/stb_image.go` (`LoadBatchConcurrent`)

@@ -32,7 +32,7 @@ func parseParallelWithConfig(ctx context.Context, json []byte, config *Config) (
 		return parseSerial(json, config)
 	}
 
-	jobs := buildChunkJobs(json, splitPoints)
+	jobs := buildChunkJobs(json, splitPoints, numWorkers)
 	numJobs := len(jobs)
 
 	jobCh := make(chan chunkJob, numJobs)
@@ -78,21 +78,37 @@ func parseSerial(json []byte, config *Config) ([]Token, error) {
 	return p.Tokens(), nil
 }
 
-// buildChunkJobs turns split points into contiguous, non-overlapping jobs that
-// together cover the entire input.
-func buildChunkJobs(json []byte, splitPoints []int) []chunkJob {
-	jobs := make([]chunkJob, 0, len(splitPoints)+1)
-	lastSplit := 0
-	for i, split := range splitPoints {
-		jobs = append(jobs, chunkJob{id: i, start: lastSplit, end: split, offset: lastSplit})
-		lastSplit = split + 1
+// buildChunkJobs groups the top-level values into roughly numChunks contiguous,
+// non-overlapping jobs that together cover the entire input. Grouping many
+// values per chunk (instead of one chunk per split point) is what makes the
+// parallel path pay off: it amortizes the per-chunk parser allocation across
+// many values. Each chunk still begins and ends on a top-level boundary, so the
+// chunk parses to exactly the tokens it contains (internal separators are
+// skipped by the tokenizer just as in a serial pass).
+func buildChunkJobs(json []byte, splitPoints []int, numChunks int) []chunkJob {
+	values := len(splitPoints) + 1 // number of top-level values
+	if numChunks < 1 {
+		numChunks = 1
 	}
-	jobs = append(jobs, chunkJob{
-		id:     len(splitPoints),
-		start:  lastSplit,
-		end:    len(json),
-		offset: lastSplit,
-	})
+	if numChunks > values {
+		numChunks = values
+	}
+
+	jobs := make([]chunkJob, 0, numChunks)
+	start := 0
+	for c := 0; c < numChunks; c++ {
+		// This chunk covers value segments [c*values/numChunks, segEnd).
+		segEnd := (c + 1) * values / numChunks
+		if segEnd >= values {
+			jobs = append(jobs, chunkJob{id: c, start: start, end: len(json), offset: start})
+			break
+		}
+		// Cut at the split point that ends the last value in this chunk; the next
+		// chunk starts just past that separator.
+		boundary := splitPoints[segEnd-1]
+		jobs = append(jobs, chunkJob{id: c, start: start, end: boundary, offset: start})
+		start = boundary + 1
+	}
 	return jobs
 }
 

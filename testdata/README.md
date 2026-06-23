@@ -20,7 +20,8 @@ This directory contains test data files used for benchmarking and testing across
 
 ### Image Test Data
 
-*Note: Binary files not included in repository. Generate using scripts in examples/generate-testdata*
+*Note: Binary image fixtures are not committed. The relevant module tests/benchmarks
+generate or skip them as needed.*
 
 - **test.png** - Sample PNG image (100x100)
 - **test.jpg** - Sample JPEG image (100x100)

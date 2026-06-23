@@ -56,6 +56,38 @@ func TestParseParallelChunked(t *testing.T) {
 	})
 }
 
+// TestParallelTokensMatchSerial checks that the chunked parallel tokenizer
+// produces byte-for-byte identical tokens (type and global offsets) to a serial
+// pass across input sizes that span the worker-count boundary. This guards the
+// chunk-grouping math in buildChunkJobs.
+func TestParallelTokensMatchSerial(t *testing.T) {
+	for _, n := range []int{90, 100, 250, 1000, 5000} {
+		data := topLevelStream(n)
+		if len(data) < 4096 {
+			continue // below the parallel threshold; not exercising chunking
+		}
+
+		serial := NewParser(len(data) / 4)
+		if _, err := serial.Parse(data); err != nil {
+			t.Fatalf("n=%d serial parse: %v", n, err)
+		}
+		want := serial.Tokens()
+
+		got, err := ParseParallel(data)
+		if err != nil {
+			t.Fatalf("n=%d ParseParallel: %v", n, err)
+		}
+		if len(got) != len(want) {
+			t.Fatalf("n=%d: got %d tokens, want %d", n, len(got), len(want))
+		}
+		for i := range want {
+			if got[i].Type != want[i].Type || got[i].Start != want[i].Start || got[i].End != want[i].End {
+				t.Fatalf("n=%d token %d: got %+v, want %+v", n, i, got[i], want[i])
+			}
+		}
+	}
+}
+
 func TestParseWithConfigTokenLimit(t *testing.T) {
 	data := topLevelStream(300)
 

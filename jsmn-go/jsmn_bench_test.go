@@ -2,19 +2,36 @@
 package jsmngo
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
-// loadBenchmarkData is a helper to load the benchmark file.
-// It assumes a large JSON file exists at "testdata/bench.json".
+// loadBenchmarkData returns the benchmark payload. It prefers a committed
+// fixture at testdata/bench.json if present, otherwise it generates a
+// representative payload in-memory so the benchmark always runs.
 func loadBenchmarkData(b *testing.B) []byte {
-	b.Helper() // Mark this as a test helper function.
-	data, err := os.ReadFile("testdata/bench.json")
-	if err != nil {
-		b.Skipf("Skipping benchmark: could not read testdata/bench.json: %v", err)
+	b.Helper()
+	if data, err := os.ReadFile("testdata/bench.json"); err == nil {
+		return data
 	}
-	return data
+	return generateBenchJSON(20000) // ~1MB
+}
+
+// generateBenchJSON builds n comma-separated top-level objects. The depth-0
+// commas become split points, so this payload exercises the chunked parallel
+// tokenizer rather than collapsing to the serial fallback.
+func generateBenchJSON(n int) []byte {
+	var b strings.Builder
+	b.Grow(n * 56)
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, `{"id":%d,"name":"item-%d","active":%t,"score":%d}`, i, i, i%2 == 0, i*7)
+	}
+	return []byte(b.String())
 }
 
 // BenchmarkParseSingle benchmarks the single-threaded parser.
