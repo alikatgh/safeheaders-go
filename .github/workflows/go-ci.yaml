@@ -236,6 +236,8 @@ jobs:
             target: FuzzExtract
           - module: cgltf-go
             target: FuzzParse
+          - module: cjson-go
+            target: FuzzUnmarshal
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
