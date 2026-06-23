@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **miniz-go**: added a decompression-bomb guard — `DecompressData` and
+  `ExtractArchive` now cap output at `MaxDecompressedSize` (default 256 MiB; set 0
+  to disable) via `io.LimitReader`, so a small crafted stream (zeros compress
+  ~1000x) can no longer inflate to gigabytes and exhaust memory.
 - **stb-image-go**: added a decode-bomb guard — `Load` now rejects images whose
   header-declared dimensions exceed `MaxImagePixels` (default 64 MP; set 0 to
   disable) before the full `image.Decode`, so a tiny malicious file can no longer

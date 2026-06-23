@@ -63,6 +63,30 @@ func CreateArchive(files []FileEntry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// MaxDecompressedSize caps how many bytes ExtractArchive and DecompressData will
+// produce from a single stream, guarding against decompression bombs (a small
+// input that inflates to gigabytes). The default is 256 MiB. Set it to 0 to
+// disable the guard.
+var MaxDecompressedSize int64 = 256 << 20
+
+// readAllLimited reads all of r, but errors instead of allocating without bound
+// once the output would exceed MaxDecompressedSize.
+func readAllLimited(r io.Reader) ([]byte, error) {
+	src := r
+	if MaxDecompressedSize > 0 {
+		// +1 so we can distinguish "exactly at the limit" from "over it".
+		src = io.LimitReader(r, MaxDecompressedSize+1)
+	}
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	if MaxDecompressedSize > 0 && int64(len(data)) > MaxDecompressedSize {
+		return nil, fmt.Errorf("decompressed size exceeds %d-byte limit (adjust MaxDecompressedSize)", MaxDecompressedSize)
+	}
+	return data, nil
+}
+
 // ExtractArchive extracts all files from a ZIP archive.
 func ExtractArchive(data []byte) ([]ZipFile, error) {
 	if len(data) == 0 {
@@ -82,7 +106,7 @@ func ExtractArchive(data []byte) ([]ZipFile, error) {
 			return nil, fmt.Errorf("failed to open file %s: %w", f.Name, err)
 		}
 
-		data, err := io.ReadAll(rc)
+		data, err := readAllLimited(rc)
 		rc.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read file %s: %w", f.Name, err)
@@ -293,7 +317,7 @@ func DecompressData(data []byte) ([]byte, error) {
 	r := flate.NewReader(bytes.NewReader(data))
 	defer r.Close()
 
-	result, err := io.ReadAll(r)
+	result, err := readAllLimited(r)
 	if err != nil {
 		return nil, fmt.Errorf("decompression error: %w", err)
 	}
