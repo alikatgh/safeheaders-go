@@ -138,6 +138,23 @@ func TestValidateGLTF(t *testing.T) {
 			},
 			wantError: true,
 		},
+		{
+			// `scene` omitted (zero) with no scenes is a valid mesh-library glTF.
+			name: "No scenes, scene omitted",
+			gltf: &GLTF{
+				Asset: Asset{Version: "2.0"},
+			},
+			wantError: false,
+		},
+		{
+			name: "Scene in range",
+			gltf: &GLTF{
+				Asset:  Asset{Version: "2.0"},
+				Scene:  1,
+				Scenes: []Scene{{Name: "a"}, {Name: "b"}},
+			},
+			wantError: false,
+		},
 	}
 
 	for _, tt := range tests {

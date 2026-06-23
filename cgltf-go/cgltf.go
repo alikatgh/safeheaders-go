@@ -136,9 +136,16 @@ func ValidateGLTF(gltf *GLTF) error {
 		return fmt.Errorf("unsupported glTF version: %s (only 2.0 supported)", gltf.Asset.Version)
 	}
 
-	// Validate scene references
-	if gltf.Scene >= len(gltf.Scenes) {
-		return fmt.Errorf("invalid scene index: %d", gltf.Scene)
+	// Validate the default-scene reference. `scene` is optional in glTF: a model
+	// with no scenes (e.g. a mesh library) is valid as long as it doesn't point
+	// at a non-existent scene. Note the Go zero value can't distinguish an
+	// omitted `scene` from `scene: 0`.
+	if len(gltf.Scenes) > 0 {
+		if gltf.Scene >= len(gltf.Scenes) {
+			return fmt.Errorf("invalid scene index: %d", gltf.Scene)
+		}
+	} else if gltf.Scene != 0 {
+		return fmt.Errorf("scene index %d set but no scenes are defined", gltf.Scene)
 	}
 
 	// Validate node references

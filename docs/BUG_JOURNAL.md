@@ -15,6 +15,14 @@
 
 ## Chronological Log
 
+### 2026-06-23 — cgltf-go: ValidateGLTF rejected a valid scene-less glTF
+
+- **File**: `cgltf-go/cgltf.go` (`ValidateGLTF`)
+- **Symptom**: a glTF with no `scenes` and `scene` omitted (zero value) failed validation ("invalid scene index: 0"), even though it is valid (e.g. a mesh library).
+- **Cause**: `if gltf.Scene >= len(gltf.Scenes)` treats `0 >= 0` as out-of-range; the `omitempty` zero value can't distinguish an omitted `scene` from `scene: 0`.
+- **Fix**: only range-check the index when scenes exist; otherwise only a *non-zero* scene index is an error. Still rejects `scene: 5` with empty scenes.
+- **Lesson**: with `omitempty` numeric fields, a 0 can mean "omitted" — validation must special-case it instead of treating 0 as a real index.
+
 ### 2026-06-23 — jsmn-go: parallel tokenizer slower than serial (chunk granularity)
 
 - **File**: `jsmn-go/parallel.go` (`buildChunkJobs`)
