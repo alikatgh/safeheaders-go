@@ -169,13 +169,14 @@ fmt.Println(string(compact))
 
 ## Performance
 
-Parallel array processing benchmark (M3 Pro, 10K objects):
+Throughput depends heavily on input shape, CPU count, and allocator behavior, so
+this README does not quote fixed numbers — measure on your target hardware:
 
-| Method | Time | Speedup |
-|--------|------|---------|
-| Sequential | 45ms | 1.0x |
-| Parallel (4 cores) | 15ms | 3.0x |
-| Parallel (8 cores) | 12ms | 3.75x |
+```bash
+go test -bench=. -benchmem ./...
+```
+
+`UnmarshalArrayParallel` decodes array elements concurrently. It helps when the array has many independently-decodable items.
 
 ## API Reference
 

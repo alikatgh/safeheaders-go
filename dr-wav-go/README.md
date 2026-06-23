@@ -208,13 +208,14 @@ fmt.Printf("File size: %d bytes\n", fileSize)
 
 ## Performance
 
-Batch parsing benchmark (M3 Pro, 100 files × 1MB each):
+Throughput depends heavily on input shape, CPU count, and allocator behavior, so
+this README does not quote fixed numbers — measure on your target hardware:
 
-| Method | Time | Speedup |
-|--------|------|---------|
-| Sequential | 420ms | 1.0x |
-| Parallel (4 cores) | 125ms | 3.4x |
-| Parallel (8 cores) | 95ms | 4.4x |
+```bash
+go test -bench=. -benchmem ./...
+```
+
+`ParseBatch` decodes independent files concurrently. Speedup scales with the number of files.
 
 ## API Reference
 

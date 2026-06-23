@@ -112,7 +112,7 @@ Coverage figures below are the measured `go test -cover` totals for each module
 > glyph-image output as not-yet-production.
 
 **Status Legend:**
-- 🟢 **Stable** - Production-ready, full test coverage, security-audited
+- 🟢 **Stable** - Production-ready, race-tested, automated security scanning (gosec, govulncheck)
 - 🟡 **Beta** - Core features complete, API may change
 - 🔴 **Alpha** - Experimental, not recommended for production
 

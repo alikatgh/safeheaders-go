@@ -207,13 +207,14 @@ os.WriteFile("output-pretty.gltf", pretty, 0644)
 
 ## Performance
 
-Batch parsing benchmark (M3 Pro, 100 models):
+Throughput depends heavily on input shape, CPU count, and allocator behavior, so
+this README does not quote fixed numbers — measure on your target hardware:
 
-| Method | Time | Speedup |
-|--------|------|---------|
-| Sequential | 320ms | 1.0x |
-| Parallel (4 cores) | 95ms | 3.4x |
-| Parallel (8 cores) | 72ms | 4.4x |
+```bash
+go test -bench=. -benchmem ./...
+```
+
+`ParseBatch` parses independent models concurrently. Speedup scales with the number of models, not the size of any single model.
 
 ## API Reference
 

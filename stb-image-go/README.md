@@ -126,13 +126,14 @@ if err != nil {
 
 ## Performance
 
-Batch decoding benchmark (M3 Pro, 10 images × 1MB each):
+Throughput depends heavily on input shape, CPU count, and allocator behavior, so
+this README does not quote fixed numbers — measure on your target hardware:
 
-| Method | Time | Speedup |
-|--------|------|---------|
-| Sequential | 280ms | 1.0x |
-| Concurrent (4 cores) | 85ms | 3.3x |
-| Concurrent (8 cores) | 65ms | 4.3x |
+```bash
+go test -bench=. -benchmem ./...
+```
+
+`LoadBatchConcurrent` decodes independent images concurrently. Speedup scales with the number of images.
 
 ## API Reference
 

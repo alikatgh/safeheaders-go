@@ -158,13 +158,14 @@ fmt.Println(string(decompressed)) // Original text
 
 ## Performance
 
-Benchmark results (M3 Pro, 4 files × 10MB each):
+Throughput depends heavily on input shape, CPU count, and allocator behavior, so
+this README does not quote fixed numbers — measure on your target hardware:
 
-| Method | Time | Speedup | CPU Usage |
-|--------|------|---------|-----------|
-| Sequential | 850ms | 1.0x | ~25% |
-| Concurrent (4 cores) | 280ms | 3.0x | ~95% |
-| Concurrent (8 cores) | 240ms | 3.5x | ~100% |
+```bash
+go test -bench=. -benchmem ./...
+```
+
+`CreateArchiveConcurrent` compresses archive entries in parallel and then assembles them without recompressing. Speedup scales with the number of files, not the size of any single one.
 
 ## API Reference
 

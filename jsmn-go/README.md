@@ -8,10 +8,10 @@ Fast, lightweight JSON tokenizer with built-in parallel processing support.
 
 ## Features
 
-- Fast JSON tokenization (2x speedup with parallelization)
+- Fast, allocation-light JSON tokenization
+- Optional concurrent tokenization for large multi-value inputs
 - Zero external dependencies
 - Memory safe (no buffer overflows)
-- Concurrent processing for large JSON files
 - Compatible with original jsmn C library
 
 ## Installation
@@ -71,14 +71,14 @@ if err != nil {
 
 ## Performance
 
-Benchmarks on Apple M3 Pro (1MB JSON, 10K objects):
+Throughput depends heavily on input shape, CPU count, and allocator behavior, so
+this README does not quote fixed numbers — measure on your target hardware:
 
-| CPUs | Time | Speedup | Throughput |
-|------|------|---------|------------|
-| 1    | 150ms | 1.0x | 6.7 MB/s |
-| 2    | 100ms | 1.5x | 10 MB/s |
-| 4    | 75ms  | 2.0x | 13.3 MB/s |
-| 8    | 70ms  | 2.1x | 14.3 MB/s |
+```bash
+go test -bench=. -benchmem ./...
+```
+
+`ParseParallel` splits large multi-value inputs into roughly `NumCPU` chunks and tokenizes them concurrently. A single value, or any input under 4 KB, falls back to serial parsing — so parallelism helps streams of many top-level values, not one big object.
 
 ## API Reference
 
