@@ -15,6 +15,14 @@
 
 ## Chronological Log
 
+### 2026-06-23 — dr-wav-go: two fuzz-found crashes (divide-by-zero, OOM)
+
+- **File**: `dr-wav-go/dr_wav.go` (`GetSampleCount`, `Parse`)
+- **Symptom**: (1) `GetSampleCount` panicked `integer divide by zero` on a parsed WAV with `NumChannels == 0`; (2) `Parse` allocated `make([]byte, subchunk1Size-16)` from an untrusted ~4GB `subchunk1Size`, an OOM vector found by `FuzzParse` after ~15s.
+- **Cause**: `Parse` does not validate header fields (only `ValidateWAV` does), so malformed values reach the accessors and the fmt-chunk skip.
+- **Fix**: guard `NumChannels == 0` in `GetSampleCount`; `Seek` past the extra fmt bytes instead of allocating. Added `FuzzParse` (exercises Parse + every accessor) and checked in the crash-regression seed. 9M+ execs clean after the fix.
+- **Lesson**: every field read from untrusted binary input is an attack surface — fuzz the parser AND its accessors, not just the entry point. Treat size fields as hints (Seek/cap), never as allocation lengths. (Same family as the data-chunk OOM above.)
+
 ### 2026-06-23 — cgltf-go: ValidateGLTF rejected a valid scene-less glTF
 
 - **File**: `cgltf-go/cgltf.go` (`ValidateGLTF`)

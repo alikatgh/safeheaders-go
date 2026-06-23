@@ -35,8 +35,9 @@ go.work.sum
 /testdata/large.xml
 /*/testdata/bench.json
 
-# Fuzzing corpus caches
-**/testdata/fuzz/
+# Note: Go writes crash-regression seeds to testdata/fuzz/<FuzzName>/ and those
+# SHOULD be committed (they replay on `go test`). The large generated corpus
+# lives in $GOCACHE/fuzz, outside the repo, so nothing to ignore here.
 
 # Editor / OS noise
 .DS_Store

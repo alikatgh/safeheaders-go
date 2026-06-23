@@ -98,10 +98,11 @@ func Parse(data []byte) (*WAV, error) {
 		return nil, fmt.Errorf("failed to read bits per sample: %w", err)
 	}
 
-	// Skip any extra format bytes
+	// Skip any extra format bytes. Seek rather than allocate: subchunk1Size is an
+	// untrusted uint32, so make([]byte, subchunk1Size-16) is an OOM vector. If the
+	// declared size runs past EOF, the next chunk read fails cleanly.
 	if subchunk1Size > 16 {
-		extra := make([]byte, subchunk1Size-16)
-		if _, err := r.Read(extra); err != nil {
+		if _, err := r.Seek(int64(subchunk1Size-16), io.SeekCurrent); err != nil {
 			return nil, fmt.Errorf("failed to skip extra format bytes: %w", err)
 		}
 	}
@@ -156,10 +157,12 @@ func (w *WAV) GetDuration() float64 {
 	return float64(len(w.Data)) / float64(w.Header.ByteRate)
 }
 
-// GetSampleCount returns the total number of samples.
+// GetSampleCount returns the total number of samples per channel. It returns 0
+// for a header with no channels or an unknown bit depth, rather than dividing by
+// zero (Parse does not reject such headers; ValidateWAV does).
 func (w *WAV) GetSampleCount() int {
 	bytesPerSample := int(w.Header.BitsPerSample) / 8
-	if bytesPerSample == 0 {
+	if bytesPerSample == 0 || w.Header.NumChannels == 0 {
 		return 0
 	}
 	return len(w.Data) / bytesPerSample / int(w.Header.NumChannels)
