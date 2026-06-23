@@ -100,12 +100,16 @@ security:
 	done
 	@echo "✅ Security scans complete!"
 
-# Run fuzz tests (sample - run with specific target)
+# Fuzz smoke test: run one fuzzer per fuzz-tested module for FUZZTIME each.
+# Override duration with `make fuzz FUZZTIME=2m`. Fails if any fuzzer finds a crash.
+FUZZTIME ?= 15s
 fuzz:
-	@echo "Fuzz testing jsmn-go..."
-	@echo "Note: Fuzz tests run indefinitely. Use Ctrl+C to stop."
-	@echo "Example: cd jsmn-go && go test -fuzz=FuzzParse -fuzztime=30s"
-	@(cd jsmn-go && go test -fuzz=FuzzParse -fuzztime=10s) || true
+	@echo "Running fuzz smoke tests ($(FUZZTIME) each)..."
+	@(cd jsmn-go && go test -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) .) || exit 1
+	@(cd tinyxml2-go && go test -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) .) || exit 1
+	@(cd dr-wav-go && go test -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) .) || exit 1
+	@(cd miniz-go && go test -run='^$$' -fuzz='^FuzzExtract$$' -fuzztime=$(FUZZTIME) .) || exit 1
+	@echo "✅ Fuzz smoke tests passed!"
 
 # Build every example module (they are standalone modules with replace
 # directives) and run the non-interactive demos. GOWORK=off so each example is
