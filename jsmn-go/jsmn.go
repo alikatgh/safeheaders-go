@@ -2,10 +2,10 @@
 package jsmngo
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"runtime"
-	"sync"
 )
 
 // TokenType represents the type of JSON token.
@@ -207,90 +207,16 @@ func ParseParallel(json []byte) ([]Token, error) {
 		return p.Tokens(), err
 	}
 
-	splitPoints := findSplitPoints(json)
-	numWorkers := runtime.NumCPU()
-
-	// Not enough split points to justify parallelism.
-	if len(splitPoints) < numWorkers {
+	// Not enough top-level split points to justify parallelism.
+	if len(findSplitPoints(json)) < runtime.NumCPU() {
 		p := NewParser(len(json) / 4)
 		_, err := p.Parse(json)
 		return p.Tokens(), err
 	}
 
-	// Define chunks for workers
-	type job struct {
-		id     int
-		start  int
-		end    int
-		offset int
-	}
-
-	numJobs := len(splitPoints) + 1
-	jobs := make(chan job, numJobs)
-	lastSplit := 0
-	for i, split := range splitPoints {
-		jobs <- job{id: i, start: lastSplit, end: split, offset: lastSplit}
-		lastSplit = split + 1
-	}
-	jobs <- job{id: len(splitPoints), start: lastSplit, end: len(json), offset: lastSplit}
-	close(jobs)
-
-	// Each worker returns its result to be merged later
-	type result struct {
-		id   int
-		toks []Token
-		err  error
-	}
-
-	resultsCh := make(chan result, numJobs)
-	var wg sync.WaitGroup
-
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := range jobs {
-				chunkData := json[j.start:j.end]
-				// Each worker allocates its own parser and token slice.
-				p := NewParser(len(chunkData) / 4) // Heuristic capacity, will grow if needed
-				_, err := p.Parse(chunkData)
-				if err != nil {
-					resultsCh <- result{id: j.id, err: err}
-					return
-				}
-
-				toks := p.Tokens()
-				// Fix offsets to be global
-				for i := range toks {
-					toks[i].Start += j.offset
-					toks[i].End += j.offset
-				}
-				resultsCh <- result{id: j.id, toks: toks}
-			}
-		}()
-	}
-
-	wg.Wait()
-	close(resultsCh)
-
-	// Collect and re-order results
-	jobResults := make([]result, numJobs)
-	for r := range resultsCh {
-		if r.err != nil {
-			return nil, r.err // Fail fast on first error
-		}
-		jobResults[r.id] = r
-	}
-
-	// Merge results in the correct order
-	var totalTokens int
-	for _, r := range jobResults {
-		totalTokens += len(r.toks)
-	}
-	finalTokens := make([]Token, 0, totalTokens)
-	for _, r := range jobResults {
-		finalTokens = append(finalTokens, r.toks...)
-	}
-
-	return finalTokens, nil
+	// Delegate the chunked worker-pool + merge to the shared implementation so
+	// there is a single source of truth for the parallel tokenizer. Unlimited
+	// config = no size/token caps and no context, matching this entry point's
+	// historical contract.
+	return parseParallelWithConfig(context.Background(), json, UnlimitedConfig())
 }
