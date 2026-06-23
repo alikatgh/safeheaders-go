@@ -111,6 +111,7 @@ fuzz:
 	@(cd miniz-go && go test -run='^$$' -fuzz='^FuzzExtract$$' -fuzztime=$(FUZZTIME) .) || exit 1
 	@(cd cgltf-go && go test -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) .) || exit 1
 	@(cd cjson-go && go test -run='^$$' -fuzz='^FuzzUnmarshal$$' -fuzztime=$(FUZZTIME) .) || exit 1
+	@(cd stb-truetype-go && go test -run='^$$' -fuzz='^FuzzLoadFont$$' -fuzztime=$(FUZZTIME) .) || exit 1
 	@echo "✅ Fuzz smoke tests passed!"
 
 # Build every example module (they are standalone modules with replace

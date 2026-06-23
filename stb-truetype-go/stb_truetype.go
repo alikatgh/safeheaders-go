@@ -8,7 +8,6 @@ import (
 	"image"
 	"os"
 	"sync"
-	"time"
 )
 
 // rasterizerFunc defines the signature for a function that can render a glyph.
@@ -47,9 +46,17 @@ func (g *Glyph) Bounds() image.Rectangle {
 	return g.bitmap.Bounds()
 }
 
-// Font represents a loaded TrueType font file. It is immutable and safe for concurrent use.
+// Font represents a loaded TrueType font file. It is parsed once at load time
+// and immutable thereafter, so it is safe for concurrent use.
 type Font struct {
-	rawData []byte
+	rawData     []byte
+	tables      map[string]tableRec // sfnt table directory
+	loca        []uint32            // glyph offsets into glyf (numGlyphs+1)
+	cmapData    []byte              // selected cmap subtable
+	unitsPerEm  uint16
+	indexToLoc  int16
+	numGlyphs   uint16
+	numHMetrics uint16
 }
 
 // LoadFont reads a .ttf file from disk. The path is supplied by the caller by
@@ -68,18 +75,17 @@ func LoadFontFromBytes(data []byte) (*Font, error) {
 	copiedData := make([]byte, len(data))
 	copy(copiedData, data)
 	font := &Font{rawData: copiedData}
+	if err := font.parseSFNT(); err != nil {
+		return nil, err
+	}
 	return font, nil
 }
 
-// defaultRasterizer is a PLACEHOLDER rasterizer: it does not parse the TrueType
-// glyf table and returns a blank 24x24 bitmap regardless of the requested rune.
-// It exists so the cache/concurrency machinery can be exercised; supply a real
-// rasterizer via the cache constructor for actual glyph rendering.
-func defaultRasterizer(_ *Font, _ rune, size float64) (*image.Gray, GlyphMetrics, error) {
-	time.Sleep(10 * time.Millisecond) // simulate work so concurrency tests are meaningful
-	img := image.NewGray(image.Rect(0, 0, 24, 24))
-	metrics := GlyphMetrics{AdvanceWidth: 24, BearingX: 0, BearingY: 18, Scale: size}
-	return img, metrics, nil
+// defaultRasterizer renders a glyph by decoding the font's glyf outlines and
+// scan-filling them with anti-aliasing (see sfnt.go). It is used when
+// NewGlyphCache is given a nil rasterizer.
+func defaultRasterizer(font *Font, r rune, size float64) (*image.Gray, GlyphMetrics, error) {
+	return rasterizeGlyph(font, r, size)
 }
 
 // cacheEntry stores the glyph and a pointer to its element in the LRU list.

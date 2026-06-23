@@ -17,6 +17,13 @@
 
 ## Chronological Log
 
+### 2026-06-23 — stb-truetype-go: implemented a real glyf rasterizer (was a stub)
+
+- **File**: `stb-truetype-go/sfnt.go` (new), `stb_truetype.go`
+- **Change**: replaced the placeholder rasterizer (blank bitmap + fake sleep) with a real pure-Go TrueType pipeline — sfnt directory + head/maxp/hhea/loca/cmap/glyf/hmtx parsing, cmap formats 0/4/6/12, simple + composite glyf decode, quadratic-Bézier flattening, and nonzero-winding anti-aliased scan-fill. `LoadFontFromBytes` now validates the font (rejects non-/CFF fonts).
+- **Verification**: renders real glyphs from the embedded test font (correct relative widths/heights, descenders, blank space); 81% coverage; `FuzzLoadFont` clean over 266k execs (font files are untrusted input).
+- **Lesson**: bounds-check every offset/length read from a font before slicing — a font parser is an untrusted-input parser like any other. Validate the sfnt version up front (reject OTTO/CFF) rather than mis-parsing it as glyf.
+
 ### 2026-06-23 — dr-wav-go: two fuzz-found crashes (divide-by-zero, OOM)
 
 - **File**: `dr-wav-go/dr_wav.go` (`GetSampleCount`, `Parse`)
