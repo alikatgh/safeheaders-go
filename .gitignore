@@ -28,6 +28,13 @@ coverage.html
 # Go workspace sum (kept local; modules pin their own deps)
 go.work.sum
 
+# Generated benchmark fixtures (recreated on demand by `make testdata` or the
+# benchmarks themselves) — never committed; see testdata/README.md.
+/bench.xml
+/testdata/large.json
+/testdata/large.xml
+/*/testdata/bench.json
+
 # Fuzzing corpus caches
 **/testdata/fuzz/
 

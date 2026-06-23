@@ -35,9 +35,14 @@ func genBenchXML() {
 }
 
 func BenchmarkTraverseConcurrent(b *testing.B) {
+	// Self-contained: generate the fixture if it isn't present (it is gitignored
+	// and regenerated on demand rather than committed).
+	if _, err := os.Stat("../bench.xml"); os.IsNotExist(err) {
+		genBenchXML()
+	}
 	data, err := os.ReadFile("../bench.xml")
 	if err != nil {
-		b.Fatalf("Failed to read bench.xml: %v. Please generate it first.", err)
+		b.Fatalf("Failed to read bench.xml: %v", err)
 	}
 	root, err := Parse(data)
 	if err != nil {

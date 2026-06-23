@@ -3,7 +3,9 @@
 # Single source of truth for the list of Go modules. Keep alphabetized.
 MODULES := cgltf-go cjson-go dr-wav-go jsmn-go linenoise-go miniz-go stb-image-go stb-truetype-go tinyxml2-go
 
-.PHONY: help test test-race test-coverage lint fmt vet bench clean install-tools security fuzz examples
+.PHONY: help test test-race test-coverage lint fmt vet bench clean install-tools \
+        security fuzz examples all pre-commit ci deps update-deps testdata \
+        build-examples info
 
 # Default target
 help:

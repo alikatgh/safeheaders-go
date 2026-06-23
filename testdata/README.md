@@ -8,13 +8,15 @@ This directory contains test data files used for benchmarking and testing across
 
 - **small.json** (1KB) - Small JSON object for quick tests
 - **medium.json** (100KB) - Medium-sized JSON array for standard benchmarks
-- **large.json** (1MB) - Large JSON array with 10,000 objects for performance testing
+- **large.json** (~10MB) - Large JSON array for performance testing — **generated on
+  demand, not committed** (run `make testdata`)
 
 ### XML Test Data
 
 - **small.xml** (1KB) - Small XML document
 - **medium.xml** (50KB) - Medium-sized XML with nested elements
-- **large.xml** (500KB) - Large XML document with many elements
+- **large.xml** (~5MB) - Large XML document — **generated on demand, not committed**
+  (run `make testdata`)
 
 ### Image Test Data
 
@@ -57,14 +59,18 @@ func BenchmarkParse(b *testing.B) {
 
 ## Generating Test Data
 
-To regenerate test data files, use the scripts in `examples/generate-testdata/`:
+Large fixtures are regenerable and intentionally not committed. Recreate them
+from the repository root with:
 
 ```bash
-cd examples/generate-testdata
-go run generate.go
+make testdata
+# or, directly:
+go run scripts/generate-testdata.go
 ```
 
-This will create fresh test data files in the testdata directory.
+This writes fresh `large.json` / `large.xml` into this directory. Benchmarks
+that need other large fixtures generate them on first run (and skip gracefully
+if they cannot).
 
 ## License
 
