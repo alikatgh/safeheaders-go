@@ -7,12 +7,11 @@ import (
 )
 
 func BenchmarkLoadBatchConcurrent(b *testing.B) {
-	// This benchmark requires a real image file in a `testdata` directory.
-	// Example: testdata/4k.jpg
+	// Prefer a real image at testdata/4k.jpg if the user supplies one; otherwise
+	// generate a synthetic JPEG in-memory so the benchmark always runs.
 	data, err := os.ReadFile("testdata/4k.jpg")
 	if err != nil {
-		// Using b.Skip instead of b.Fatal allows tests to run even if the file is missing.
-		b.Skipf("Skipping benchmark: failed to read benchmark image 'testdata/4k.jpg': %v", err)
+		data = createTestJPEG(512, 512)
 	}
 
 	const N = 100
