@@ -85,6 +85,13 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 		go func() {
 			defer wg.Done()
 			for {
+				// Check cancellation first: a bare select races between a ready
+				// job and ctx.Done() (Go picks randomly), so an already-canceled
+				// context would only be honored intermittently.
+				if err := ctx.Err(); err != nil {
+					errs <- err
+					return
+				}
 				select {
 				case idx, ok := <-jobs:
 					// 'ok' will be false if the jobs channel is closed and empty.

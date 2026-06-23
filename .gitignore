@@ -1,0 +1,39 @@
+# Compiled binaries and shared objects
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries (go test -c) and example binaries (go build in a main package)
+*.test
+/examples/json-parser/json-parser
+/examples/jsmn-demo/jsmn-demo
+/examples/production-usage/production-usage
+/examples/linenoise-repl/linenoise-repl
+/jsmn-go/examples/examples
+
+# Vendored tool binaries — installed by CI / `make install-tools`, never committed
+bin/
+*/bin/
+
+# Test, coverage, and profiling output
+*.out
+coverage.txt
+coverage.html
+*.cover
+*.prof
+*.pprof
+
+# Go workspace sum (kept local; modules pin their own deps)
+go.work.sum
+
+# Fuzzing corpus caches
+**/testdata/fuzz/
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*~
+.idea/
+*.iml

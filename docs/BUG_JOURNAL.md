@@ -11,8 +11,17 @@
 - **Pre-compressed data written into a recompressing container = double compression**: Writing an already-`flate`-compressed stream into an `archive/zip` entry with `Method: zip.Deflate` deflates it AGAIN, so the archive does not round-trip (extraction yields the intermediate stream). To keep pre-compression, use `zip.Writer.CreateRaw` with a `FileHeader` carrying `Method`, `CRC32` (of the *uncompressed* data), `CompressedSize64`, `UncompressedSize64`. ALWAYS add a round-trip test (`Create → Extract → bytes.Equal`), not just a "no error / non-empty" assertion.
 - **Config schema-version mismatch silently disables all settings**: A `.golangci.yml` declaring `version: "2"` while using v1-style `linters-settings:` is *invalid* — `golangci-lint run` tolerates it but ignores every setting (thresholds, ignore-sigs, etc.), so the linter runs on defaults and CI that installs the wrong major version fails to parse it entirely. Validate with `golangci-lint config verify` and keep the installed CLI major version (CI/Makefile/pre-commit/release) in lockstep with the config's `version:`.
 - **`testing` imported into a non-`_test.go` file**: Benchmark helpers placed in `foo_bench.go` (not `foo_bench_test.go`) compile `testing` into the production binary and dodge `tests: false` lint scope. Benchmarks belong in `*_test.go` files.
+- **`select { case <-jobs: ...; case <-ctx.Done(): ... }` honors cancellation only ~50% of the time**: when both a job and `ctx.Done()` are ready, Go picks a case at random, so a pre-canceled context is observed intermittently → flaky cancellation tests. Add a leading `if err := ctx.Err(); err != nil { … }` check at the top of the worker loop (or a leading `ctx.Err()` check in the result collector) so cancellation is deterministic.
 
 ## Chronological Log
+
+### 2026-06-23 — stb-image-go: flaky cancellation (select race) and broken examples
+
+- **File**: `stb-image-go/stb_image.go` (`LoadBatchConcurrent`)
+- **Symptom**: `TestLoadBatchConcurrent_Cancellation` failed ~1 in 5 race runs: "Expected context.Canceled, got: <nil>".
+- **Cause**: The worker's `select` raced `<-jobs` against `<-ctx.Done()`; with one ready job and an already-canceled context, Go picked the job ~50% of the time, decoded it successfully, and reported no error.
+- **Fix**: Check `ctx.Err()` at the top of the worker loop before the select. Verified 20/20 race runs.
+- **Lesson**: A bare select does not prioritize cancellation; check `ctx.Err()` explicitly before pulling work. Separately, the README's example programs had rotted (wrong API arity, missing go.mod) because no CI job built them — added a `make examples` target and an Examples CI job.
 
 ### 2026-06-23 — miniz-go: CreateArchiveConcurrent double-compresses → archives don't round-trip
 
