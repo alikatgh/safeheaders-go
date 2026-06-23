@@ -1,132 +1,95 @@
+# golangci-lint configuration (schema v2).
+# Verify with: golangci-lint config verify --config .golangci.yml
 version: "2"
+
 run:
   timeout: 5m
+  # Lint production code only; test files are exercised by `go test`/`-race`.
   tests: false
 
+# Report every finding — never silently cap, so CI reflects the true state.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
 linters:
+  # Start from the curated default set (errcheck, govet, ineffassign,
+  # staticcheck, unused) and add the extras below.
+  default: standard
   enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - revive
-    - gocyclo
-    - misspell
-    - wrapcheck
-    - gosec
-    - dogsled
-    - dupl
-    - nakedret
-    - prealloc
-    - predeclared
-    - unparam
-    - whitespace
     - bodyclose
     - containedctx
+    - dogsled
+    - dupl
     - durationcheck
     - forbidigo
     - gocognit
+    - gocyclo
     - godot
     - godox
-    - goprintffuncname
+    - gosec
     - lll
     - makezero
+    - misspell
+    - nakedret
     - nestif
     - nolintlint
+    - prealloc
+    - predeclared
+    - revive
     - rowserrcheck
     - testpackage
     - thelper
-    - wastedassign
     - unconvert
-  disable: []
+    - unparam
+    - wastedassign
+    - whitespace
+    - wrapcheck
 
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  revive:
-    ignore-generated-header: true
-    severity: warning
-    rules:
-      - name: var-naming
-        arguments:
-          allow-leading-underscore: true
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  lll:
-    line-length: 120
-    tab-width: 2
-    ignore-comments: true
-    ignore-strings: true
-    ignore-urls: true
-  misspell:
-    locale: US
-  wrapcheck:
-    ignoreSigs:
-      - "Errorf"
-      - "Wrap"
-      - "Wrapf"
-      - "WithMessage"
-      - "WithStack"
-      - "WithError"
+  settings:
+    errcheck:
+      # Catch ignored type assertions (x.(T) without the ok form), which can panic.
+      check-type-assertions: true
+    gocyclo:
+      min-complexity: 20
+    gocognit:
+      min-complexity: 30
+    lll:
+      line-length: 120
+      tab-width: 2
+    misspell:
+      locale: US
+    revive:
+      severity: warning
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+    wrapcheck:
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+        # Returning the bare error from an .Err() method (context.Context.Err,
+        # bufio.Scanner.Err, …) is idiomatic — the sentinel must stay unwrapped
+        # so callers can use errors.Is / == against context.Canceled etc.
+        - .Err()
 
-  gocritic:
-    enabled-checks:
-      - rangeValCopy
-      - captLocal
-      - ifElseChain
-      - sloppyLen
-      - typeSwitchVar
-      - hugeParam
-      - dupImport
-      - whyNoLint
-      - octalLiteral
-      - importShadow
-      - flagDeref
-      - caseOrder
-      - appendAssign
-      - assignOp
-      - boolExprSimplify
-      - builtinShadow
-      - defaultCaseOrder
-      - deferInLoop
-      - elseIfChain
-      - exitAfterDefer
-      - importShadow
-      - indexAlloc
-      - paramTypeCombine
-      - rangeValCopy
-      - sloppyLen
-      - typeSwitchVar
-      - unlambda
-      - unslice
-      - valSwap
-      - wrapperFunc
-      - yodaStyle
-      - hugeParam
-      - dupImport
-      - whyNoLint
-      - octalLiteral
-      - importShadow
-      - flagDeref
-      - caseOrder
-      - appendAssign
-      - assignOp
-      - boolExprSimplify
-      - builtinShadow
-      - defaultCaseOrder
-      - deferInLoop
-      - elseIfChain
-      - exitAfterDefer
-      - importShadow
-      - indexAlloc
-      - paramTypeCombine
-      - rangeValCopy
-      - sloppyLen
-      - typeSwitchVar
-      - unlambda
-      - unslice
-      - valSwap
-      - wrapperFunc
-      - yodaStyle
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

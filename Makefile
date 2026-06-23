@@ -1,5 +1,8 @@
 # Makefile for SafeHeaders-Go
 
+# Single source of truth for the list of Go modules. Keep alphabetized.
+MODULES := cgltf-go cjson-go dr-wav-go jsmn-go linenoise-go miniz-go stb-image-go stb-truetype-go tinyxml2-go
+
 .PHONY: help test test-race test-coverage lint fmt vet bench clean install-tools security fuzz examples
 
 # Default target
@@ -25,7 +28,7 @@ help:
 # Run all tests
 test:
 	@echo "Running tests for all modules..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		echo "Testing $$dir..."; \
 		(cd $$dir && go test -v ./...) || exit 1; \
 	done
@@ -34,7 +37,7 @@ test:
 # Run tests with race detector
 test-race:
 	@echo "Running tests with race detector..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		echo "Testing $$dir (with -race)..."; \
 		(cd $$dir && go test -race -v ./...) || exit 1; \
 	done
@@ -43,7 +46,7 @@ test-race:
 # Run tests with coverage
 test-coverage:
 	@echo "Running tests with coverage..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		echo "Testing $$dir (with coverage)..."; \
 		(cd $$dir && go test -coverprofile=coverage.out -covermode=atomic ./...) || exit 1; \
 		(cd $$dir && go tool cover -func=coverage.out | grep total | awk '{print "Coverage: " $$3}'); \
@@ -53,7 +56,7 @@ test-coverage:
 # Run linter
 lint:
 	@echo "Running golangci-lint..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		echo "Linting $$dir..."; \
 		(cd $$dir && golangci-lint run --config ../.golangci.yml) || exit 1; \
 	done
@@ -68,7 +71,7 @@ fmt:
 # Run go vet
 vet:
 	@echo "Running go vet..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		(cd $$dir && go vet ./...) || exit 1; \
 	done
 	@echo "✅ go vet passed!"
@@ -89,7 +92,7 @@ security:
 	@gosec -fmt=text ./... || true
 	@echo ""
 	@echo "Running govulncheck..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		echo "Checking $$dir..."; \
 		(cd $$dir && govulncheck ./...) || true; \
 	done
@@ -121,7 +124,7 @@ clean:
 # Install development tools
 install-tools:
 	@echo "Installing development tools..."
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.2
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 	@go install golang.org/x/tools/cmd/benchstat@latest
@@ -142,7 +145,7 @@ ci: lint test-race test-coverage security
 # Install module dependencies
 deps:
 	@echo "Downloading module dependencies..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		(cd $$dir && go mod download) || exit 1; \
 	done
 	@echo "✅ Dependencies downloaded!"
@@ -150,7 +153,7 @@ deps:
 # Update module dependencies
 update-deps:
 	@echo "Updating module dependencies..."
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		echo "Updating $$dir..."; \
 		(cd $$dir && go get -u ./... && go mod tidy) || exit 1; \
 	done
@@ -179,7 +182,7 @@ info:
 	@go version
 	@echo ""
 	@echo "Modules:"
-	@for dir in jsmn-go stb-image-go stb-truetype-go tinyxml2-go cjson-go miniz-go cgltf-go dr-wav-go; do \
+	@for dir in $(MODULES); do \
 		echo "  - $$dir"; \
 	done
 	@echo ""
