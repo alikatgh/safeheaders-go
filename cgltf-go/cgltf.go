@@ -125,7 +125,12 @@ func Parse(data []byte) (*GLTF, error) {
 	return &gltf, nil
 }
 
-// ValidateGLTF performs basic validation on a glTF model.
+// ValidateGLTF performs structural sanity checks on a glTF model: the asset
+// version, the default-scene index, scene/node graph references, and node mesh
+// references. It deliberately does NOT verify the full buffer graph (accessor →
+// bufferView → buffer) or material references, so a passing result is not a
+// guarantee of complete referential integrity — callers that index into those
+// arrays must still bounds-check.
 func ValidateGLTF(gltf *GLTF) error {
 	if gltf == nil {
 		return errors.New("nil glTF")
@@ -141,17 +146,37 @@ func ValidateGLTF(gltf *GLTF) error {
 	// at a non-existent scene. Note the Go zero value can't distinguish an
 	// omitted `scene` from `scene: 0`.
 	if len(gltf.Scenes) > 0 {
-		if gltf.Scene >= len(gltf.Scenes) {
+		if gltf.Scene < 0 || gltf.Scene >= len(gltf.Scenes) {
 			return fmt.Errorf("invalid scene index: %d", gltf.Scene)
 		}
 	} else if gltf.Scene != 0 {
 		return fmt.Errorf("scene index %d set but no scenes are defined", gltf.Scene)
 	}
 
-	// Validate node references
+	// Scene node lists are explicit references into Nodes.
+	for si, scene := range gltf.Scenes {
+		for _, n := range scene.Nodes {
+			if n < 0 || n >= len(gltf.Nodes) {
+				return fmt.Errorf("scene %d references invalid node: %d", si, n)
+			}
+		}
+	}
+
+	// Validate node references (mesh index and child node indices).
 	for i, node := range gltf.Nodes {
-		if node.Mesh >= len(gltf.Meshes) && node.Mesh != 0 {
-			return fmt.Errorf("node %d references invalid mesh: %d", i, node.Mesh)
+		// mesh is optional; reject negative and out-of-range, allowing the
+		// "omitted" zero only when no meshes are defined.
+		if len(gltf.Meshes) > 0 {
+			if node.Mesh < 0 || node.Mesh >= len(gltf.Meshes) {
+				return fmt.Errorf("node %d references invalid mesh: %d", i, node.Mesh)
+			}
+		} else if node.Mesh != 0 {
+			return fmt.Errorf("node %d references mesh %d but no meshes are defined", i, node.Mesh)
+		}
+		for _, c := range node.Children {
+			if c < 0 || c >= len(gltf.Nodes) {
+				return fmt.Errorf("node %d references invalid child: %d", i, c)
+			}
 		}
 	}
 
