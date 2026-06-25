@@ -103,7 +103,10 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 	close(jobs)
 
 	results := make([]image.Image, len(datas))
-	errs := make(chan error, len(datas))
+	// Buffer the worst case so no worker blocks on send: up to len(datas) decode
+	// failures plus up to numWorkers cancellation sends. An under-sized buffer
+	// deadlocks wg.Wait when cancellation coincides with decode failures.
+	errs := make(chan error, len(datas)+numWorkers)
 
 	var wg sync.WaitGroup
 
@@ -163,9 +166,26 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 	return results, nil
 }
 
-// LoadStream decodes from an io.Reader without buffering the entire stream.
+// LoadStream decodes an image from an io.Reader. Like Load, it enforces the
+// MaxImagePixels decode-bomb guard: the header is peeked to check the declared
+// dimensions before the full image is decoded.
 func LoadStream(r io.Reader) (image.Image, error) {
-	// Decodes directly from the stream without buffering the whole input.
+	if r == nil {
+		return nil, errors.New("nil reader")
+	}
+	if MaxImagePixels > 0 {
+		// Tee the header bytes consumed by DecodeConfig into a buffer so the full
+		// image can still be decoded (DecodeConfig reads only the header).
+		var header bytes.Buffer
+		cfg, _, cfgErr := image.DecodeConfig(io.TeeReader(r, &header))
+		if cfgErr == nil && cfg.Width > 0 && cfg.Height > 0 &&
+			int64(cfg.Width)*int64(cfg.Height) > int64(MaxImagePixels) {
+			return nil, fmt.Errorf("image %dx%d exceeds the %d-pixel decode limit (adjust MaxImagePixels)",
+				cfg.Width, cfg.Height, MaxImagePixels)
+		}
+		// Replay the consumed header, then the remainder of the stream.
+		r = io.MultiReader(&header, r)
+	}
 	img, _, err := image.Decode(r)
 	if err != nil {
 		return nil, fmt.Errorf("decode image stream: %w", err)
