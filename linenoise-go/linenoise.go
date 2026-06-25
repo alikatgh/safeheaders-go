@@ -31,6 +31,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
 
@@ -93,6 +94,10 @@ func DefaultConfig() *Config {
 
 // State represents the current line editing state.
 type State struct {
+	// mu guards history (and historyIndex/draftLine) so the package-level
+	// convenience functions, which all share one defaultState, are safe to call
+	// from multiple goroutines. A per-goroutine State needs no external locking.
+	mu      sync.Mutex
 	config  *Config
 	history []string
 	buf     []rune
@@ -141,7 +146,9 @@ func (s *State) ReadLine(prompt string) (string, error) {
 	s.buf = s.buf[:0]
 	s.pos = 0
 	s.completionActive = false
+	s.mu.Lock()
 	s.historyIndex = len(s.history)
+	s.mu.Unlock()
 	s.draftLine = nil
 
 	// Enable raw mode
@@ -288,6 +295,12 @@ func (s *State) processChar(ch rune) (cont bool, result string, err error) {
 // handleEditKey applies a cursor-movement or editing key to the line buffer.
 // Equivalent control characters and escape-sequence key codes share a case.
 func (s *State) handleEditKey(ch rune) {
+	// Any key other than Tab exits completion-cycling mode, so a later Tab
+	// recomputes completions from the (possibly edited) buffer instead of
+	// overwriting the user's edits with a stale completion.
+	if ch != '\t' {
+		s.completionActive = false
+	}
 	switch ch {
 	case '\x08', '\x7f': // Backspace
 		s.backspace()
@@ -422,10 +435,16 @@ func (s *State) refresh() {
 		}
 	}
 
-	// Move cursor to correct position
+	// Move cursor to correct position. \r homes the cursor; only emit CUF when
+	// there is a positive column to move to (ESC[0C is treated as ESC[1C by most
+	// terminals, an off-by-one on the empty-prompt/pos-0 edge).
 	promptLen := utf8.RuneCountInString(s.prompt)
 	targetCol := promptLen + s.pos
-	fmt.Fprintf(s.config.Output, "\r\x1b[%dC", targetCol)
+	if targetCol > 0 {
+		fmt.Fprintf(s.config.Output, "\r\x1b[%dC", targetCol)
+	} else {
+		fmt.Fprint(s.config.Output, "\r")
+	}
 }
 
 // handleCompletion handles tab completion.
@@ -456,6 +475,8 @@ func (s *State) handleCompletion() {
 // historyPrev recalls the previous (older) history entry into the line buffer.
 // The first move stashes the in-progress line so historyNext can restore it.
 func (s *State) historyPrev() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if len(s.history) == 0 {
 		return
 	}
@@ -473,6 +494,8 @@ func (s *State) historyPrev() {
 // historyNext moves toward newer history entries, restoring the stashed draft
 // line once it moves past the most recent entry.
 func (s *State) historyNext() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if len(s.history) == 0 || s.historyIndex >= len(s.history) {
 		return
 	}
@@ -519,6 +542,9 @@ func (s *State) AddHistory(line string) {
 		return
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Don't add duplicates
 	if len(s.history) > 0 && s.history[len(s.history)-1] == line {
 		return
@@ -535,13 +561,18 @@ func (s *State) AddHistory(line string) {
 
 // SaveHistory saves the history to a file.
 func (s *State) SaveHistory(filename string) error {
+	// Snapshot under lock, then do file I/O without holding it.
+	s.mu.Lock()
+	snapshot := append([]string(nil), s.history...)
+	s.mu.Unlock()
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("create history file: %w", err)
 	}
 	defer f.Close()
 
-	for _, line := range s.history {
+	for _, line := range snapshot {
 		if _, err := fmt.Fprintln(f, line); err != nil {
 			return fmt.Errorf("write history: %w", err)
 		}
@@ -549,7 +580,9 @@ func (s *State) SaveHistory(filename string) error {
 	return nil
 }
 
-// LoadHistory loads history from a file.
+// LoadHistory loads history from a file. It reads into a temporary slice and
+// swaps it in only on success, so a read error (including a line exceeding any
+// scanner limit) does not destroy the existing in-memory history.
 func (s *State) LoadHistory(filename string) error {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -560,19 +593,36 @@ func (s *State) LoadHistory(filename string) error {
 	}
 	defer f.Close()
 
-	s.history = s.history[:0]
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line != "" {
-			s.history = append(s.history, line)
+	// bufio.Reader (not Scanner) so arbitrarily long lines don't trip the 64KB
+	// token cap and abort the load.
+	var loaded []string
+	reader := bufio.NewReader(f)
+	for {
+		line, readErr := reader.ReadString('\n')
+		if trimmed := strings.TrimRight(line, "\r\n"); trimmed != "" {
+			loaded = append(loaded, trimmed)
+		}
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				break
+			}
+			return fmt.Errorf("read history: %w", readErr)
 		}
 	}
-	return scanner.Err()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.history = loaded
+	if s.config.HistoryMaxLen > 0 && len(s.history) > s.config.HistoryMaxLen {
+		s.history = s.history[len(s.history)-s.config.HistoryMaxLen:]
+	}
+	return nil
 }
 
 // ClearHistory clears all history entries.
 func (s *State) ClearHistory() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.history = s.history[:0]
 }
 
