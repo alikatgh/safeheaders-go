@@ -322,3 +322,26 @@ reproducing the confirmed findings, which raises confidence in coverage:
 an independent adversarial verifier that attempted concrete reproduction of every
 reported finding before recording a verdict. Only verifier-confirmed findings appear
 in "Confirmed findings"; reproduction details are noted per finding.*
+
+---
+
+## Remediation status (2026-06-23)
+
+**All 25 confirmed findings have been fixed**, plus U1 and I2 documented; each fix
+ships with a regression test (watchdogs for the deadlocks, a `-race` test for the
+history race, a fan-out bomb for H4, an aggregate-bomb test for M5, a depth-ceiling
+test for M7, etc.). I1 is by-design (no change). L8 was already mitigated by the
+immutable tag pin. After remediation every module is gofmt/vet/lint-clean, passes
+`-race`, and stays above the 70% coverage gate.
+
+| Finding | Fix commit |
+|---------|-----------|
+| H1, M3 (jsmn deadlock + ParentIdx) | `a5ee995` |
+| H2, M6 (stb-image deadlock + LoadStream) | `18beee5` |
+| H3, M4, L3, L4 (linenoise race + 3 bugs) | `01620eb` |
+| H4 (stb-truetype composite bomb) | `8f1096a` |
+| H5, M8, M9, M10, L7 (infra) | `13d68c9` |
+| M1, L1 (cgltf validation) | `9bc583b` |
+| M2, L2, I2 (cjson) | `4cc9e90` |
+| M5, U1 (miniz aggregate bomb) | `5a77896` |
+| M7, L5, L6 (tinyxml2 recursion) | `15e9803` |
