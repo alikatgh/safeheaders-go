@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -111,7 +113,7 @@ var requestCount int64
 
 func rateLimit(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
+		atomic.AddInt64(&requestCount, 1) // handlers run one goroutine per request
 		// In production, use a proper rate limiter
 		next(w, r)
 	}
@@ -136,14 +138,14 @@ func handleParse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read request body
-	body := make([]byte, MaxRequestSize)
-	n, err := r.Body.Read(body)
-	if err != nil && err.Error() != "EOF" {
+	// Read the full body. r.Body was wrapped in MaxBytesReader (10 MB cap), so
+	// io.ReadAll won't over-read; a single Read can short-read multi-segment
+	// bodies and silently truncate them.
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to read body: %v", err), http.StatusBadRequest)
 		return
 	}
-	body = body[:n]
 
 	// Validate input
 	if len(body) == 0 {
@@ -214,7 +216,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stats := map[string]interface{}{
-		"requestCount": requestCount,
+		"requestCount": atomic.LoadInt64(&requestCount),
 		"cpus":         runtime.NumCPU(),
 		"goVersion":    runtime.Version(),
 		"timestamp":    time.Now().Format(time.RFC3339),

@@ -9,11 +9,17 @@ RUN apk add --no-cache git make
 # Set working directory
 WORKDIR /app
 
+# The examples are standalone modules (own go.mod + replace directives) and are
+# NOT listed in go.work, so build them with the workspace disabled — exactly as
+# `make examples` / CI do. This also avoids requiring every go.work module just
+# to build the examples.
+ENV GOWORK=off
+
 # Copy go.work and module files first (for better caching)
 COPY go.work go.work
 COPY go.mod go.mod
 
-# Copy all module directories
+# Copy all module directories (must match go.work's use() block exactly)
 COPY jsmn-go/ jsmn-go/
 COPY stb-image-go/ stb-image-go/
 COPY stb-truetype-go/ stb-truetype-go/
@@ -22,7 +28,9 @@ COPY cjson-go/ cjson-go/
 COPY miniz-go/ miniz-go/
 COPY cgltf-go/ cgltf-go/
 COPY dr-wav-go/ dr-wav-go/
+COPY linenoise-go/ linenoise-go/
 COPY examples/ examples/
+COPY testdata/ testdata/
 
 # Download dependencies
 RUN cd jsmn-go && go mod download

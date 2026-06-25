@@ -141,8 +141,8 @@ clean:
 install-tools:
 	@echo "Installing development tools..."
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.2
-	@go install github.com/securego/gosec/v2/cmd/gosec@latest
-	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	@go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+	@go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
 	@go install golang.org/x/tools/cmd/benchstat@latest
 	@echo "✅ Tools installed!"
 

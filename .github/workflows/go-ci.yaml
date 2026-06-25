@@ -150,7 +150,7 @@ jobs:
           cache: true
 
       - name: Run gosec security scanner
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.21.4 # pinned (not @master); Dependabot bumps it
         with:
           args: '-fmt sarif -out results.sarif ${{ matrix.module }}/...'
 
@@ -163,7 +163,7 @@ jobs:
 
       - name: Run govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           cd ${{ matrix.module }}
           govulncheck ./...
 
