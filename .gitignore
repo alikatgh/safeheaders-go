@@ -34,6 +34,7 @@ go.work.sum
 /testdata/large.json
 /testdata/large.xml
 /*/testdata/bench.json
+/jsmn-go/bench.json
 
 # Note: Go writes crash-regression seeds to testdata/fuzz/<FuzzName>/ and those
 # SHOULD be committed (they replay on `go test`). The large generated corpus
