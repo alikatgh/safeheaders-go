@@ -288,11 +288,28 @@ type glyphPoint struct {
 	onCurve bool
 }
 
+// glyphBudget bounds total work for one top-level glyph. The depth cap alone
+// does not stop a malicious composite with high fan-out (K children per level,
+// 8 levels ≈ K^8 invocations from a tiny file — a billion-laughs amplification),
+// so a shared counter caps total components visited and total points produced.
+type glyphBudget struct {
+	components int // remaining glyph invocations (call-tree nodes)
+	points     int // remaining total contour points
+}
+
+const (
+	maxGlyphComponents = 4096    // total component invocations per top-level glyph
+	maxGlyphPoints     = 1 << 20 // total contour points per top-level glyph
+)
+
 // glyphContours returns the contours of a glyph in font units. Empty glyphs
-// (e.g. space) return nil, nil.
-func (f *Font) glyphContours(gid uint16, depth int) ([][]glyphPoint, error) {
+// (e.g. space) return nil, nil. b bounds the total composite expansion.
+func (f *Font) glyphContours(gid uint16, depth int, b *glyphBudget) ([][]glyphPoint, error) {
 	if depth > 8 {
 		return nil, errors.New("truetype: composite glyph nesting too deep")
+	}
+	if b.components--; b.components < 0 {
+		return nil, errors.New("truetype: composite glyph component budget exceeded")
 	}
 	if int(gid)+1 >= len(f.loca) {
 		return nil, nil
@@ -311,9 +328,19 @@ func (f *Font) glyphContours(gid uint16, depth int) ([][]glyphPoint, error) {
 	}
 	numContours := i16(g)
 	if numContours < 0 {
-		return f.compositeContours(g, depth)
+		return f.compositeContours(g, depth, b)
 	}
-	return parseSimpleGlyph(g, int(numContours))
+	contours, err := parseSimpleGlyph(g, int(numContours))
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range contours {
+		b.points -= len(c)
+	}
+	if b.points < 0 {
+		return nil, errors.New("truetype: composite glyph point budget exceeded")
+	}
+	return contours, nil
 }
 
 func parseSimpleGlyph(g []byte, numContours int) ([][]glyphPoint, error) {
@@ -429,7 +456,7 @@ func f2dot14(b []byte) float64 { return float64(i16(b)) / 16384.0 }
 
 // compositeContours assembles a composite glyph from its components (the common
 // ARGS_ARE_XY_VALUES form, with optional scale / 2x2 transform).
-func (f *Font) compositeContours(g []byte, depth int) ([][]glyphPoint, error) {
+func (f *Font) compositeContours(g []byte, depth int, b *glyphBudget) ([][]glyphPoint, error) {
 	var all [][]glyphPoint
 	pos := 10
 	for pos+4 <= len(g) {
@@ -441,7 +468,10 @@ func (f *Font) compositeContours(g []byte, depth int) ([][]glyphPoint, error) {
 		if !ok {
 			break
 		}
-		all = f.appendComponent(all, compGID, depth, tf)
+		var err error
+		if all, err = f.appendComponent(all, compGID, depth, tf, b); err != nil {
+			return nil, err
+		}
 		if flags&0x0020 == 0 { // no MORE_COMPONENTS
 			break
 		}
@@ -491,10 +521,12 @@ func readComponentTransform(g []byte, pos *int, flags uint16) (componentTransfor
 	return tf, true
 }
 
-func (f *Font) appendComponent(all [][]glyphPoint, gid uint16, depth int, tf componentTransform) [][]glyphPoint {
-	sub, err := f.glyphContours(gid, depth+1)
+func (f *Font) appendComponent(
+	all [][]glyphPoint, gid uint16, depth int, tf componentTransform, b *glyphBudget,
+) ([][]glyphPoint, error) {
+	sub, err := f.glyphContours(gid, depth+1, b)
 	if err != nil {
-		return all
+		return nil, err
 	}
 	for _, ct := range sub {
 		np := make([]glyphPoint, len(ct))
@@ -507,7 +539,7 @@ func (f *Font) appendComponent(all [][]glyphPoint, gid uint16, depth int, tf com
 		}
 		all = append(all, np)
 	}
-	return all
+	return all, nil
 }
 
 // advanceWidth returns the glyph's advance in font units.
@@ -615,7 +647,8 @@ func rasterizeGlyph(f *Font, r rune, size float64) (*image.Gray, GlyphMetrics, e
 		return nil, GlyphMetrics{}, errors.New("truetype: size must be positive")
 	}
 	gid := f.glyphIndex(r)
-	contours, err := f.glyphContours(gid, 0)
+	budget := glyphBudget{components: maxGlyphComponents, points: maxGlyphPoints}
+	contours, err := f.glyphContours(gid, 0, &budget)
 	if err != nil {
 		return nil, GlyphMetrics{}, fmt.Errorf("truetype: decode glyph %q: %w", r, err)
 	}

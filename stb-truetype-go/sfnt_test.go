@@ -84,7 +84,7 @@ func TestCompositeGlyph(t *testing.T) {
 		if i16(glyf[start:]) >= 0 { // not composite
 			continue
 		}
-		contours, err := f.glyphContours(gid, 0)
+		contours, err := f.glyphContours(gid, 0, &glyphBudget{components: maxGlyphComponents, points: maxGlyphPoints})
 		if err != nil {
 			t.Fatalf("composite glyph %d: %v", gid, err)
 		}
@@ -94,6 +94,31 @@ func TestCompositeGlyph(t *testing.T) {
 		return // exercised one composite glyph; done
 	}
 	t.Skip("font contains no composite glyphs")
+}
+
+// TestCompositeBudgetAborts builds a composite glyph that references itself
+// three times per level (fan-out 3) and asserts the work budget aborts the
+// exponential expansion instead of running ~3^8 invocations (audit H4).
+func TestCompositeBudgetAborts(t *testing.T) {
+	g := []byte{0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0} // numberOfContours=-1 + bbox
+	for i := 0; i < 3; i++ {
+		flags := uint16(0x0002) // ARGS_ARE_XY_VALUES (byte args)
+		if i < 2 {
+			flags |= 0x0020 // MORE_COMPONENTS
+		}
+		g = append(g, byte(flags>>8), byte(flags), 0x00, 0x00, 0x00, 0x00) // flags, glyphIndex=0, args
+	}
+	f := &Font{
+		rawData:    g,
+		tables:     map[string]tableRec{"glyf": {offset: 0, length: uint32(len(g))}},
+		loca:       []uint32{0, uint32(len(g))},
+		unitsPerEm: 1000,
+		numGlyphs:  1,
+	}
+	_, err := f.glyphContours(0, 0, &glyphBudget{components: maxGlyphComponents, points: maxGlyphPoints})
+	if err == nil {
+		t.Fatal("expected a budget-exceeded error for a composite fan-out bomb, got nil")
+	}
 }
 
 // TestParseRejectsBadHeaders covers the loader's validation paths.
