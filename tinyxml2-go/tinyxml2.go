@@ -51,7 +51,7 @@ func Parse(data []byte) (*XMLDocument, error) {
 			// Skip
 		case xml.StartElement:
 			// Once we find the first element, we start parsing the tree.
-			root, err := parseElement(dec, v) // Pass the decoder and the first token.
+			root, err := parseElement(dec, v, 0) // Pass the decoder and the first token.
 			if err != nil {
 				return nil, err
 			}
@@ -123,6 +123,11 @@ func parseElementLimited(
 	depth int,
 	nodeCount *int,
 ) (*Node, error) {
+	// The absolute ceiling applies even when MaxNestingDepth is 0 (UnlimitedConfig),
+	// so "unlimited" can never reach a fatal stack overflow.
+	if depth > maxNestingDepth {
+		return nil, fmt.Errorf("XML nesting exceeds maximum depth %d", maxNestingDepth)
+	}
 	if config.MaxNestingDepth > 0 && depth > config.MaxNestingDepth {
 		return nil, ErrNestingTooDeep
 	}
@@ -181,7 +186,16 @@ func parseElementLimited(
 // func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) { ... }
 
 // parseElement recursively builds the tree.
-func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) {
+// maxNestingDepth is an absolute hard ceiling on recursion depth that applies
+// even to the unlimited Parse / UnlimitedConfig paths. Going far past it would
+// overflow the goroutine stack — a fatal error recover() cannot catch — so the
+// parser returns an error instead. It is well above any legitimate XML nesting.
+const maxNestingDepth = 10000
+
+func parseElement(dec *xml.Decoder, se xml.StartElement, depth int) (*Node, error) {
+	if depth > maxNestingDepth {
+		return nil, fmt.Errorf("XML nesting exceeds maximum depth %d", maxNestingDepth)
+	}
 	node := &Node{
 		Name:       se.Name.Local,
 		Attributes: make(map[string]string),
@@ -202,7 +216,7 @@ func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) {
 
 		switch v := tok.(type) {
 		case xml.StartElement:
-			child, err := parseElement(dec, v)
+			child, err := parseElement(dec, v, depth+1)
 			if err != nil {
 				return nil, err
 			}
@@ -254,33 +268,45 @@ func (n *Node) FindAll(name string) []*Node {
 	return results
 }
 
-// FindDeep recursively searches for the first node with the given name in the entire subtree.
+// FindDeep searches the entire subtree (pre-order) for the first node with the
+// given name. It uses an explicit stack rather than recursion so a deep tree
+// cannot overflow the goroutine stack.
 func (n *Node) FindDeep(name string) *Node {
 	if n == nil {
 		return nil
 	}
-	if n.Name == name {
-		return n
-	}
-	for _, child := range n.Children {
-		if found := child.FindDeep(name); found != nil {
-			return found
+	stack := []*Node{n}
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if cur.Name == name {
+			return cur
+		}
+		// Push children in reverse so they pop in document order (pre-order DFS).
+		for i := len(cur.Children) - 1; i >= 0; i-- {
+			stack = append(stack, cur.Children[i])
 		}
 	}
 	return nil
 }
 
-// FindAllDeep recursively searches for all nodes with the given name in the entire subtree.
+// FindAllDeep searches the entire subtree (pre-order) for all nodes with the
+// given name. It uses an explicit stack rather than recursion.
 func (n *Node) FindAllDeep(name string) []*Node {
 	if n == nil {
 		return nil
 	}
 	var results []*Node
-	if n.Name == name {
-		results = append(results, n)
-	}
-	for _, child := range n.Children {
-		results = append(results, child.FindAllDeep(name)...)
+	stack := []*Node{n}
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if cur.Name == name {
+			results = append(results, cur)
+		}
+		for i := len(cur.Children) - 1; i >= 0; i-- {
+			stack = append(stack, cur.Children[i])
+		}
 	}
 	return results
 }
