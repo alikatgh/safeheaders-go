@@ -64,25 +64,28 @@ func CreateArchive(files []FileEntry) ([]byte, error) {
 }
 
 // MaxDecompressedSize caps how many bytes ExtractArchive and DecompressData will
-// produce from a single stream, guarding against decompression bombs (a small
-// input that inflates to gigabytes). The default is 256 MiB. Set it to 0 to
-// disable the guard.
+// produce, guarding against decompression bombs (a small input that inflates to
+// gigabytes). For ExtractArchive the cap is on the ARCHIVE TOTAL across all
+// entries, not per entry. The default is 256 MiB. Set it to 0 to disable.
+//
+// It must be set before any concurrent decompression begins; it is read without
+// synchronization, so mutating it while a decompress is in flight is a data race.
 var MaxDecompressedSize int64 = 256 << 20
 
 // readAllLimited reads all of r, but errors instead of allocating without bound
-// once the output would exceed MaxDecompressedSize.
-func readAllLimited(r io.Reader) ([]byte, error) {
+// once the output would exceed limit. A limit <= 0 means unlimited.
+func readAllLimited(r io.Reader, limit int64) ([]byte, error) {
 	src := r
-	if MaxDecompressedSize > 0 {
+	if limit > 0 {
 		// +1 so we can distinguish "exactly at the limit" from "over it".
-		src = io.LimitReader(r, MaxDecompressedSize+1)
+		src = io.LimitReader(r, limit+1)
 	}
 	data, err := io.ReadAll(src)
 	if err != nil {
 		return nil, fmt.Errorf("read: %w", err)
 	}
-	if MaxDecompressedSize > 0 && int64(len(data)) > MaxDecompressedSize {
-		return nil, fmt.Errorf("decompressed size exceeds %d-byte limit (adjust MaxDecompressedSize)", MaxDecompressedSize)
+	if limit > 0 && int64(len(data)) > limit {
+		return nil, fmt.Errorf("decompressed size exceeds %d-byte limit (adjust MaxDecompressedSize)", limit)
 	}
 	return data, nil
 }
@@ -100,17 +103,28 @@ func ExtractArchive(data []byte) ([]ZipFile, error) {
 
 	files := make([]ZipFile, 0, len(r.File))
 
+	var total int64 // aggregate decompressed bytes across all entries
 	for _, f := range r.File {
+		// Bound each entry by the budget remaining for the whole archive, so a
+		// many-entry zip bomb can't blow past MaxDecompressedSize in aggregate.
+		var perEntryLimit int64
+		if MaxDecompressedSize > 0 {
+			if perEntryLimit = MaxDecompressedSize - total; perEntryLimit <= 0 {
+				return nil, fmt.Errorf("archive exceeds the %d-byte limit (adjust MaxDecompressedSize)", MaxDecompressedSize)
+			}
+		}
+
 		rc, err := f.Open()
 		if err != nil {
 			return nil, fmt.Errorf("failed to open file %s: %w", f.Name, err)
 		}
 
-		data, err := readAllLimited(rc)
+		data, err := readAllLimited(rc, perEntryLimit)
 		rc.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read file %s: %w", f.Name, err)
 		}
+		total += int64(len(data))
 
 		files = append(files, ZipFile{
 			Name: f.Name,
@@ -317,7 +331,7 @@ func DecompressData(data []byte) ([]byte, error) {
 	r := flate.NewReader(bytes.NewReader(data))
 	defer r.Close()
 
-	result, err := readAllLimited(r)
+	result, err := readAllLimited(r, MaxDecompressedSize)
 	if err != nil {
 		return nil, fmt.Errorf("decompression error: %w", err)
 	}
