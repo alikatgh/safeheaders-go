@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // topLevelStream builds n comma-separated top-level JSON objects. findSplitPoints
@@ -81,9 +82,31 @@ func TestParallelTokensMatchSerial(t *testing.T) {
 			t.Fatalf("n=%d: got %d tokens, want %d", n, len(got), len(want))
 		}
 		for i := range want {
-			if got[i].Type != want[i].Type || got[i].Start != want[i].Start || got[i].End != want[i].End {
+			if got[i].Type != want[i].Type || got[i].Start != want[i].Start || got[i].End != want[i].End ||
+				got[i].ParentIdx != want[i].ParentIdx || got[i].Size != want[i].Size {
 				t.Fatalf("n=%d token %d: got %+v, want %+v", n, i, got[i], want[i])
 			}
+		}
+	}
+}
+
+// TestParseParallelCancellationNoDeadlock guards against the under-buffered
+// results channel: canceling concurrently with a parse must never wedge the
+// worker pool. The watchdog fails fast if a call hangs.
+func TestParseParallelCancellationNoDeadlock(t *testing.T) {
+	data := topLevelStream(2000) // large enough to take the parallel path
+	for i := 0; i < 300; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			_, _ = ParseWithConfig(ctx, data, DefaultConfig())
+			close(done)
+		}()
+		cancel() // race the cancellation against worker startup/execution
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("ParseWithConfig deadlocked on cancellation (iteration %d)", i)
 		}
 	}
 }

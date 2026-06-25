@@ -48,7 +48,11 @@ func parseParallelWithConfig(ctx context.Context, json []byte, config *Config) (
 		maxTokensPerChunk = config.MaxTokens / numJobs
 	}
 
-	resultsCh := make(chan chunkResult, numJobs)
+	// Buffer for the worst case so no worker can block on send (and thus never
+	// reach wg.Done): every job produces one result (numJobs) and, on context
+	// cancellation, each worker may emit one extra cancel result (numWorkers).
+	// An under-sized buffer here deadlocks wg.Wait on mid-parse cancellation.
+	resultsCh := make(chan chunkResult, numJobs+numWorkers)
 	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
@@ -179,9 +183,19 @@ func mergeChunkResults(resultsCh <-chan chunkResult, numJobs, maxTokens int) ([]
 		return nil, ErrTooManyTokens
 	}
 
+	// Concatenate chunks in order, rebasing each token's ParentIdx (an index into
+	// the token array) by the number of tokens already appended. processChunk
+	// only rebased Start/End; without this, nested tokens in chunks after the
+	// first point into chunk-local index space and the parent graph is corrupt.
 	finalTokens := make([]Token, 0, totalTokens)
 	for _, r := range jobResults {
-		finalTokens = append(finalTokens, r.toks...)
+		base := len(finalTokens)
+		for _, tok := range r.toks {
+			if tok.ParentIdx != -1 {
+				tok.ParentIdx += base
+			}
+			finalTokens = append(finalTokens, tok)
+		}
 	}
 	return finalTokens, nil
 }
