@@ -60,7 +60,9 @@ func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 	return data, nil
 }
 
-// UnmarshalStream parses JSON from an io.Reader.
+// UnmarshalStream parses JSON from an io.Reader. It does not impose a size
+// limit, so for untrusted input callers MUST wrap r in an io.LimitReader (or
+// http.MaxBytesReader) to bound memory.
 func UnmarshalStream(r io.Reader, v interface{}) error {
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(v); err != nil {
@@ -78,13 +80,27 @@ func MarshalStream(w io.Writer, v interface{}) error {
 	return nil
 }
 
+// MaxArrayItems caps how many elements UnmarshalArrayParallel will process,
+// guarding against memory-amplification (a tiny "[0,0,0,...]" body declares
+// millions of elements, each eagerly committing slice/channel/map slots). The
+// default is 1,048,576. Set it to 0 to disable the cap.
+var MaxArrayItems = 1 << 20
+
 // UnmarshalArrayParallel deserializes JSON array items in parallel.
 // Useful for large arrays where each item can be processed independently.
+//
+// On a malformed item it returns a single error wrapping the first failure
+// observed by the worker pool; which item that is, is nondeterministic.
 func UnmarshalArrayParallel(data []byte) ([]map[string]interface{}, error) {
 	// First unmarshal to raw array
 	var rawArray []json.RawMessage
 	if err := json.Unmarshal(data, &rawArray); err != nil {
 		return nil, fmt.Errorf("failed to parse array: %w", err)
+	}
+
+	if MaxArrayItems > 0 && len(rawArray) > MaxArrayItems {
+		return nil, fmt.Errorf("array has %d items, exceeding the %d-item limit (adjust MaxArrayItems)",
+			len(rawArray), MaxArrayItems)
 	}
 
 	if len(rawArray) == 0 {
