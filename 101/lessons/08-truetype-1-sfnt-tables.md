@@ -9,19 +9,84 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- A `.ttf` file is not a single blob — it is a **named-table container** (called "sfnt"). Think of
-  it like a ZIP archive: there is a table of contents at the front, and each entry says where
-  to find a named chunk of data.
-- The table of contents is called the **sfnt table directory**. Each entry has a four-byte name
-  (e.g. `head`, `glyf`, `cmap`), a file offset, and a byte length.
-- A **bounds check** is the guard that makes sure an offset + length does not point outside the
-  file. Without it, a malicious or truncated file could cause a panic (slice-out-of-range) or
-  silent memory corruption.
-- `head` is the font's "ID card": units per em, loca format. `maxp` says how many glyphs exist.
-  `loca` is an index — it maps each glyph ID to its byte range inside the `glyf` table.
+- **sfnt container** = "a filing cabinet, not a single drawer." A `.ttf` file holds its data as a set of named tables, each located via an offset recorded in a front-of-file directory — exactly like a filing cabinet where a label on the front tells you which drawer each document lives in.
+- **sfnt table directory** = "the building's room-number sign by the lobby." Each entry gives a four-byte name (e.g. `head`, `glyf`, `cmap`), a byte offset, and a length — so the parser knows exactly where every room starts and how far it extends.
+- **bounds check** = "a bouncer who verifies you're not trying to walk into a wall." Before slicing `rawData`, `tableData` confirms that `offset + length` fits inside the actual file — without this check, a crafted entry pointing past the end of the file would cause a slice-out-of-range panic.
+- **`head` / `maxp` / `loca`** = "the library card, the shelf count, and the index." `head` is the font's identity card (units per em, `loca` format); `maxp` records how many glyphs exist; `loca` is a flat array that maps each glyph ID to its byte range inside the `glyf` table.
+- **`tableData` as single point of trust** = "one airport security gate instead of checks at every door." All four conditions — tag present, start non-negative, end &gt;= start, end within file — are enforced in this one function so every table parser can call it first and early-return without duplicating logic.
+
 - **Why it matters:** skipping a single bounds check on an untrusted font file is a remote
   panic. Every lookup in this rasterizer goes through one gated helper — `tableData` — so the
   check is written once and used everywhere.
+
+**See it — sfnt table directory layout and the tableData gate.**
+
+<svg viewBox="0 0 700 340" role="img" aria-labelledby="t08 d08" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t08">sfnt table directory and tableData bounds-check gate</title>
+  <desc id="d08">A block diagram showing how a .ttf file begins with a 12-byte header, followed by a table directory of 16-byte records. An arrow leads from the directory to the tableData function, which enforces four bounds-check conditions before returning a safe sub-slice of rawData.</desc>
+  <defs>
+    <marker id="l08-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-default-fg-color)"/>
+    </marker>
+  </defs>
+
+  <!-- .ttf file box -->
+  <rect x="20" y="20" width="200" height="300" rx="8" ry="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
+  <text x="120" y="14" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">
+    <tspan font-weight="600">.ttf file</tspan>
+  </text>
+
+  <!-- 12-byte header row -->
+  <rect x="30" y="30" width="180" height="36" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
+  <text x="120" y="52" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">12-byte header (version, numTables)</text>
+
+  <!-- dir record 1 -->
+  <rect x="30" y="76" width="180" height="34" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
+  <text x="120" y="97" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">"head"  offset  length</text>
+
+  <!-- dir record 2 -->
+  <rect x="30" y="118" width="180" height="34" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
+  <text x="120" y="139" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">"glyf"  offset  length</text>
+
+  <!-- dir record 3 -->
+  <rect x="30" y="160" width="180" height="34" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
+  <text x="120" y="181" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">"loca"  offset  length</text>
+
+  <!-- dots -->
+  <text x="120" y="215" font-size="14" text-anchor="middle" fill="var(--md-default-fg-color--light)">· · ·</text>
+
+  <!-- raw table data region -->
+  <rect x="30" y="228" width="180" height="78" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="120" y="265" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">rawData table bytes</text>
+  <text x="120" y="282" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light)">(head, glyf, loca, cmap…)</text>
+
+  <!-- Arrow from directory to tableData -->
+  <line x1="220" y1="140" x2="318" y2="140" stroke="var(--md-default-fg-color)" stroke-width="1.5" marker-end="url(#l08-arrow)"/>
+  <text x="268" y="132" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light)">tag lookup</text>
+
+  <!-- tableData box -->
+  <rect x="320" y="80" width="200" height="180" rx="8" ry="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
+  <text x="420" y="74" font-size="11" text-anchor="middle" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">tableData(tag)</text>
+
+  <text x="336" y="110" font-size="10" fill="var(--md-default-fg-color)">① tag in directory?</text>
+  <text x="336" y="132" font-size="10" fill="var(--md-default-fg-color)">② start ≥ 0 ?</text>
+  <text x="336" y="154" font-size="10" fill="var(--md-default-fg-color)">③ end ≥ start ?</text>
+  <text x="336" y="176" font-size="10" fill="var(--md-default-fg-color)">④ end ≤ len(rawData) ?</text>
+
+  <line x1="420" y1="197" x2="420" y2="220" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="420" y="240" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color)">all pass</text>
+
+  <!-- OK output -->
+  <rect x="360" y="248" width="120" height="30" rx="4" ry="4" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="420" y="268" font-size="11" text-anchor="middle" fill="#fff">[]byte sub-slice, true</text>
+
+  <!-- Fail path -->
+  <line x1="520" y1="140" x2="580" y2="140" stroke="#e5484d" stroke-width="1.5" marker-end="url(#l08-arrow)"/>
+  <text x="550" y="132" font-size="10" text-anchor="middle" fill="#e5484d">any fail</text>
+  <rect x="582" y="118" width="96" height="44" rx="4" ry="4" fill="#e5484d" stroke="none"/>
+  <text x="630" y="138" font-size="11" text-anchor="middle" fill="#fff">nil, false</text>
+  <text x="630" y="154" font-size="10" text-anchor="middle" fill="#fff">(no panic)</text>
+</svg>
 
 ---
 

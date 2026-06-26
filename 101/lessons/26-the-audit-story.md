@@ -13,25 +13,101 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **"10 parallel reviewers"** — ten independent AI agents each focused on
-  one module, the same way a code-review team splits a large PR. They can
-  find things in parallel, but each one misses context the others have.
-- **"Adversarial verifier"** — a separate agent whose only job is to *doubt*
-  each finding and try to reproduce it with a real test. If it cannot
-  reproduce the bug, the finding is downgraded. Think of it as a referee.
-- **"25 confirmed findings"** — every item in the report was reproduced
-  concretely before being written down. Zero verified false positives.
-- **"Severity buckets"** — High means "exploitable with a tiny crafted input
-  from a public API"; Medium means "real bug but harder to trigger or lower
-  impact"; Low and Info are hardening notes.
-- **"All fixed in the same week"** — the audit was run on 2026-06-23; every
-  fix landed with a regression test in the same branch.
+- **"10 parallel reviewers"** = "ten detectives, each assigned one room of the house — they can search simultaneously, but no one sees what the others found until the debrief." Ten independent agents each focused on one module ran concurrently, surfacing bugs in parallel while remaining unaware of each other's findings.
+- **"Adversarial verifier"** = "a skeptical referee who only marks a goal valid after watching the replay in slow motion." A separate agent whose sole job was to doubt each candidate finding and reproduce it with a real failing test — if it could not write the proof, the finding was downgraded.
+- **"25 confirmed findings"** = "25 receipts, not rumors — every line item was backed by a concrete reproduction before it was written down." Every entry in the audit report was verified concretely, resulting in zero false positives across all 25 bugs.
+- **"Severity buckets"** = "a triage tag on each patient at the ER — High means go now, Medium means soon, Low means schedule a follow-up." High severity means exploitable with a small crafted input from a public API; Medium means real but harder to trigger; Low and Info are hardening notes.
+- **"All fixed in the same week"** = "the diagnosis and the surgery happened before the patient left the building." The audit ran on 2026-06-23 and every fix landed with a regression test in the same branch, closing the gap between finding and remedy to days.
 
 **Why it matters:** the bugs the audit found are not exotic. Deadlocks from
 under-buffered channels, data races on a shared global, decompression bombs
 from a missing aggregate cap — these are the *canonical* Go pitfalls, and
 they can survive months of local testing before a structured review catches
 them.
+
+**See it — two-phase audit: 10 finders then 1 adversarial verifier.**
+
+<svg viewBox="0 0 700 260" role="img" aria-labelledby="t26 d26" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t26">Two-phase audit: 10 parallel finders feed one adversarial verifier</title>
+  <desc id="d26">Ten module reviewer boxes on the left send candidate findings to a central adversarial verifier box, which outputs confirmed bugs (25) and a single uncertain finding (U1).</desc>
+  <defs>
+    <marker id="l26-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+  </defs>
+
+  <!-- Phase 1 label -->
+  <text x="110" y="22" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,currentColor)">Phase 1 — 10 Parallel Finders</text>
+
+  <!-- 10 module reviewer boxes (2 columns of 5) -->
+  <!-- Left column -->
+  <rect x="10" y="32" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="55" y="49" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">jsmn-go</text>
+
+  <rect x="10" y="66" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="55" y="83" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">stb-image-go</text>
+
+  <rect x="10" y="100" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="55" y="117" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">linenoise-go</text>
+
+  <rect x="10" y="134" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="55" y="151" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">stb-truetype-go</text>
+
+  <rect x="10" y="168" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="55" y="185" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">miniz-go</text>
+
+  <!-- Right column -->
+  <rect x="115" y="32" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="160" y="49" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">tinyxml2-go</text>
+
+  <rect x="115" y="66" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="160" y="83" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">cgltf-go</text>
+
+  <rect x="115" y="100" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="160" y="117" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">dr-wav-go</text>
+
+  <rect x="115" y="134" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="160" y="151" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">module-9</text>
+
+  <rect x="115" y="168" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
+  <text x="160" y="185" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">module-10</text>
+
+  <!-- Arrows from all 10 finders to verifier -->
+  <line x1="100" y1="45" x2="280" y2="120" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="100" y1="79" x2="280" y2="122" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="100" y1="113" x2="280" y2="128" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="100" y1="147" x2="280" y2="134" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="100" y1="181" x2="280" y2="140" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="205" y1="45" x2="280" y2="118" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="205" y1="79" x2="280" y2="124" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="205" y1="113" x2="280" y2="128" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="205" y1="147" x2="280" y2="134" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+  <line x1="205" y1="181" x2="280" y2="140" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
+
+  <!-- "26 candidates" label on the arrows -->
+  <text x="242" y="98" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">26 candidates</text>
+
+  <!-- Phase 2 — Verifier box -->
+  <rect x="280" y="100" width="140" height="60" rx="7" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="350" y="124" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Adversarial</text>
+  <text x="350" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Verifier</text>
+  <text x="350" y="155" text-anchor="middle" font-size="10" fill="#fff">(reproduce or reject)</text>
+
+  <!-- Output: confirmed bugs -->
+  <line x1="420" y1="120" x2="520" y2="90" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l26-arrow)"/>
+  <rect x="522" y="68" width="158" height="44" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="601" y="88" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">25 Confirmed Bugs</text>
+  <text x="601" y="104" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">0 false positives</text>
+
+  <!-- Output: uncertain -->
+  <line x1="420" y1="140" x2="520" y2="170" stroke="#e5484d" stroke-width="1.5" marker-end="url(#l26-arrow)"/>
+  <rect x="522" y="149" width="158" height="36" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="601" y="168" text-anchor="middle" font-size="11" font-weight="600" fill="#e5484d">U1 — Uncertain</text>
+  <text x="601" y="180" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">(not reproducible)</text>
+
+  <!-- Phase 2 label -->
+  <text x="350" y="176" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,currentColor)">Phase 2 — Verify</text>
+</svg>
 
 ---
 

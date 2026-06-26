@@ -11,27 +11,12 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **cmap is the font's phone book.** You look up a character (say `'A'`) and
-  get back a small integer called a *glyph ID*. The book has several editions
-  (formats 0, 4, 6, 12); the rasterizer picks the best available one.
-- **loca is the index, glyf is the data.** `loca[gid]` and `loca[gid+1]` are
-  byte offsets into the `glyf` table - like a table-of-contents pointing at each
-  chapter.
-- **A simple glyph is a stack of rubber-band loops.** Each loop (contour) is a
-  list of points. Some points sit *on* the curve; the others are *off*-curve
-  control handles for quadratic Bezier arcs. Two consecutive off-curve points
-  imply a hidden on-curve midpoint between them.
-- **Coordinates are stored as deltas, not absolutes.** Each coordinate value is
-  the *difference* from the previous one. This compresses well but means you must
-  accumulate a running sum while decoding.
-- **A composite glyph is a collage.** It says "take glyph 42, shift it right by
-  120 units; take glyph 17, scale it down and overlay" - handy for accented
-  letters. But if composites reference other composites without a limit, the call
-  tree explodes exponentially (a "billion laughs" attack).
-- **glyphBudget is the safety net.** A shared counter caps both the total number
-  of component invocations and the total number of contour points produced across
-  the whole recursive expansion. See [Lesson 19](19-recursion-and-billion-laughs.md) for the
-  full threat model.
+- **cmap** = "a phone book that has four different editions." You hand it a character (say `'A'`) and it returns a small integer called a *glyph ID*; the rasterizer scores all available editions (formats 0, 4, 6, 12) and uses the best one.
+- **loca / glyf** = "a table of contents paired with the actual chapters." `loca[gid]` and `loca[gid+1]` are byte offsets that bracket the exact raw outline bytes of one glyph inside the `glyf` table.
+- **contour** = "a rubber-band loop stretched over a peg-board." Each loop is a list of points; on-curve points sit on the outline, off-curve points are quadratic Bézier control handles, and two consecutive off-curve points imply a hidden on-curve midpoint exactly halfway between them.
+- **delta-encoded coordinates** = "a road-trip odometer that only records how far you drove each leg, not where you are." Every x and y value is the signed difference from the previous point, so the decoder must accumulate a running sum to recover absolute positions.
+- **composite glyph** = "a cut-and-paste collage of simpler shapes." It lists component glyph IDs with per-component offsets and transforms, letting accented letters reuse base glyphs — but composites can reference other composites, making the call tree grow exponentially if unchecked.
+- **glyphBudget** = "a shared fuel tank for the whole recursive trip." A single struct with two counters — `components` (max 4096 invocations) and `points` (max ~1 M) — is decremented at every level of the recursion and returns an error the moment either counter goes negative. See [Lesson 19](19-recursion-and-billion-laughs.md) for the full threat model.
 
 **Why it matters:** without these bounds, a single maliciously crafted `.ttf`
 file can freeze or crash any program that renders text - including your own.

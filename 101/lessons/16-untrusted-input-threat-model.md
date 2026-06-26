@@ -14,27 +14,79 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **"Untrusted input"** means any bytes whose sender you cannot fully control:
-  a file upload, a network response, a message from another service, a file
-  sitting in a shared directory.
-- **Parsing is high-risk work.** A parser reads structured bytes and turns them
-  into in-memory objects. Every allocation, every recursion, every loop
-  iteration is driven by values inside those bytes.
-- **Go gives you memory safety for free** — you cannot scribble past an array
-  bound or corrupt a pointer the way C can. Buffer overflows, use-after-free,
-  and arbitrary-code-execution are largely off the table.
-- **But DoS is still very much on the table.** An attacker who cannot run code
-  can still crash your service or freeze it for minutes by crafting input that
-  forces enormous allocations, infinite-looking loops, or a stack that fills up.
-- **The four families to learn:** OOM (out-of-memory), CPU exhaustion, stack
-  overflow, and bomb attacks (decompression bombs, decode bombs). Each family
-  has a different defence.
-- **Multiplying the problem:** parallel batch APIs amplify memory use linearly
-  with the worker count. A 4-CPU machine processes four images at once, so a
-  4 MB decode bomb becomes a 16 MB allocation storm.
+- **Untrusted input** = "a letter from a stranger — you open it, but you don't let it set your house on fire." Any bytes whose sender you cannot fully control (file uploads, network responses, messages from other services) must be treated as potentially hostile before your parser touches them.
+- **Parsing is high-risk work** = "the teller who counts the cash hands the thief exactly as much money as the thief wrote on the slip." A parser executes allocations, recursions, and loops driven by values inside those bytes — the attacker writes the slip.
+- **Go gives you memory safety for free** = "the vault has unbreakable walls, but the door is still open." Buffer overflows, use-after-free, and arbitrary-code-execution are largely off the table in Go — the runtime enforces bounds — but nothing stops a parser from obeying an attacker-controlled size field.
+- **DoS is still very much on the table** = "you can't pick the lock, but you can clog the keyhole with cement." An attacker who cannot run code can still crash a service or freeze it for minutes by crafting input that forces enormous allocations, infinite-looking loops, or a stack that fills up.
+- **The four families** = "four ways to exhaust a machine without breaking in." OOM (out-of-memory), CPU exhaustion, stack overflow, and bomb attacks (decompression bombs, decode bombs) each attack a different resource and each requires its own specific defence in this codebase.
+- **Multiplying the problem** = "if one fire hose floods the basement, eight fire hoses flood it eight times faster." Parallel batch APIs amplify memory use linearly with the worker count — a 4 MB decode bomb processed on 4 CPUs simultaneously becomes a 16 MB allocation storm.
 
 **Why it matters:** a single malformed upload with no exploit code can take
 down a production service; the fix is a single integer check at the right place.
+
+**See it — four DoS families and the three-layer defence in SafeHeaders-Go.**
+
+<svg viewBox="0 0 700 370" role="img" aria-labelledby="t16 d16" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t16">Four DoS threat families and three-layer defence</title>
+  <desc id="d16">Left column: four threat boxes (OOM, CPU exhaustion, stack overflow, bomb attacks) each pointing right. Centre column: three defence layers (pre-parse gate, during-parse budget, aggregate cap). Right column: context timeout as the last line of defence.</desc>
+  <defs>
+    <marker id="l16-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+  </defs>
+  <!-- Threat family boxes -->
+  <rect x="20" y="30" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="100" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">OOM</text>
+  <text x="100" y="64" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Inflated size field</text>
+
+  <rect x="20" y="94" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="100" y="112" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">CPU exhaustion</text>
+  <text x="100" y="128" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Unbounded loop / tokens</text>
+
+  <rect x="20" y="158" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="100" y="176" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">Stack overflow</text>
+  <text x="100" y="192" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Deep nesting / composites</text>
+
+  <rect x="20" y="222" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="100" y="240" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">Bomb attacks</text>
+  <text x="100" y="256" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Decomp / decode bombs</text>
+
+  <!-- Arrows threat -> defence -->
+  <line x1="180" y1="52" x2="258" y2="100" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
+  <line x1="180" y1="116" x2="258" y2="148" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
+  <line x1="180" y1="180" x2="258" y2="180" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
+  <line x1="180" y1="244" x2="258" y2="214" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
+
+  <!-- Defence layer boxes -->
+  <rect x="262" y="78" width="176" height="44" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="350" y="96" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Pre-parse gate</text>
+  <text x="350" y="112" text-anchor="middle" font-size="10" fill="#fff">Check size before any work</text>
+
+  <rect x="262" y="156" width="176" height="44" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="350" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">During-parse budget</text>
+  <text x="350" y="190" text-anchor="middle" font-size="10" fill="#fff">Tokens, depth, pixels, nodes</text>
+
+  <rect x="262" y="234" width="176" height="44" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="350" y="252" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Aggregate cap</text>
+  <text x="350" y="268" text-anchor="middle" font-size="10" fill="#fff">Archive total, not per-entry</text>
+
+  <!-- Arrow defence -> timeout -->
+  <line x1="438" y1="174" x2="510" y2="174" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
+
+  <!-- Last-resort box -->
+  <rect x="514" y="130" width="166" height="88" rx="6" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="597" y="158" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Context timeout</text>
+  <text x="597" y="176" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Last line of defence —</text>
+  <text x="597" y="192" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">application layer</text>
+
+  <!-- Section labels -->
+  <text x="100" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">Threats</text>
+  <text x="350" y="64" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">Defence layers</text>
+  <text x="597" y="118" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">Safety net</text>
+
+  <!-- Parallel amplification note -->
+  <text x="350" y="316" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Parallel workers multiply memory pressure — budget per item × worker count.</text>
+</svg>
 
 ---
 

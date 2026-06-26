@@ -10,26 +10,12 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Two cooks, one shopping list.** A data race happens when two goroutines
-  read and write the same memory at the same time without taking turns. Like
-  two cooks both scribbling on the same notepad — the result is illegible.
-- **"Undefined behavior" is not a polite way of saying "probably fine."**
-  In Go, a race means the compiler and runtime can produce *any* outcome: torn
-  writes, stale reads, silent data loss, or a crash. The program may even appear
-  to work most of the time and fail only under load.
-- **The `-race` detector is a referee.** Compile with `-race` and Go instruments
-  every memory access; if two goroutines touch the same variable without
-  synchronization, you get a clear `WARNING: DATA RACE` report pointing to the
-  exact lines.
-- **A `sync.Mutex` is a token.** Only the goroutine holding the token may touch
-  the protected data. All others wait at `Lock()` until it is returned via
-  `Unlock()`.
-- **Snapshot-under-lock** is a pattern: take the lock, copy what you need into
-  a local variable, release the lock, then do slow work (like file I/O) on the
-  copy. This keeps critical sections short.
-- **Global convenience functions hide shared state.** A package-level singleton
-  that multiple callers use concurrently is a race waiting to happen — and the
-  callers have no idea.
+- **Data race** = "two chefs writing on the same order ticket at the same time." Two goroutines read and write the same memory simultaneously without taking turns, so the result is incoherent — exactly as in this lesson's `defaultState.history` slice.
+- **Undefined behavior** = "the rulebook just says 'anything can happen.'" In Go, a race is not a polite warning; the compiler and runtime are free to produce torn writes, stale reads, silent data loss, or a crash — and the bug in `linenoise-go` could corrupt the slice header itself.
+- **`-race` detector** = "a referee who watches every move and blows the whistle the instant two players grab the same ball." Compiling with `-race` instruments every memory access; the moment two goroutines touch `s.history` without synchronization it prints `WARNING: DATA RACE` with exact file and line numbers.
+- **`sync.Mutex`** = "a single room key: only the guest holding it may enter." Only the goroutine that called `s.mu.Lock()` may read or write `s.history`; every other goroutine waits outside until `Unlock()` hands the key back.
+- **Snapshot-under-lock** = "photocopy the document quickly, then read your copy at leisure." Lock, copy the needed data into a local variable, unlock, then do slow work — like file I/O in `SaveHistory` — on the copy, so no other goroutine is blocked waiting for the disk.
+- **Global convenience functions** = "a shared whiteboard that nobody labels as shared." Package-level helpers like `AddHistory` all write the same `defaultState` singleton; callers see a simple function call and have no idea they are competing with every other goroutine in the process.
 
 **Why it matters:** A data race on a `[]string` history slice can corrupt the
 slice header itself — length, capacity, pointer — turning a safe append into a

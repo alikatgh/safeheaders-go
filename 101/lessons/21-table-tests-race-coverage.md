@@ -12,24 +12,66 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **`func TestXxx(t *testing.T)`** is the entry point Go's test runner looks for. Any
-  exported function starting with `Test` in a `_test.go` file gets run automatically by
-  `go test`.
-- **Table-driven tests** are just a slice of structs, one per scenario, looped over.
-  Instead of copy-pasting the same assertion ten times, you describe the inputs and
-  expected outputs as data, then drive them through one shared block of code.
-- **`t.Run("name", func(t *testing.T) {...})`** creates a named subtest. Each subtest
-  gets its own pass/fail verdict and can be run in isolation with `-run TestFoo/name`.
-- **`t.Helper()`** marks a function as a test helper so that, when it fails, the error
-  points to the *caller*, not to the internals of your helper — makes output readable.
-- **`t.TempDir()`** gives you an OS temp directory that is automatically removed when
-  the test finishes. No manual cleanup, no leftover files on CI.
-- **`go test -race`** instruments every memory access and reports data races at runtime.
-  It cannot prove the absence of races, but it catches the ones that actually occur.
+- **`func TestXxx(t *testing.T)`** = "a door labelled 'Test' that Go automatically opens — no sign-up sheet required." Any exported function whose name starts with `Test` in a `_test.go` file is discovered and run by `go test` without any registration step.
+- **Table-driven tests** = "a spreadsheet of scenarios fed through a single recipe." Instead of copy-pasting one assertion block per case, you declare inputs and expected outputs as a slice of structs and drive them all through one shared loop — adding a new case is one struct literal.
+- **`t.Run("name", func(t *testing.T) {...})`** = "a labelled lane in a race, each judged independently." Each subtest gets its own pass/fail verdict and can be targeted directly from the command line with `-run TestFoo/name`.
+- **`t.Helper()`** = "a stagehand who steps aside so the spotlight hits the actor, not the crew." It marks a function as infrastructure so that, when an assertion fails inside it, the error message points to the *caller's* line, not to the helper's internals.
+- **`t.TempDir()`** = "a hotel room that housekeeping auto-cleans the moment you check out." It creates an OS temp directory that is removed automatically when the test ends — no manual cleanup, no files left behind on CI.
+- **`go test -race`** = "a sensor that trips an alarm the instant two workers grab the same tool at once." It instruments every memory access and reports actual concurrent conflicts at runtime; it cannot prove races absent, but it catches every race that occurs during the test run.
 
 **Why it matters:** a data race is undefined behaviour — it silently corrupts state in
 production but only crashes your program occasionally. The race detector turns "sometimes
 wrong" into "always caught in CI".
+
+**See it — table-driven subtests flowing into the race detector.**
+
+<svg viewBox="0 0 700 310" role="img" aria-labelledby="t21 d21" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t21">Table-driven subtests and the race detector</title>
+  <desc id="d21">A block diagram showing a slice of test structs fanning out into parallel t.Run subtests, each instrumented by go test -race, producing a single pass/fail result.</desc>
+  <defs>
+    <marker id="l21-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-default-fg-color--light)"/>
+    </marker>
+  </defs>
+  <!-- Table (slice of structs) -->
+  <rect x="20" y="100" width="160" height="110" rx="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
+  <text x="100" y="122" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">[]struct{ … }</text>
+  <rect x="32" y="132" width="136" height="20" rx="4" fill="var(--md-accent-fg-color,#00897b)" opacity="0.15" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1"/>
+  <text x="100" y="146" text-anchor="middle" font-size="11" fill="currentColor">{"insert printable", 'X', …}</text>
+  <rect x="32" y="157" width="136" height="20" rx="4" fill="var(--md-accent-fg-color,#00897b)" opacity="0.15" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1"/>
+  <text x="100" y="171" text-anchor="middle" font-size="11" fill="currentColor">{"backspace", '\x7f', …}</text>
+  <rect x="32" y="182" width="136" height="20" rx="4" fill="var(--md-accent-fg-color,#00897b)" opacity="0.15" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1"/>
+  <text x="100" y="196" text-anchor="middle" font-size="11" fill="currentColor">{"ctrl-a home", '\x01', …}</text>
+  <!-- Arrow: table -> loop -->
+  <line x1="180" y1="155" x2="232" y2="155" stroke="var(--md-default-fg-color--light)" stroke-width="1.5" marker-end="url(#l21-arrow)"/>
+  <!-- for loop box -->
+  <rect x="234" y="120" width="120" height="70" rx="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
+  <text x="294" y="148" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">for _, tt :=</text>
+  <text x="294" y="165" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">range tests</text>
+  <text x="294" y="182" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">one loop, N cases</text>
+  <!-- Arrow: loop -> t.Run -->
+  <line x1="354" y1="155" x2="406" y2="155" stroke="var(--md-default-fg-color--light)" stroke-width="1.5" marker-end="url(#l21-arrow)"/>
+  <!-- t.Run subtests -->
+  <rect x="408" y="60" width="130" height="30" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="473" y="80" text-anchor="middle" font-size="11" fill="currentColor">t.Run("insert printable")</text>
+  <rect x="408" y="103" width="130" height="30" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="473" y="123" text-anchor="middle" font-size="11" fill="currentColor">t.Run("backspace")</text>
+  <rect x="408" y="146" width="130" height="30" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="473" y="166" text-anchor="middle" font-size="11" fill="currentColor">t.Run("ctrl-a home")</text>
+  <rect x="408" y="189" width="130" height="30" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="473" y="209" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">… 6 more …</text>
+  <!-- fan-out lines from loop to subtests -->
+  <line x1="354" y1="155" x2="406" y2="75" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
+  <line x1="354" y1="155" x2="406" y2="118" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
+  <line x1="354" y1="155" x2="406" y2="161" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
+  <line x1="354" y1="155" x2="406" y2="204" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
+  <!-- race detector badge -->
+  <rect x="408" y="240" width="130" height="34" rx="6" fill="#e5484d" opacity="0.12" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="473" y="258" text-anchor="middle" font-size="11" font-weight="600" fill="#e5484d">go test -race</text>
+  <text x="473" y="270" text-anchor="middle" font-size="10" fill="#e5484d">instruments every access</text>
+  <!-- label above table -->
+  <text x="100" y="90" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">test table</text>
+</svg>
 
 ---
 

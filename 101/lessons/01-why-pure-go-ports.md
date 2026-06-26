@@ -12,28 +12,79 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **"Single-header C library"** — a whole parser or codec living in one `.h` file
-  you drop into a C project. They are fast and widely used, but they live in C's
-  memory model: you manage every allocation, and one bad index is a buffer overflow.
-- **"Pure Go"** — the reimplementation is written entirely in Go, using only the
-  standard library. No `import "C"`, no platform-specific compiler flags, no shared
-  object to bundle. `go build` produces a static binary on any platform.
-- **"Memory safety by default"** — Go's runtime bounds-checks every slice access and
-  manages heap lifetimes through garbage collection. The category of bugs that cause
-  the most CVEs in C parsers (out-of-bounds reads/writes, use-after-free) cannot
-  exist in this code by construction.
-- **"No CGO"** — CGO bridges Go and C at runtime. It works, but it breaks
-  cross-compilation (`GOOS=linux GOARCH=arm64` from a Mac), complicates static
-  linking, and reintroduces the C memory model at the boundary. Dropping CGO means
-  `go build` just works everywhere.
-- **"Concurrency built in"** — Go's goroutines and channels are a first-class part
-  of the language. Adding a parallel parsing path is a natural extension, not an
-  afterthought tacked on with pthreads.
+- **Single-header C library** = "a complete tool packed into one envelope — handy to carry, but if the blade slips, it cuts your hand." A parser or codec living entirely in one `.h` file is convenient to drop into a project, but it runs inside C's memory model where a single bad index causes a buffer overflow.
+- **Pure Go** = "the same tool re-forged in a material that blunts itself before it can cut you." The reimplementation is written entirely in Go using only the standard library — no `import "C"`, no platform compiler flags, no shared object to bundle — so `go build` produces a self-contained static binary on any platform.
+- **Memory safety by default** = "a guardrail bolted to every floor of the building, not a warning sign at the bottom of the stairs." Go's runtime bounds-checks every slice access and manages heap lifetimes through garbage collection, so the out-of-bounds reads, writes, and use-after-free bugs that generate the most C-parser CVEs cannot exist in this code by construction.
+- **No CGO** = "removing the bridge between two cities so you never have to worry about it collapsing mid-crossing." CGO bridges Go and C at runtime; dropping it means cross-compilation (`GOOS=linux GOARCH=arm64` from a Mac) works without a C toolchain, static linking stays truly static, and the C memory model is never reintroduced at the boundary.
+- **Concurrency built in** = "the building was designed with multiple staircases — adding a new path is fitting a door, not demolishing a wall." Go's goroutines and channels are first-class language features, so a parallel parsing path like `ParseParallel` is a natural extension, not an afterthought bolted on with pthreads.
 
 **Why it matters:** the libraries this project replaces are correct and fast, but
 they are one malformed input away from a process crash in production. SafeHeaders-Go
 gives you the same parsing capability with a safety net you do not have to build
 yourself.
+
+**See it — C library via CGO vs. pure-Go port: what changes and what stays.**
+
+<svg viewBox="0 0 700 310" role="img" aria-labelledby="l01-t l01-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="l01-t">C single-header library via CGO versus pure-Go port</title>
+  <desc id="l01-d">Two columns showing the CGO path on the left (Go service calls CGO bridge, CGO bridge calls C library, risks include segfault, no cross-compile, C memory model) and the pure-Go path on the right (Go service calls Go module directly, gains include memory safety, static binary, cross-compile anywhere), with a dividing line and labels in between.</desc>
+  <defs>
+    <marker id="l01-arr" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-default-fg-color--light)"/>
+    </marker>
+    <marker id="l01-arr-accent" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+  </defs>
+
+  <!-- Column headers -->
+  <text x="175" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">CGO path</text>
+  <text x="525" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">Pure-Go port</text>
+
+  <!-- Divider -->
+  <line x1="350" y1="35" x2="350" y2="295" stroke="var(--md-default-fg-color--lightest)" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <!-- LEFT SIDE: CGO path -->
+  <!-- Go service box -->
+  <rect x="60" y="44" width="140" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="130" y="69" text-anchor="middle" font-size="12" fill="currentColor">Go service</text>
+
+  <!-- Arrow down to CGO bridge -->
+  <line x1="130" y1="84" x2="130" y2="116" stroke="var(--md-default-fg-color--light)" stroke-width="1.4" marker-end="url(#l01-arr)"/>
+
+  <!-- CGO bridge box -->
+  <rect x="60" y="118" width="140" height="40" rx="6" fill="none" stroke="#e5484d" stroke-width="1.4"/>
+  <text x="130" y="143" text-anchor="middle" font-size="12" fill="#e5484d">CGO bridge</text>
+
+  <!-- Arrow down to C library -->
+  <line x1="130" y1="158" x2="130" y2="190" stroke="var(--md-default-fg-color--light)" stroke-width="1.4" marker-end="url(#l01-arr)"/>
+
+  <!-- C library box -->
+  <rect x="60" y="192" width="140" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="130" y="217" text-anchor="middle" font-size="12" fill="currentColor">C library (.h)</text>
+
+  <!-- Risk labels -->
+  <text x="130" y="254" text-anchor="middle" font-size="10" fill="#e5484d">segfault kills process</text>
+  <text x="130" y="269" text-anchor="middle" font-size="10" fill="#e5484d">no cross-compile</text>
+  <text x="130" y="284" text-anchor="middle" font-size="10" fill="#e5484d">C memory model at boundary</text>
+
+  <!-- RIGHT SIDE: Pure-Go path -->
+  <!-- Go service box -->
+  <rect x="500" y="44" width="140" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="570" y="69" text-anchor="middle" font-size="12" fill="currentColor">Go service</text>
+
+  <!-- Arrow down to Go module (accent colour) -->
+  <line x1="570" y1="84" x2="570" y2="153" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l01-arr-accent)"/>
+
+  <!-- Go module box (accent border) -->
+  <rect x="500" y="155" width="140" height="40" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
+  <text x="570" y="180" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)">Go module (pure)</text>
+
+  <!-- Gain labels -->
+  <text x="570" y="218" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">memory-safe by construction</text>
+  <text x="570" y="233" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">static binary, go build anywhere</text>
+  <text x="570" y="248" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">race detector &amp; fuzzer see all code</text>
+</svg>
 
 ---
 

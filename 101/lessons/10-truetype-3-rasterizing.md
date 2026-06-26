@@ -13,24 +13,11 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Font units vs pixels.** Glyphs are drawn in an abstract grid — maybe 2048
-  units tall. Your screen thinks in pixels. "Rendering at 16 px" means: multiply
-  every coordinate by `16 / 2048 ≈ 0.0078`. That fraction is called `scale`.
-- **On-curve and off-curve points.** A TrueType contour is not a list of line
-  endpoints; most points are *off-curve* control handles that pull the outline
-  into a curve (quadratic Bézier). "Flattening" means sampling enough points
-  along each curve to approximate it with a thin polygon.
-- **Scanline fill.** Once you have a polygon, find where each horizontal row
-  of pixels crosses the polygon's edges. Everything between a matching pair of
-  crossings is "inside" and gets painted.
-- **Nonzero winding.** When two contours overlap (like the counters of a letter
-  "P"), you need a rule to decide which regions are solid. The nonzero winding
-  rule tracks a running counter: crossing a left-to-right edge increments it,
-  right-to-left decrements it. Any pixel where the counter is nonzero is inside.
-- **Supersampling (4×).** Instead of asking "is the center of this pixel inside
-  the glyph?" we ask the question 16 times per pixel (4 sub-rows × 4 sub-columns)
-  and average the answers. That averaging is the anti-aliasing — diagonal edges
-  come out grey rather than jagged.
+- **Font units vs pixels** = "a blueprint drawn in centimetres, then shrunk to fit a stamp." Glyph coordinates live in an abstract grid (e.g. 2048 units tall); `scale = size / unitsPerEm` is the single multiplier that converts every coordinate into real screen pixels before anything is drawn.
+- **On-curve and off-curve points** = "a kite string held by anchor pegs, pulled sideways by invisible handles." On-curve points are the solid corners; off-curve points are the control handles that bow the outline into a quadratic Bézier curve. Flattening samples each Bézier at 10 evenly-spaced `t` values and replaces the curve with a chain of straight segments.
+- **Scanline fill** = "dragging a horizontal ruler across the shape and painting between every pair of edge-hits." For each supersampled row `sy`, `scanlineCrossings` finds where the polygon edges cross `y = sy + 0.5`, sorts those x positions, and `accumulateSpans` increments the coverage counter for every sub-pixel between a matched pair.
+- **Nonzero winding** = "counting which way the fences cross the road: right-going adds one, left-going subtracts one — you're inside if the total isn't zero." The `winding` counter in `accumulateSpans` handles overlapping contours (like the counter of "P") correctly: only spans where `winding ≠ 0` are filled.
+- **Supersampling (4×)** = "asking the question sixteen times per tile and averaging the votes." Each output pixel maps to a 4 × 4 block of sub-pixels (`ssaa = 4`); the coverage count — how many of the 16 sub-pixels land inside a nonzero-winding span — is divided by 16 to produce a natural anti-aliasing weight with no extra math.
 
 **Why it matters:** Every `<canvas>` rendering call, every PDF word, every
 terminal glyph goes through exactly these steps. Knowing them helps you predict

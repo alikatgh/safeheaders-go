@@ -12,21 +12,11 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **A bomb is a ratio trick.** A 42-byte ZIP file can expand to 4.5 GB of
-  zeros. A 50 KB PNG can declare dimensions of 65535 × 65535 = 4.3 billion
-  pixels. The file is small; the allocation is enormous.
-- **Headers lie cheaply.** Most binary formats have a short header that says
-  "I am this big." Reading the header costs almost nothing. Trusting it
-  without a sanity check costs you the machine.
-- **Decoding is the expensive step.** `image.Decode` (or `zip.Open`) actually
-  allocates the memory the header claims. The guard has to fire *before* that
-  call, not after.
-- **Per-entry limits are not enough for ZIP.** A ZIP bomb with 1 000 entries,
-  each just under your per-entry cap, still exhausts RAM. You need an
-  *aggregate* budget across all entries.
-- **`io.LimitReader` is the one-liner fix.** Wrap any reader in
-  `io.LimitReader(r, budget+1)` and the Go stdlib does the rest — it returns
-  `io.EOF` at the limit instead of reading forever.
+- **A bomb is a ratio trick** = "a postcard that claims to unfold into a skyscraper." A 42-byte ZIP or a 50 KB PNG header can declare gigabytes of output; the file is tiny, but trusting its declared size drives the allocator off a cliff.
+- **Headers lie cheaply** = "a contractor who quotes a price before measuring the job." Binary formats store width, height, or uncompressed size in a short header read in microseconds — trusting that number without a sanity check hands the attacker control of your RAM.
+- **Decoding is the expensive step** = "the moment the contractor actually buys all the materials." `image.Decode` and `zip.Open` allocate the memory the header claims; the guard in this lesson must fire *before* those calls, not after, or the damage is already done.
+- **Per-entry limits are not enough for ZIP** = "a bouncer who checks each guest's bag but never counts how many guests are inside." A ZIP bomb with 1 000 entries, each one byte under the per-entry cap, passes every individual check yet exhausts RAM; only an *aggregate* `total` accumulator across all entries stops it.
+- **`io.LimitReader` is the one-liner fix** = "a measuring cup with a fill line — anything over the line simply stops flowing." Wrap any reader in `io.LimitReader(r, budget+1)` and the Go stdlib stops the read at the budget, returning `io.EOF` instead of allocating forever.
 
 **Why it matters:** a single malicious upload can take down a service that
 processes files without these guards; with them, the worst outcome is a

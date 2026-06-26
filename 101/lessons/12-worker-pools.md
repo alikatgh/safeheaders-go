@@ -7,22 +7,12 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Fan-out** is giving the same pile of work to several workers at once, like
-  a dispatcher handing envelopes to a team of couriers simultaneously instead
-  of sending one courier and waiting for them to come back.
-- **Fan-in** is collecting whatever each worker produces into a single stream,
-  like all couriers dropping their receipts into one inbox when they return.
-- A **jobs channel** is the inbox on the dispatcher's desk — workers pull jobs
-  from it when they are free.
-- A **results channel** is the inbox on your desk — workers drop answers into
-  it as soon as they finish.
-- A **`sync.WaitGroup`** is the foreman's tally sheet — each worker signs in
-  (`wg.Add(1)`) and signs out (`wg.Done()`), so the foreman knows the
-  exact moment all workers are done and closes the results inbox.
-- **Ordering** is the tricky part: workers finish in whatever order they feel
-  like, but the caller usually wants results in the same order as the input.
-  Tagging each job with its original index, and writing results into a
-  pre-allocated slice by that index, is the standard fix.
+- **Fan-out** = "one dispatcher, many couriers — all running at once." The same pile of WAV or glTF chunks is handed to a fixed pool of goroutines simultaneously rather than processed one at a time, so every CPU core stays busy.
+- **Fan-in** = "all couriers drop their receipts into one shared inbox." Every worker sends its parsed result onto `resultCh`; the main goroutine drains that single channel to collect everything.
+- **Jobs channel** = "the dispatcher's conveyor belt." Workers pull from `dataChan` / `jobCh` whenever they are free; the channel delivers work at whatever pace each worker can consume.
+- **Results channel** = "the inbox on your desk, pre-sized so nobody waits." `resultCh` is buffered to the number of inputs so any worker can drop its answer in immediately without blocking on the receiver.
+- **`sync.WaitGroup`** = "a foreman's sign-in sheet." Each goroutine calls `wg.Add(1)` when it starts and `wg.Done()` when it finishes; `wg.Wait()` in a separate goroutine fires `close(resultCh)` the instant the last worker signs out.
+- **Ordering** = "numbered luggage tags." Because workers finish in arbitrary order, each job carries its original slice index; results are written to `results[res.index]` so the output matches the input sequence regardless of which worker finished first.
 
 **Why it matters:** parsing audio files, 3D models, or ZIP entries one at a
 time leaves most CPU cores idle; a worker pool can saturate all cores while

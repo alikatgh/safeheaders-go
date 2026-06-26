@@ -13,27 +13,114 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- A **unit test** checks one specific input against one specific expected
-  output you wrote by hand. It only finds bugs you already anticipated.
-- A **property test** (also called a **round-trip test**) checks that a
-  *relationship* holds for many inputs: *"compress then decompress gives back
-  the original"* or *"parallel parse gives the same tokens as serial parse."*
-  You don't write the expected output — the property is the expectation.
-- Think of it like a translation and back-translation check: if you translate
-  a sentence to French and back to English and it changes, something went wrong
-  in one of the two steps. You don't need to know which step failed to detect
-  the bug.
-- **Parallel correctness** is especially hard to unit-test: the parallel path
-  splits work across goroutines, reassembles results, and rebases indices. A
-  unit test with one hand-crafted JSON string won't exercise the rebase logic.
-  A property test that compares with the serial path will.
-- The stronger the property the better: `compress → decompress == identity` is
-  stronger than checking that the compressed bytes are a valid zip, because a
-  double-compressed archive *is* a valid zip — it just can't be read back.
+- **Unit test** = "a recipe card with one exact answer written on the back." You check your dish against that answer — but if you made a mistake the recipe never anticipated, you'll never know.
+- **Property test** = "a self-checking round trip: send a letter, get it back, and confirm the words didn't change." You don't need the expected output written down — the rule *compress → decompress == original* is the expectation, so any input that breaks it is a bug.
+- **Round-trip identity** = "translate a sentence to French and back: if the English comes out different, one of the two steps is wrong." `CreateArchiveConcurrent` then `ExtractArchive` must return the exact original bytes; any divergence — like double-compressed content — fails the check immediately.
+- **Parallel correctness** = "two cashiers counting the same pile of coins separately — they must agree to the penny." The parallel JSON path splits input across goroutines and rebases indices; comparing its full token slice (including `ParentIdx`) against the serial path is the only reliable way to confirm they agree.
+- **`ParentIdx` rebase** = "a page number written in a chapter's local numbering that must be converted to the book's global page numbers before binding." After merging chunk results in `mergeChunkResults`, each `ParentIdx` is shifted by `base` (the count of tokens already appended) so it points to the correct position in the global token array.
+- **Stronger property** = "checking that the sealed envelope looks fine vs. opening it and reading the letter inside." Verifying a ZIP parses without error is weak — double-compressed archives pass that check. Verifying `ExtractArchive` returns the original bytes is strong enough to catch the real bug.
 
 **Why it matters:** one real bug in this repo produced archives that were valid
 ZIPs but could not be extracted back to the original content. A round-trip test
 would have caught it immediately; the hand-written unit tests did not.
+
+**See it — compress → extract round-trip vs. double-compression.**
+
+<svg viewBox="0 0 700 240" role="img" aria-labelledby="t23 d23" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t23">Round-trip property test: compress then extract must equal the original</title>
+  <desc id="d23">Two rows. Top row (green path): original bytes → compressEntry (DEFLATE #1) → CreateRaw → ExtractArchive → original bytes restored, labelled PASS. Bottom row (red path): original bytes → compressEntry (DEFLATE #1) → Create (DEFLATE #2 applied) → ExtractArchive → compressed bytes returned, labelled FAIL.</desc>
+  <defs>
+    <marker id="l23-arr" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L8,3.5 L0,7 Z" fill="var(--md-default-fg-color--light)"/>
+    </marker>
+    <marker id="l23-arr-ok" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L8,3.5 L0,7 Z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+    <marker id="l23-arr-bad" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L8,3.5 L0,7 Z" fill="#e5484d"/>
+    </marker>
+  </defs>
+
+  <!-- Row labels -->
+  <text x="10" y="75" font-size="11" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">PASS</text>
+  <text x="10" y="175" font-size="11" fill="#e5484d" font-weight="600">FAIL</text>
+
+  <!-- ── TOP ROW (correct path) ── -->
+  <!-- Box: original bytes -->
+  <rect x="50" y="50" width="90" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
+  <text x="95" y="68" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">original</text>
+  <text x="95" y="83" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">bytes</text>
+
+  <!-- Arrow -->
+  <line x1="140" y1="71" x2="163" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
+
+  <!-- Box: compressEntry -->
+  <rect x="165" y="50" width="110" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
+  <text x="220" y="68" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">compressEntry</text>
+  <text x="220" y="83" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">(DEFLATE #1)</text>
+
+  <!-- Arrow -->
+  <line x1="275" y1="71" x2="298" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
+
+  <!-- Box: CreateRaw -->
+  <rect x="300" y="50" width="90" height="42" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4"/>
+  <text x="345" y="68" font-size="11" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">CreateRaw</text>
+  <text x="345" y="83" font-size="11" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">(no re-compress)</text>
+
+  <!-- Arrow -->
+  <line x1="390" y1="71" x2="413" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
+
+  <!-- Box: ExtractArchive -->
+  <rect x="415" y="50" width="100" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
+  <text x="465" y="68" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">ExtractArchive</text>
+  <text x="465" y="83" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">→ original ✓</text>
+
+  <!-- Arrow -->
+  <line x1="515" y1="71" x2="538" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
+
+  <!-- Result: PASS -->
+  <rect x="540" y="50" width="70" height="42" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="575" y="68" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">bytes.Equal</text>
+  <text x="575" y="84" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">== true</text>
+
+  <!-- ── BOTTOM ROW (buggy path) ── -->
+  <!-- Box: original bytes -->
+  <rect x="50" y="150" width="90" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
+  <text x="95" y="168" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">original</text>
+  <text x="95" y="183" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">bytes</text>
+
+  <!-- Arrow -->
+  <line x1="140" y1="171" x2="163" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
+
+  <!-- Box: compressEntry -->
+  <rect x="165" y="150" width="110" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
+  <text x="220" y="168" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">compressEntry</text>
+  <text x="220" y="183" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">(DEFLATE #1)</text>
+
+  <!-- Arrow -->
+  <line x1="275" y1="171" x2="298" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
+
+  <!-- Box: Create (BUG) -->
+  <rect x="300" y="150" width="90" height="42" rx="6" fill="none" stroke="#e5484d" stroke-width="1.4"/>
+  <text x="345" y="168" font-size="11" text-anchor="middle" fill="#e5484d">Create</text>
+  <text x="345" y="183" font-size="11" text-anchor="middle" fill="#e5484d">+DEFLATE #2</text>
+
+  <!-- Arrow -->
+  <line x1="390" y1="171" x2="413" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
+
+  <!-- Box: ExtractArchive -->
+  <rect x="415" y="150" width="100" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
+  <text x="465" y="168" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">ExtractArchive</text>
+  <text x="465" y="183" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">→ garbled ✗</text>
+
+  <!-- Arrow -->
+  <line x1="515" y1="171" x2="538" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
+
+  <!-- Result: FAIL -->
+  <rect x="540" y="150" width="70" height="42" rx="6" fill="#e5484d"/>
+  <text x="575" y="168" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">bytes.Equal</text>
+  <text x="575" y="184" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">== false</text>
+</svg>
 
 ---
 

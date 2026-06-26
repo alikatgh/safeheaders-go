@@ -13,20 +13,12 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Recursion** is when a function calls itself. Parsing a tree naturally looks
-  like this: "to parse a node, parse each of its children — which are also nodes."
-- **The call stack** is a fixed-size chunk of memory the OS gives each goroutine.
-  Every function call pushes a frame onto it. Nest deep enough and you fall off the
-  edge.
-- **A stack overflow is fatal.** Go prints a trace and kills the process. Unlike
-  a panic, a `runtime.Stack` overflow cannot be caught with `recover()`. There is
-  no way to handle it after the fact — you must prevent it.
-- **Billion-laughs** is a name for a class of amplification attack first seen in
-  XML entity expansion. In font land: a composite glyph that references K child
-  glyphs, each of which references K more, 8 levels deep, produces K^8 work from
-  a file that is only a few KB.
-- **A budget counter is the right guard.** A depth ceiling stops linear blowup;
-  a shared budget counter stops exponential fan-out even when the depth is legal.
+- **Recursion** = "to open a Russian nesting doll, first open the one inside it." Every function call to `parseElement` opens another doll; the parser cannot return until every child is fully resolved.
+- **The call stack** = "a stack of cafeteria trays with a fixed ceiling." Each function call adds a tray; once the stack touches the ceiling, the whole structure crashes — and no one can catch it on the way down.
+- **A stack overflow is fatal** = "the fire alarm that cuts the power." Unlike a normal panic, a goroutine stack overflow is handled by the Go runtime before `recover()` ever runs, so the process is already dead — the only defence is the depth ceiling in `parseElement`.
+- **Billion-laughs** = "a chain letter that tells every reader to send copies to ten friends." A composite glyph references K children, each referencing K more; 8 levels in, a few-KB file triggers K^8 rasterizer invocations.
+- **A depth ceiling** = "a bouncer counting floors — turn around at floor 8." `maxNestingDepth` in `tinyxml2-go` and the `depth > 8` check in `glyphContours` stop linear chains before they overflow the stack.
+- **A budget counter (`glyphBudget`)** = "a shared taxi meter for the whole trip." The depth ceiling alone allows a legal-depth tree with K=1000 children per level; `glyphBudget.components` is decremented by every recursive call across the entire expansion tree, so the meter runs out long before K^8 work is done.
 
 **Why it matters:** both attacks are triggered by a single call to your parser with
 a crafted input file. They require no authentication, no network, no memory

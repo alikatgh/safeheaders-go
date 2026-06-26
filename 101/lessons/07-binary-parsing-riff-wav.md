@@ -12,25 +12,12 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **A WAV file is a Lego stack of labelled boxes.** The outermost box is called
-  RIFF; inside it there is a WAVE box, then a `fmt ` box (audio metadata), and a
-  `data` box (the raw sound bytes). Each box has a 4-byte name tag followed by a
-  4-byte size.
-- **Little-endian means the small end comes first.** On most desks a pile of
-  money goes big-bill-first; WAV files are the opposite — the least-significant
-  byte of a number sits at the lowest address. `encoding/binary.LittleEndian`
-  handles the byte-swapping for you.
-- **`binary.Read` is like `fmt.Sscanf` but for raw bytes.** Pass it a reader, a
-  byte order, and a pointer to any fixed-size Go value; it advances the read
-  position by exactly `sizeof(value)` bytes.
-- **Size fields in file formats are just numbers — any number.** A crafted file
-  can claim its data chunk is 4 GB even if the file is 100 bytes. Believing that
-  number and calling `make([]byte, 4<<30)` crashes the process.
-- **Seek, don't allocate, to skip unknown sections.** `r.Seek(n, io.SeekCurrent)`
-  moves the cursor without touching memory.
-- **Validate after parse, not during.** The parser accepts the bytes; a separate
-  `ValidateWAV` function checks semantic rules (channels != 0, known bit depth,
-  PCM format code).
+- **RIFF/WAV chunk layout** = "a set of shipping boxes stacked inside a bigger shipping box — each box has a label tag on the outside and a size stamp, so you know exactly how far to reach before the next box starts." The outermost RIFF box holds a WAVE stamp, a `fmt ` metadata box, and a `data` box; the parser walks them left to right by reading the 4-byte tag and the 4-byte size before touching the payload.
+- **Little-endian byte order** = "reading a price tag that lists cents before dollars — the least-significant digit comes first." WAV files store every multi-byte integer with the least-significant byte at the lowest address; `encoding/binary.LittleEndian` reverses the bytes into the normal Go value so you never do that arithmetic by hand.
+- **`binary.Read`** = "a tape measure that advances itself — each time you call it, it reads exactly as many bytes as the target type needs and moves the cursor forward by that amount." Pass it a `bytes.Reader`, `binary.LittleEndian`, and a pointer to a Go integer or struct field; it fills the value and leaves the reader positioned right after those bytes, with no manual offset tracking.
+- **Untrusted size field as OOM vector** = "a forged hotel booking that claims 4 000 rooms are reserved — blindly honouring it collapses the building." A crafted WAV can set the `data` chunk size to 4 GB in four bytes; calling `make([]byte, subchunkSize)` on that number crashes the process, so `readDataChunk` caps `allocSize` to `r.Len()`, the bytes actually present.
+- **Seek to skip** = "fast-forwarding a tape instead of listening to the part you don't need." `r.Seek(int64(subchunk1Size-16), io.SeekCurrent)` jumps over extra `fmt ` bytes or unknown subchunks without allocating a buffer, so an oversized size field wastes no memory even before the cap check fires.
+- **Separate parse from validate (`ValidateWAV`)** = "a customs officer who first checks whether a package is sealed correctly, then hands it to an inspector who checks whether the contents are legal." `Parse` accepts any byte layout that is structurally sound; `ValidateWAV` enforces semantic rules like `NumChannels != 0`, `AudioFormat == 1`, and a supported `BitsPerSample`, keeping each concern in one place.
 
 **Why it matters:** audio processing pipelines ingest user-supplied WAV files.
 A single malformed header field can turn "decode this file" into "allocate all

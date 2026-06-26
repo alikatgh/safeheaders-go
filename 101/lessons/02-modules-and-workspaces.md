@@ -11,25 +11,94 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- A **package** is a folder of `.go` files that share a `package` declaration.
-  Think of it as one chapter in a book — self-contained but part of a larger work.
-- A **module** is a directory tree with a `go.mod` at its root. It is the unit
-  you version, publish, and depend on. One `go.mod` = one module, which may
-  contain many packages.
-- A **workspace** (`go.work`) is a local override that says "when building any of
-  these modules, prefer the local source tree instead of downloading from the
-  internet." Nothing gets published — it's purely a developer convenience.
-- **Replace directives** serve a similar role inside a single `go.mod`: they
-  redirect an import path to a local directory. Examples use them so they compile
-  without a workspace.
-- **`GOWORK=off`** disables the workspace for a single command, making Go behave
-  exactly as it would for a downstream user who has only that one module checked
-  out.
+- **Package** = "one chapter in a book — it has its own title and content, but belongs to a larger volume." A package is a folder of `.go` files that all share the same `package` declaration; it is the smallest unit you can import.
+- **Module** = "the sealed box the chapter ships in, with a label showing the version." A module is a directory tree rooted by `go.mod`, and it is the unit Go versions, publishes, and downloads; one `go.mod` can contain many packages.
+- **Workspace (`go.work`)** = "a sticky note on your desk that says 'use my local draft, not the printed copy.'" It tells the Go toolchain to resolve module imports from the local source tree instead of fetching published tags — purely a local developer convenience, nothing published.
+- **Replace directive** = "a forwarding address inside a single package slip." Inside one `go.mod`, a `replace` line redirects an import path to a local directory, so example programs compile against local source without needing a workspace.
+- **`GOWORK=off`** = "pulling out the sticky note so a colleague sees exactly what a real customer sees." It disables workspace mode for one command, making the build behave exactly as a downstream user's build would — only the `replace` directives in that module's own `go.mod` apply.
+- **`MODULES` variable** = "the single guest list for the party — change it once and every room gets the updated headcount." The Makefile's `MODULES` variable is the canonical registry of all nine modules; every looping target (test, lint, fuzz) reads it automatically.
 
 **Why it matters:** SafeHeaders-Go is nine separate modules that must be
 developed together. Without a workspace, every cross-module change would require
 publishing a new version tag before the next module could depend on it — a
 workflow that collapses under rapid iteration.
+
+**See it — how `go.work` wires nine local modules into one workspace.**
+
+<svg viewBox="0 0 700 340" role="img" aria-labelledby="t02 d02" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t02">Workspace wiring diagram</title>
+  <desc id="d02">go.work at the repo root has nine "use" lines, one per module directory. Each module directory contains a go.mod that declares its own module path. An arrow from go.work points to each module box, labelled "use ./name". A separate examples box sits outside the workspace, connected by a dashed arrow labelled "GOWORK=off + replace".</desc>
+  <defs>
+    <marker id="l02-arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+    <marker id="l02-arr-dash" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-default-fg-color--light,#888)"/>
+    </marker>
+  </defs>
+
+  <!-- go.work box -->
+  <rect x="20" y="130" width="120" height="50" rx="8" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="80" y="151" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">go.work</text>
+  <text x="80" y="169" text-anchor="middle" font-size="10" fill="#fff">repo root</text>
+
+  <!-- Module boxes (3 rows × 3 cols) -->
+  <!-- Row 1 -->
+  <rect id="l02-m1" x="210" y="20" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="270" y="45" text-anchor="middle" font-size="11" fill="currentColor">cgltf-go/go.mod</text>
+
+  <rect id="l02-m2" x="360" y="20" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="420" y="45" text-anchor="middle" font-size="11" fill="currentColor">cjson-go/go.mod</text>
+
+  <rect id="l02-m3" x="510" y="20" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="570" y="45" text-anchor="middle" font-size="11" fill="currentColor">dr-wav-go/go.mod</text>
+
+  <!-- Row 2 -->
+  <rect id="l02-m4" x="210" y="130" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="270" y="155" text-anchor="middle" font-size="11" fill="currentColor">jsmn-go/go.mod</text>
+
+  <rect id="l02-m5" x="360" y="130" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="420" y="155" text-anchor="middle" font-size="11" fill="currentColor">linenoise-go/go.mod</text>
+
+  <rect id="l02-m6" x="510" y="130" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="570" y="155" text-anchor="middle" font-size="11" fill="currentColor">miniz-go/go.mod</text>
+
+  <!-- Row 3 -->
+  <rect id="l02-m7" x="210" y="240" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="270" y="265" text-anchor="middle" font-size="11" fill="currentColor">stb-image-go/go.mod</text>
+
+  <rect id="l02-m8" x="360" y="240" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="420" y="265" text-anchor="middle" font-size="11" fill="currentColor">stb-truetype-go/go.mod</text>
+
+  <rect id="l02-m9" x="510" y="240" width="120" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.5"/>
+  <text x="570" y="265" text-anchor="middle" font-size="11" fill="currentColor">tinyxml2-go/go.mod</text>
+
+  <!-- Arrows: go.work -> each module -->
+  <!-- Row 1 -->
+  <line x1="140" y1="145" x2="208" y2="40" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <line x1="140" y1="150" x2="358" y2="40" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <line x1="140" y1="155" x2="508" y2="40" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <!-- Row 2 -->
+  <line x1="140" y1="155" x2="208" y2="150" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <line x1="140" y1="155" x2="358" y2="150" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <line x1="140" y1="155" x2="508" y2="150" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <!-- Row 3 -->
+  <line x1="140" y1="160" x2="208" y2="260" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <line x1="140" y1="160" x2="358" y2="260" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+  <line x1="140" y1="160" x2="508" y2="260" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l02-arr)"/>
+
+  <!-- "use ./…" label on middle row arrow -->
+  <text x="177" y="147" text-anchor="middle" font-size="9" fill="var(--md-accent-fg-color,#00897b)">use ./…</text>
+
+  <!-- examples box — outside workspace, below -->
+  <rect id="l02-ex" x="210" y="305" width="200" height="30" rx="6" fill="none" stroke="var(--md-default-fg-color--lightest,#bbb)" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="310" y="325" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light,#888)">examples/ (outside workspace)</text>
+
+  <!-- dashed arrow from go.work to examples -->
+  <line x1="80" y1="180" x2="209" y2="318" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#l02-arr-dash)"/>
+  <text x="120" y="225" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#888)">GOWORK=off</text>
+  <text x="120" y="237" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#888)">+ replace</text>
+</svg>
 
 ---
 

@@ -12,25 +12,64 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **gofmt** is the code formatter. It's not optional in Go — the community
-  agreed on one style, and the tool enforces it. Think of it as autocorrect
-  for indentation and braces.
-- **go vet** is a static analyser built into the Go toolchain. It catches
-  mistakes the compiler allows but that are almost certainly bugs —
-  mismatched printf verbs, unreachable code, composite literal fields in the
-  wrong order.
-- **golangci-lint** is a meta-linter: it runs many analysers in one pass and
-  understands Go modules. Think of it as a code reviewer who never sleeps and
-  never forgets a rule.
-- **A config file** (`.golangci.yml`) is the contract between the team and the
-  linter. Without it each developer gets different warnings; with it everyone
-  gets the same set.
-- **A Makefile** is a menu of recipes. `make lint` is easier to remember than
-  the five-flag command it expands to, and it's the same command CI runs.
+- **gofmt** = "the one spell-checker the whole office agreed to use." Go's community settled on a single layout; `gofmt` rewrites your source to match it automatically, so code review is never about tabs versus spaces.
+- **go vet** = "a second pair of eyes that reads the code after it compiles." It finds mistakes the compiler allows but that are almost certainly bugs — mismatched `printf` verbs, copied `sync.Mutex` values, unreachable code.
+- **golangci-lint** = "a panel of specialist reviewers who all file their notes in one report." It runs dozens of analysers in a single pass, understanding Go modules, and produces one consolidated list of findings.
+- **`.golangci.yml`** = "the written rulebook the whole team signs." Without it, every developer's local lint run produces different warnings; with it, every run — local or CI — checks the exact same set of rules.
+- **The `MODULES` variable** = "the master guest list for every party." Adding a new module to that one line in the Makefile automatically includes it in every target — `lint`, `vet`, `test`, `fuzz` — with no copy-paste drift.
+- **A Makefile target** = "a shortcut button on the microwave." `make lint` is easier to remember and type than the multi-flag `golangci-lint run` command it expands to, and it is literally the same command CI calls.
 
 **Why it matters:** a linter caught the unused-variable that led to the silent
 int-overflow; vet caught the race-prone global before the `-race` test exposed
 it at runtime. Tools find bugs before users do.
+
+**See it — three-layer quality toolbelt: fmt → vet → lint in sequence.**
+
+<svg viewBox="0 0 700 220" role="img" aria-labelledby="t24 d24" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t24">Go quality toolbelt: gofmt, go vet, golangci-lint</title>
+  <desc id="d24">Three boxes in sequence — gofmt (format), go vet (static analysis), golangci-lint (meta-linter) — connected by arrows, all driven by a Makefile target above them. A final arrow leads to a CI pass checkmark.</desc>
+  <defs>
+    <marker id="l24-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L8,3.5 L0,7 Z" fill="var(--md-default-fg-color,#333)"/>
+    </marker>
+  </defs>
+
+  <!-- Makefile label at top -->
+  <rect x="240" y="12" width="220" height="32" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2" stroke-dasharray="5,3"/>
+  <text x="350" y="32" text-anchor="middle" font-size="12" fill="var(--md-default-fg-color,#333)">Makefile: make all / make ci</text>
+
+  <!-- Downward connector from Makefile to row -->
+  <line x1="350" y1="44" x2="350" y2="68" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2" marker-end="url(#l24-arrow)"/>
+
+  <!-- Box 1: gofmt -->
+  <rect x="40" y="74" width="150" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
+  <text x="115" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">gofmt</text>
+  <text x="115" y="118" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Rewrites layout.</text>
+  <text x="115" y="132" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Idempotent.</text>
+
+  <!-- Arrow gofmt → vet -->
+  <line x1="191" y1="110" x2="268" y2="110" stroke="var(--md-default-fg-color,#333)" stroke-width="1.4" marker-end="url(#l24-arrow)"/>
+
+  <!-- Box 2: go vet -->
+  <rect x="270" y="74" width="160" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
+  <text x="350" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">go vet</text>
+  <text x="350" y="118" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Catches compiler-legal</text>
+  <text x="350" y="132" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">but wrong code.</text>
+
+  <!-- Arrow vet → golangci-lint -->
+  <line x1="431" y1="110" x2="508" y2="110" stroke="var(--md-default-fg-color,#333)" stroke-width="1.4" marker-end="url(#l24-arrow)"/>
+
+  <!-- Box 3: golangci-lint -->
+  <rect x="510" y="74" width="160" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
+  <text x="590" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">golangci-lint</text>
+  <text x="590" y="118" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Many analysers,</text>
+  <text x="590" y="132" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">one config file.</text>
+
+  <!-- Arrow all → CI pass -->
+  <line x1="590" y1="147" x2="590" y2="172" stroke="var(--md-default-fg-color,#333)" stroke-width="1.4" marker-end="url(#l24-arrow)"/>
+  <rect x="510" y="174" width="160" height="32" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="590" y="194" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">CI pass</text>
+</svg>
 
 ---
 

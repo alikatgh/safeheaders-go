@@ -12,23 +12,77 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **A parser is like a gate at a venue.** Without a Config, the gate lets everyone
-  in regardless of crowd size. With a Config, you set a fire-code limit up front,
-  and the gate refuses entry once the limit is hit.
-- **`DefaultConfig` is the sensible house rule.** It works for most callers
-  without them having to think about limits at all.
-- **`StrictConfig` is the bouncer at a high-security event.** Lower caps,
-  same shape — drop it in when input comes from the internet or an untrusted file.
-- **`UnlimitedConfig` is the override switch.** It exists so you can opt out
-  explicitly in code, not by accident. The comment "use with caution" is
-  intentional.
-- **Sentinel errors (`ErrInputTooLarge`, `ErrTooManyTokens`) are named
-  smoke alarms.** They let callers `errors.Is()` on the exact failure reason
-  instead of parsing an error string.
+- **`Config` struct** = "a thermostat panel installed before the boiler ever turns on." It is a plain Go struct whose exported `int` fields declare exactly how much work the parser is allowed to do — set once, enforced on every call.
+- **`DefaultConfig`** = "the factory setting that ships with the appliance." It works for most callers (100 MB, 1 M tokens) without requiring them to think about limits at all; they just call the function and get safe behaviour.
+- **`StrictConfig`** = "the tamper-proof lock a landlord installs on the thermostat." Lower caps (10 MB, 100 K tokens) in the same shape — drop it in whenever input arrives from the internet or an untrusted file and you don't want a caller accidentally raising the ceiling.
+- **`UnlimitedConfig`** = "the master-key override that lives in the facilities closet." It sets every limit to `0` so the `MaxInputSize > 0` guard is skipped entirely; opting out of limits is a conscious, named act in source code, never an accident.
+- **`Validate()` vs `validateInput()`** = "the pre-flight checklist vs the boarding-gate scanner." `Validate()` runs at construction and rejects bad Config values (negative limits are programming errors); `validateInput()` runs per call and rejects oversized payloads at runtime.
+- **Sentinel errors (`ErrInputTooLarge`, `ErrTooManyTokens`)** = "a labelled circuit breaker instead of a melted fuse." Because they are package-level `errors.New` values, callers use `errors.Is()` to match the exact failure reason and map it to an HTTP status — no string parsing required.
 
 **Why it matters:** A library that is unsafe by default will eventually be called
 with default settings on untrusted data — and that is how OOM crashes and
 denial-of-service bugs happen in production.
+
+**See it — the three preset constructors and the two-stage validation gate.**
+
+<svg viewBox="0 0 700 370" role="img" aria-labelledby="t20 d20" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t20">Configurable-limits pattern: three preset constructors feed into ParseWithConfig, which runs Validate then validateInput before doing any parsing work.</title>
+  <desc id="d20">Three boxes on the left represent DefaultConfig, StrictConfig, and UnlimitedConfig. Arrows lead right into a ParseWithConfig box. Inside that box two sequential steps are shown: Validate() checks the Config, then validateInput() checks the payload. A final arrow exits right labelled "parse / return tokens".</desc>
+  <defs>
+    <marker id="l20-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-default-fg-color--light)"/>
+    </marker>
+    <marker id="l20-arrow-accent" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+  </defs>
+
+  <!-- Preset constructor boxes -->
+  <rect x="20" y="40" width="150" height="44" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="95" y="58" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">DefaultConfig()</text>
+  <text x="95" y="75" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">100 MB · 1 M tokens</text>
+
+  <rect x="20" y="158" width="150" height="44" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="95" y="176" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">StrictConfig()</text>
+  <text x="95" y="193" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">10 MB · 100 K tokens</text>
+
+  <rect x="20" y="278" width="150" height="44" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="95" y="296" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">UnlimitedConfig()</text>
+  <text x="95" y="313" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">0 · 0 (skip checks)</text>
+
+  <!-- Arrows from presets to ParseWithConfig -->
+  <line x1="170" y1="62" x2="248" y2="155" stroke="var(--md-default-fg-color--light)" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
+  <line x1="170" y1="180" x2="248" y2="180" stroke="var(--md-default-fg-color--light)" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
+  <line x1="170" y1="300" x2="248" y2="205" stroke="var(--md-default-fg-color--light)" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
+
+  <!-- ParseWithConfig outer box -->
+  <rect x="252" y="100" width="310" height="160" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
+  <text x="407" y="122" text-anchor="middle" font-size="13" fill="var(--md-accent-fg-color,#00897b)" font-weight="700">ParseWithConfig</text>
+
+  <!-- Step 1: Validate() -->
+  <rect x="272" y="134" width="130" height="38" rx="5" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="337" y="149" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">1 · Validate()</text>
+  <text x="337" y="164" text-anchor="middle" font-size="9" fill="#fff">Config fields ≥ 0?</text>
+
+  <!-- Arrow between steps -->
+  <line x1="402" y1="153" x2="422" y2="153" stroke="var(--md-default-fg-color--light)" stroke-width="1.2" marker-end="url(#l20-arrow)"/>
+
+  <!-- Step 2: validateInput() -->
+  <rect x="424" y="134" width="122" height="38" rx="5" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="485" y="149" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">2 · validateInput()</text>
+  <text x="485" y="164" text-anchor="middle" font-size="9" fill="#fff">payload within limit?</text>
+
+  <!-- Error exit downward from step 2 -->
+  <line x1="485" y1="172" x2="485" y2="222" stroke="#e5484d" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
+  <rect x="430" y="224" width="130" height="32" rx="5" fill="none" stroke="#e5484d" stroke-width="1.3"/>
+  <text x="495" y="238" text-anchor="middle" font-size="10" fill="#e5484d" font-weight="600">ErrInputTooLarge</text>
+  <text x="495" y="250" text-anchor="middle" font-size="9" fill="#e5484d">ErrTooManyTokens …</text>
+
+  <!-- Arrow out to parse work -->
+  <line x1="562" y1="153" x2="630" y2="153" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l20-arrow-accent)"/>
+  <text x="638" y="148" text-anchor="start" font-size="11" fill="currentColor">parse</text>
+  <text x="638" y="161" text-anchor="start" font-size="11" fill="currentColor">tokens</text>
+</svg>
 
 ---
 

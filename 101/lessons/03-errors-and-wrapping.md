@@ -11,24 +11,61 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Error as a value** — in Go an error is just an interface with one method: `Error() string`.
-  A function that can fail returns `(result, error)` as its last two values. There are no
-  exceptions, no try/catch.
-- **Sentinel error** — a package-level variable (`var ErrFoo = errors.New("...")`) that acts
-  as a named signal. Callers compare against it with `errors.Is` rather than reading its text.
-  Think of it like an HTTP status code: `404` means "not found" regardless of the body text.
-- **Wrapping** — `fmt.Errorf("context: %w", err)` attaches a parent message while keeping the
-  original error reachable. It is like a chain of "cause" links in a log entry.
-- **`errors.Is`** — walks the whole chain looking for an exact match. Use it to test "did
-  *any* step in the call fail with ErrFoo?".
-- **`errors.As`** — same walk, but extracts a value whose concrete type matches. Use it when
-  you need fields from a custom error struct.
-- **Bare return vs wrap** — return bare errors from low-level helpers; wrap at the layer that
-  adds context a caller would actually want to read.
+- **Error as a value** = "a sticky note passed back from a function that says what went wrong." In Go, a function that can fail returns `(result, error)` as its last two values — there are no exceptions, no try/catch, just a plain interface with one method: `Error() string`.
+- **Sentinel error** = "a named exit sign — callers recognise the sign, not the words printed on it." `var ErrFoo = errors.New("...")` creates a package-level identity that callers test with `errors.Is`, so the comparison survives even if the message text is ever reworded.
+- **Wrapping** = "a chain of 'caused by' tags stapled to an incident report." `fmt.Errorf("context: %w", err)` stores the original error inside a new one so every layer can add its own message without discarding the root cause.
+- **`errors.Is`** = "a metal detector that scans every layer of wrapping for a specific item." It walks the full error chain and returns `true` the moment it finds an exact match, so you can ask "did *any* step fail with `ErrInputTooLarge`?" regardless of how many wrappers accumulated on the way up.
+- **`errors.As`** = "a baggage claim that pulls out a specific suitcase type from the chain." It does the same chain walk but extracts a concrete error struct, letting callers read its fields (e.g. `ve.Field`, `ve.Got`) when the error itself carries data worth inspecting.
+- **Bare return vs wrap** = "forwarding a letter unchanged vs writing your own cover note first." Return a low-level error bare when you have nothing to add; wrap it with `%w` at the layer that can name what it was trying to do, so the final reader sees a meaningful trail.
 
 **Why it matters:** precise, composable errors are how a library signals "you sent too much
 data" vs "the file is corrupt" vs "the OS refused the read" — all without panicking or losing
 the original cause.
+
+**See it — how wrapping builds an error chain and how `errors.Is` unwinds it.**
+
+<svg viewBox="0 0 700 310" role="img" aria-labelledby="t03 d03" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t03">Error wrapping chain and errors.Is unwinding</title>
+  <desc id="d03">Three stacked boxes show how fmt.Errorf with %w wraps errors across call layers. An arrow on the right labelled errors.Is walks the chain back to the sentinel ErrInputTooLarge at the bottom.</desc>
+  <defs>
+    <marker id="l03-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+    <marker id="l03-arrow-up" markerWidth="8" markerHeight="8" refX="2" refY="3" orient="auto">
+      <path d="M8,0 L8,6 L0,3 z" fill="#e5484d"/>
+    </marker>
+  </defs>
+
+  <!-- Layer 1: top caller — ParseBatch -->
+  <rect x="60" y="20" width="480" height="58" rx="8" fill="none" stroke="var(--md-default-fg-color,currentColor)" stroke-width="1.4"/>
+  <text x="300" y="44" text-anchor="middle" font-size="12" font-weight="600" fill="var(--md-default-fg-color,currentColor)">ParseBatch — outer layer</text>
+  <text x="300" y="63" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light,currentColor)">fmt.Errorf("failed to parse WAV at index %d: %w", idx, err)</text>
+
+  <!-- Down arrow: wrapping direction -->
+  <line x1="300" y1="78" x2="300" y2="120" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l03-arrow)"/>
+  <text x="315" y="105" font-size="10" fill="var(--md-accent-fg-color,#00897b)">wraps</text>
+
+  <!-- Layer 2: readDataChunk -->
+  <rect x="60" y="122" width="480" height="58" rx="8" fill="none" stroke="var(--md-default-fg-color,currentColor)" stroke-width="1.4"/>
+  <text x="300" y="146" text-anchor="middle" font-size="12" font-weight="600" fill="var(--md-default-fg-color,currentColor)">readDataChunk — mid layer</text>
+  <text x="300" y="165" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light,currentColor)">fmt.Errorf("failed to read subchunk size: %w", err)</text>
+
+  <!-- Down arrow -->
+  <line x1="300" y1="180" x2="300" y2="222" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l03-arrow)"/>
+  <text x="315" y="207" font-size="10" fill="var(--md-accent-fg-color,#00897b)">wraps</text>
+
+  <!-- Layer 3: sentinel at bottom -->
+  <rect x="60" y="224" width="480" height="58" rx="8" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="300" y="248" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Sentinel — root cause</text>
+  <text x="300" y="267" text-anchor="middle" font-size="11" fill="#fff">var ErrInputTooLarge = errors.New("input size exceeds maximum allowed")</text>
+
+  <!-- errors.Is arrow on the right, pointing upward (unwinding) -->
+  <line x1="590" y1="253" x2="590" y2="49" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#l03-arrow-up)"/>
+  <text x="600" y="170" font-size="11" fill="#e5484d" writing-mode="tb" glyph-orientation-vertical="0" transform="rotate(90,610,155)">errors.Is — unwinds chain</text>
+
+  <!-- Label above the right arrow -->
+  <text x="635" y="49" text-anchor="middle" font-size="10" fill="#e5484d">found!</text>
+</svg>
 
 ---
 

@@ -13,23 +13,11 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Tokenizer vs parser.** A *tokenizer* reads raw bytes and tells you *where* each
-  piece is (start byte, end byte, type). It does not build objects, fill structs, or
-  validate business rules. A *parser* does all of that on top of the tokenizer's work.
-  jsmn-go is a tokenizer; `encoding/json.Unmarshal` is a parser built on top of a
-  tokenizer.
-- **Flat array as a tree.** Instead of allocating a node per JSON value (object → map,
-  array → slice, string → `string`, …), jsmn-go fills one pre-allocated `[]Token`.
-  The tree shape is encoded in each token's `ParentIdx` field — a plain integer index
-  into that same slice.
-- **Start/End are byte offsets, not copies.** The token does not hold the string `"hello"`;
-  it holds `Start: 7, End: 12` so you can slice the original `[]byte` yourself.
-  No extra allocation per value.
-- **Size is child count, not byte count.** For an object or array token, `Size` is how
-  many direct children it has. For a string or primitive, `Size` is 0.
-- **`Config` is a safety fuse.** `DefaultConfig` caps input at 100 MB and tokens at
-  1 000 000. `StrictConfig` tightens those to 10 MB / 100 000. You pick the fuse
-  before parsing; the tokenizer returns an error if the input blows it.
+- **Tokenizer vs parser** = "a surveyor who marks where the rooms are on a blueprint, versus the contractor who actually builds them." jsmn-go only records where each JSON value starts and ends in the raw bytes; it does not build objects, fill structs, or validate business rules — `encoding/json.Unmarshal` is the contractor that works on top of that blueprint.
+- **Flat array as a tree** = "a family-tree on an index card, where each person's card says their parent's card number, not a mobile hanging from the ceiling." jsmn-go fills one pre-allocated `[]Token` slice; the hierarchy is encoded entirely in each token's `ParentIdx` integer, so no heap node is allocated per JSON value.
+- **Start/End are byte offsets, not copies** = "a sticky note that says 'the treasure is between pages 7 and 12' — it doesn't photocopy the pages." The `Token` holds `Start` and `End` indices so you slice the original `[]byte` yourself; no string is ever duplicated in memory.
+- **Size is child count, not byte count** = "the headcount at a dinner table, not the table's width in centimetres." For an `Object` or `Array` token, `Size` tells you how many direct children it has, which lets you pre-size a map or loop without scanning the slice again; for `String` or `Primitive` tokens it is always 0.
+- **`Config` is a safety fuse** = "the circuit breaker in your electrical panel — you pick the amperage before you plug anything in." `DefaultConfig` caps input at 100 MB and 1 000 000 tokens; `StrictConfig` tightens those to 10 MB / 100 000; the tokenizer returns a sentinel error (`ErrInputTooLarge`, `ErrTooManyTokens`) if untrusted input trips the breaker.
 - **Why it matters:** Tokenizing without allocating per-value is the foundation of
   fast, memory-bounded JSON processing. Every other module in this workspace (cjson-go,
   cgltf-go) sits on top of this idea.

@@ -14,22 +14,84 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Context is a "stop light" you pass into long-running calls.** The caller
-  creates a context, hands it to a function, and can cancel it at any moment —
-  the function's job is to notice and stop promptly.
-- **`ctx.Done()` is a channel that closes when cancellation happens.** You
-  can `select` on it alongside your real work channels.
-- **`ctx.Err()` tells you *why* it was cancelled** — `context.Canceled` (someone
-  called `cancel()`) or `context.DeadlineExceeded` (a timeout fired).
-- **A bare `select` between a ready work item and `ctx.Done()` is not
-  reliable.** When both branches are ready simultaneously, Go picks one at
-  random. A cancelled context can be ignored for many iterations.
-- **The fix is a cheap guard at the top of the loop:** check `ctx.Err()` before
-  entering the `select`. If it is non-nil, the context is already done — stop
-  immediately.
-- **Why it matters:** without this guard, a batch job on a deadline might
-  happily process thousands of items after its deadline has passed, wasting CPU
-  and memory and returning results the caller will discard anyway.
+- **Context** = "a baton handed to every runner that the starter can yank back mid-race." The caller creates a `context.Context`, passes it into `LoadBatchConcurrent` or `ParseBatch`, and can cancel it at any moment — every goroutine that received it is responsible for noticing and stopping promptly.
+- **`ctx.Done()`** = "a door that swings open the instant the race is called off." It is a channel that closes when the context is cancelled or its deadline fires; workers `select` on it alongside the jobs channel to hear the signal while blocked.
+- **`ctx.Err()`** = "checking the scoreboard after the whistle — it tells you *why* the race stopped." It returns `nil` while the context is live, then returns `context.Canceled` (someone called `cancel()`) or `context.DeadlineExceeded` (the wall-clock budget ran out).
+- **Bare `select` race** = "a coin flip between 'do one more item' and 'quit' — and the coin is biased toward work." When both the jobs channel and `ctx.Done()` are ready at the same time, Go picks a branch uniformly at random, so a cancelled context can be silently ignored for hundreds of iterations.
+- **`ctx.Err()` guard at the top of the loop** = "checking the scoreboard *before* picking up the next baton, not after." The `if err := ctx.Err(); err != nil { return }` line in `LoadBatchConcurrent` runs before every `select`, so a worker that wakes up to an already-cancelled context exits on that very iteration rather than racing.
+- **Why it matters:** without this guard, a batch job on a deadline might happily process thousands of items after its deadline has passed, wasting CPU and memory and returning results the caller will discard anyway.
+
+**See it — worker loop: guard + select, two cancellation checkpoints.**
+
+<svg viewBox="0 0 700 370" role="img" aria-labelledby="t13 d13" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t13">Worker loop cancellation checkpoints</title>
+  <desc id="d13">A flow diagram showing the two places cancellation is checked in the worker loop: the ctx.Err() guard at the top of the loop, and the ctx.Done() case inside the select.</desc>
+  <defs>
+    <marker id="l13-arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <!-- Start -->
+  <rect x="270" y="20" width="160" height="38" rx="19" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="350" y="44" text-anchor="middle" font-size="13" fill="#fff" font-weight="600">loop iteration</text>
+
+  <!-- Arrow: start → guard -->
+  <line x1="350" y1="58" x2="350" y2="88" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
+
+  <!-- Guard box -->
+  <rect x="200" y="88" width="300" height="44" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
+  <text x="350" y="107" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">① ctx.Err() guard</text>
+  <text x="350" y="123" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light,currentColor)">if err := ctx.Err(); err != nil</text>
+
+  <!-- Arrow: guard → cancelled (left) -->
+  <line x1="200" y1="110" x2="110" y2="110" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
+  <text x="155" y="103" text-anchor="middle" font-size="10" fill="currentColor">cancelled</text>
+
+  <!-- Exit left -->
+  <rect x="20" y="88" width="90" height="44" rx="8" fill="#e5484d" stroke="none"/>
+  <text x="65" y="107" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">return</text>
+  <text x="65" y="122" text-anchor="middle" font-size="10" fill="#fff">errs &lt;- err</text>
+
+  <!-- Arrow: guard → select (down, not cancelled) -->
+  <line x1="350" y1="132" x2="350" y2="168" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
+  <text x="372" y="155" text-anchor="start" font-size="10" fill="currentColor">not cancelled</text>
+
+  <!-- Select box -->
+  <rect x="165" y="168" width="370" height="50" rx="8" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="350" y="188" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">select  (blocks until one case fires)</text>
+  <text x="260" y="207" text-anchor="middle" font-size="11" fill="currentColor">case &lt;-jobs</text>
+  <text x="460" y="207" text-anchor="middle" font-size="11" fill="currentColor">② case &lt;-ctx.Done()</text>
+
+  <!-- Arrow: jobs case → process -->
+  <line x1="260" y1="218" x2="260" y2="258" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
+
+  <!-- Process box -->
+  <rect x="170" y="258" width="180" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="260" y="278" text-anchor="middle" font-size="12" fill="currentColor">process item</text>
+  <text x="260" y="294" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">decode image / parse WAV</text>
+
+  <!-- Arrow: process → next iteration (loop back) -->
+  <path d="M 350 280 Q 650 280 650 110 Q 650 58 510 44" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#l13-arrow)"/>
+  <text x="620" y="190" text-anchor="middle" font-size="10" fill="currentColor">next</text>
+  <text x="620" y="202" text-anchor="middle" font-size="10" fill="currentColor">iter.</text>
+
+  <!-- Arrow: ctx.Done case → exit right -->
+  <line x1="460" y1="218" x2="460" y2="258" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
+
+  <!-- Exit right -->
+  <rect x="400" y="258" width="120" height="44" rx="8" fill="#e5484d" stroke="none"/>
+  <text x="460" y="278" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">return</text>
+  <text x="460" y="294" text-anchor="middle" font-size="10" fill="#fff">errs &lt;- ctx.Err()</text>
+
+  <!-- Legend -->
+  <rect x="20" y="320" width="14" height="14" rx="3" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="40" y="332" font-size="10" fill="currentColor">cancellation check</text>
+  <rect x="170" y="320" width="14" height="14" rx="3" fill="#e5484d" stroke="none"/>
+  <text x="190" y="332" font-size="10" fill="currentColor">exit (cancelled)</text>
+  <rect x="310" y="320" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="330" y="332" font-size="10" fill="currentColor">select block</text>
+</svg>
 
 ---
 

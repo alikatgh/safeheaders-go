@@ -12,28 +12,93 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Matrix job** — run the same recipe once per module (or OS). GitHub spins up
-  nine parallel VMs, each handling one Go module. If `dr-wav-go` fails, the
-  others keep running (`fail-fast: false`).
-- **govulncheck** — reads your exact dependency graph and checks whether any
-  function you _actually call_ is reachable through a known CVE. It ignores
-  vulnerable packages you import but never touch.
-- **gosec** — a static analyser that looks for dangerous Go patterns: calls to
-  `exec.Command` with user-controlled input, `math/rand` used as a CSPRNG,
-  hardcoded secrets, unhandled errors from `os.Create`, etc.
-- **SARIF** — a standard JSON format for security findings. GitHub reads it and
-  shows inline annotations in the Security tab so reviewers see gosec findings
-  without leaving the PR.
-- **Coverage gate** — not a percentage displayed on a badge. A shell `if`
-  statement that calls `exit 1` when coverage drops below 70 %, which marks the
-  whole job red and blocks merges on a protected branch.
-- **Pinning to a tag, not `@master`** — `uses: securego/gosec@v2.21.4` means
-  the exact released binary. `@master` would silently pick up any commit pushed
-  since — including supply-chain attacks.
+- **Matrix job** = "one kitchen, nine ovens running at once." GitHub spins up nine parallel VMs, one per Go module, so a failure in `dr-wav-go` does not cancel the rest because `fail-fast: false` keeps every oven going.
+- **govulncheck** = "a librarian who checks whether you actually read the dangerous chapter, not just whether the book is on your shelf." It traces your real call graph against known CVEs and ignores vulnerable packages you import but never invoke.
+- **gosec** = "a building inspector scanning blueprints for code violations before anything is built." It analyses your source patterns — `exec.Command` with user input, `math/rand` as a CSPRNG, hardcoded secrets, unhandled `os.Create` errors — without ever looking at your dependencies.
+- **SARIF** = "a standardised incident report form that every security scanner fills out the same way." GitHub reads it and turns gosec findings into inline PR annotations so reviewers see the exact line without leaving the diff.
+- **Coverage gate** = "a physical turnstile, not a scoreboard." A shell `if` calling `exit 1` when coverage drops below 70 % makes the whole job red and blocks merges on a protected branch — the number has teeth, not just paint.
+- **Pinning to a tag, not `@master`** = "ordering a sealed, numbered bottle rather than pouring from an open tap." `uses: securego/gosec@v2.21.4` locks you to one audited release; `@master` silently runs whatever was pushed last, including a supply-chain compromise.
 
 **Why it matters:** every fix in this repo — the deadlock, the OOM, the decode
 bomb — was caught either by a test or by a fuzzer. The CI pipeline is the
 machine that runs those tests on every push so humans do not have to remember.
+
+**See it — seven CI jobs, two security tools, one 70 % gate.**
+
+<svg viewBox="0 0 700 370" role="img" aria-labelledby="t25 d25" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t25">GitHub Actions CI pipeline for safeheaders-go</title>
+  <desc id="d25">A block-and-arrow diagram showing a push or PR event triggering seven parallel jobs: test (with race detector and 70% coverage gate), lint, security (gosec SARIF + govulncheck), benchmark, fuzz (schedule/dispatch only), examples, and build. The security job fans out to gosec and govulncheck separately.</desc>
+  <defs>
+    <marker id="l25-arr" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-default-fg-color,#333)"/>
+    </marker>
+  </defs>
+  <!-- Trigger box -->
+  <rect x="260" y="16" width="180" height="38" rx="6" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="350" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">push / pull_request</text>
+  <!-- Arrow down -->
+  <line x1="350" y1="54" x2="350" y2="76" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l25-arr)"/>
+  <!-- Row label -->
+  <text x="14" y="104" font-size="10" fill="var(--md-default-fg-color--light,#666)">Jobs (parallel)</text>
+  <!-- Job boxes row 1 -->
+  <!-- test -->
+  <rect x="14" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="68" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">test</text>
+  <text x="68" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">-race · coverage</text>
+  <!-- lint -->
+  <rect x="134" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="188" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">lint</text>
+  <text x="188" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">golangci-lint v2</text>
+  <!-- security -->
+  <rect x="254" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="308" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">security</text>
+  <text x="308" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">gosec · govulncheck</text>
+  <!-- benchmark -->
+  <rect x="374" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="428" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">benchmark</text>
+  <text x="428" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">PR only</text>
+  <!-- fuzz -->
+  <rect x="494" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="548" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">fuzz</text>
+  <text x="548" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">schedule/dispatch</text>
+  <!-- examples + build in row 2 -->
+  <rect x="134" y="138" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="188" y="155" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">examples</text>
+  <text x="188" y="169" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">make examples</text>
+  <rect x="254" y="138" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="308" y="155" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">build</text>
+  <text x="308" y="169" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">Linux · macOS · Win</text>
+  <!-- Divider -->
+  <line x1="14" y1="200" x2="686" y2="200" stroke="var(--md-default-fg-color--lightest,#ccc)" stroke-width="1" stroke-dasharray="4 3"/>
+  <!-- Detail: test job internals -->
+  <text x="14" y="220" font-size="10" fill="var(--md-default-fg-color--light,#666)">Inside test (per module × 9):</text>
+  <rect x="14" y="228" width="130" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="79" y="248" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">go test -race ./...</text>
+  <line x1="144" y1="244" x2="168" y2="244" stroke="var(--md-default-fg-color,#333)" stroke-width="1.2" marker-end="url(#l25-arr)"/>
+  <rect x="170" y="228" width="130" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="235" y="248" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">coverage &lt; 70%?</text>
+  <line x1="300" y1="244" x2="324" y2="244" stroke="var(--md-default-fg-color,#333)" stroke-width="1.2" marker-end="url(#l25-arr)"/>
+  <rect x="326" y="228" width="80" height="32" rx="5" fill="#e5484d" stroke="none"/>
+  <text x="366" y="248" text-anchor="middle" font-size="10" font-weight="600" fill="#fff">exit 1 ✗</text>
+  <line x1="300" y1="244" x2="300" y2="278" stroke="var(--md-default-fg-color,#333)" stroke-width="1.2"/>
+  <line x1="300" y1="278" x2="434" y2="278" stroke="var(--md-default-fg-color,#333)" stroke-width="1.2"/>
+  <text x="350" y="274" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">≥ 70%</text>
+  <line x1="434" y1="278" x2="434" y2="260" stroke="var(--md-default-fg-color,#333)" stroke-width="1.2" marker-end="url(#l25-arr)"/>
+  <rect x="420" y="228" width="80" height="32" rx="5" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="460" y="248" text-anchor="middle" font-size="10" font-weight="600" fill="#fff">pass ✓</text>
+  <!-- Detail: security job internals -->
+  <text x="14" y="310" font-size="10" fill="var(--md-default-fg-color--light,#666)">Inside security:</text>
+  <rect x="14" y="318" width="130" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="79" y="333" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">gosec (source</text>
+  <text x="79" y="346" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">patterns) → SARIF</text>
+  <line x1="144" y1="334" x2="168" y2="334" stroke="var(--md-default-fg-color,#333)" stroke-width="1.2" marker-end="url(#l25-arr)"/>
+  <rect x="170" y="318" width="140" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="240" y="333" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">GitHub Code Scanning</text>
+  <text x="240" y="346" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">(inline PR annotations)</text>
+  <rect x="340" y="318" width="160" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
+  <text x="420" y="333" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">govulncheck (call graph</text>
+  <text x="420" y="346" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">vs CVE database)</text>
+</svg>
 
 ---
 

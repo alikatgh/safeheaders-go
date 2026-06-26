@@ -11,22 +11,94 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Goroutine** — a "green thread" launched with `go f()`. It runs concurrently with
-  the caller, but costs only a few kilobytes of stack (not a full OS thread). You can
-  run thousands of them.
-- **Channel** — a typed pipe between goroutines. One side sends (`ch <- v`), the other
-  receives (`v := <-ch`). No shared memory needed.
-- **Buffered channel** — a pipe with a waiting room. `make(chan T, N)` lets up to N
-  values sit in the buffer before the sender has to wait. An unbuffered channel
-  (`make(chan T)`) forces sender and receiver to meet at the same instant.
-- **`select`** — like a `switch` but for channels. Go picks whichever `case` has a
-  ready channel, at random when several are ready simultaneously.
-- **`close(ch)`** — signals "no more values coming." A `range ch` loop or an `ok`
-  check (`v, ok := <-ch`) can detect the close.
+- **Goroutine** = "a worker you hire on a sticky note — costs almost nothing to write, runs in the background, and you can hire thousands." A goroutine launched with `go f()` runs concurrently with the caller for only a few kilobytes of stack, unlike a full OS thread.
+- **Channel** = "a pneumatic tube connecting two rooms — one side posts a value in, the other pulls it out, and no one needs to reach into the other room's drawers." Channels let goroutines exchange typed values without shared memory.
+- **Buffered channel** = "a tube with a small waiting room at the end — the sender can drop several items in the queue before anyone picks them up." `make(chan T, N)` holds up to N values so the sender does not block until the buffer is full; an unbuffered `make(chan T)` forces sender and receiver to be present at exactly the same moment.
+- **`select`** = "a dispatcher watching several inboxes at once — whichever tray has mail first gets handled, and if two arrive together it picks one at random." `select` lets a worker react to whichever of its channels is ready, preventing starvation through that built-in randomness.
+- **`close(ch)`** = "hanging a 'no more deliveries today' sign on the tube — anyone still listening can drain what's left and then leave." Producers call `close(ch)` to signal completion; receivers detect it with `range ch` or the `v, ok := <-ch` idiom.
 
 **Why it matters:** every hardening problem in this repo — concurrency, cancellation,
 deadlines — is solved with this handful of primitives. If you can read a `select`
 loop, you can read all of it.
+
+**See it — goroutines, a buffered jobs channel, and a select worker loop.**
+
+<svg viewBox="0 0 700 320" role="img" aria-labelledby="t11 d11" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t11">Goroutines, buffered channel, and select worker loop</title>
+  <desc id="d11">Diagram showing a producer filling a buffered jobs channel, then three goroutine workers each running a select loop that reads from jobs or reacts to ctx.Done(), and finally a buffered errs channel collecting results.</desc>
+  <defs>
+    <marker id="l11-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+  </defs>
+
+  <!-- Producer box -->
+  <rect x="20" y="120" width="130" height="48" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="85" y="140" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Producer</text>
+  <text x="85" y="157" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fills &amp; closes jobs</text>
+
+  <!-- Buffered jobs channel -->
+  <rect x="195" y="110" width="140" height="68" rx="6" ry="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
+  <text x="265" y="132" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">jobs channel</text>
+  <text x="265" y="150" text-anchor="middle" font-size="10" fill="currentColor">make(chan int, N)</text>
+  <text x="265" y="167" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">buffered · closed after fill</text>
+
+  <!-- Arrow: producer -> jobs channel -->
+  <line x1="150" y1="144" x2="193" y2="144" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#l11-arrow)"/>
+
+  <!-- ctx.Done signal -->
+  <rect x="195" y="240" width="140" height="44" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2"/>
+  <text x="265" y="258" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">ctx.Done()</text>
+  <text x="265" y="274" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">cancellation signal</text>
+
+  <!-- Three worker goroutines -->
+  <!-- Worker 1 -->
+  <rect x="395" y="30" width="130" height="64" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="460" y="52" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 1</text>
+  <text x="460" y="68" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">go func() · select</text>
+  <text x="460" y="83" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">{ jobs | ctx.Done }</text>
+
+  <!-- Worker 2 -->
+  <rect x="395" y="118" width="130" height="64" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="460" y="140" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 2</text>
+  <text x="460" y="156" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">go func() · select</text>
+  <text x="460" y="171" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">{ jobs | ctx.Done }</text>
+
+  <!-- Worker 3 -->
+  <rect x="395" y="206" width="130" height="64" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
+  <text x="460" y="228" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 3</text>
+  <text x="460" y="244" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">go func() · select</text>
+  <text x="460" y="259" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">{ jobs | ctx.Done }</text>
+
+  <!-- Arrows: jobs channel -> workers -->
+  <line x1="335" y1="134" x2="393" y2="62" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l11-arrow)"/>
+  <line x1="335" y1="144" x2="393" y2="150" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l11-arrow)"/>
+  <line x1="335" y1="155" x2="393" y2="238" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l11-arrow)"/>
+
+  <!-- Arrows: ctx.Done -> workers -->
+  <line x1="335" y1="258" x2="393" y2="88" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
+  <line x1="335" y1="262" x2="393" y2="176" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
+  <line x1="335" y1="262" x2="393" y2="252" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
+
+  <!-- errs channel -->
+  <rect x="560" y="118" width="120" height="64" rx="6" ry="6" fill="none" stroke="#e5484d" stroke-width="1.4"/>
+  <text x="620" y="140" text-anchor="middle" font-size="12" fill="#e5484d" font-weight="600">errs channel</text>
+  <text x="620" y="156" text-anchor="middle" font-size="10" fill="currentColor">make(chan error,</text>
+  <text x="620" y="171" text-anchor="middle" font-size="10" fill="currentColor">N+workers)</text>
+
+  <!-- Arrows: workers -> errs -->
+  <line x1="525" y1="70" x2="558" y2="138" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
+  <line x1="525" y1="150" x2="558" y2="150" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
+  <line x1="525" y1="245" x2="558" y2="165" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
+
+  <!-- Legend -->
+  <line x1="20" y1="295" x2="45" y2="295" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#l11-arrow)"/>
+  <text x="50" y="299" font-size="10" fill="var(--md-default-fg-color--light)">work flow</text>
+  <line x1="120" y1="295" x2="145" y2="295" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
+  <text x="150" y="299" font-size="10" fill="var(--md-default-fg-color--light)">cancellation</text>
+  <line x1="240" y1="295" x2="265" y2="295" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
+  <text x="270" y="299" font-size="10" fill="var(--md-default-fg-color--light)">errors</text>
+</svg>
 
 ---
 

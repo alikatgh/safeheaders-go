@@ -13,30 +13,87 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Fuzzing is a robot test-case writer.** You give it a valid example and a
-  function to call. It then generates millions of random mutations — flipping
-  bytes, swapping numbers, inserting NULs — and calls your function with each
-  one, watching for panics or crashes.
-- **Seeds are your starting examples.** Without seeds, the fuzzer generates
-  random bytes that rarely look like WAV files. With a real WAV seed, it
-  quickly finds the interesting corner cases that live just one or two
-  mutations away from valid input.
-- **Crash files are permanent regression tests.** When the fuzzer finds a bad
-  input, it saves the bytes to `testdata/fuzz/<FuzzName>/<hash>`. After that,
-  `go test` (no `-fuzz` flag) always replays that input, so the bug can never
-  come back silently.
-- **Fuzz parsers AND accessors.** A parser that returns an error for malformed
-  input is fine — but what about the functions that consume its output?
-  A successfully-parsed but structurally weird file can still cause a
-  divide-by-zero inside an accessor like `GetSampleCount`.
-- **Fuzzing is not a replacement for unit tests.** It finds crashes and panics
-  fast; it does not verify correct behavior. Unit tests cover the "should
-  work" cases; fuzzing covers "must not crash."
+- **Fuzzing** = "a monkey with infinite patience, randomly smashing keys on your keyboard to see if your program breaks." The fuzzer mutates bytes — flipping bits, swapping numbers, inserting NULs — and calls `FuzzParse` millions of times, watching for any panic or crash.
+- **Seeds** = "the first picture in a game of telephone." You hand the fuzzer one real, valid WAV file; it generates every plausible distortion of that file, finding corner cases that live just one field-flip away from legitimate input.
+- **Crash files under `testdata/fuzz/`** = "a mugshot kept on file forever." Once the fuzzer captures a bad input in `testdata/fuzz/FuzzParse/be78194ecdd4d533`, `go test` replays it on every CI run — the bug that once crashed the process is now a permanent regression guard.
+- **Fuzzing parsers AND accessors** = "checking that both the front door lock and the safe inside are secure." `Parse` accepting a malformed WAV without error is not enough; `GetSampleCount` and `ExtractChannels` can still divide by zero on the successfully-parsed but structurally weird struct, so `FuzzParse` calls all of them.
+- **OOM from an untrusted length field** = "trusting a stranger's claim that they packed a whale into a carry-on bag." The pre-fix code did `make([]byte, subchunkSize)` directly from the WAV header — a header claiming 4 GB triggered a 4 GB allocation. Capping to `r.Len()` means you only allocate as much as is actually present.
+- **Fuzzing vs. unit tests** = "a crash-test dummy vs. a checklist." The fuzzer discovers inputs that destroy the car; unit tests verify the seatbelt works as designed. Both are needed — fuzzing covers "must not crash," unit tests cover "must behave correctly."
 
 **Why it matters:** the two real bugs fuzzing found in this repo — an OOM and
 a divide-by-zero — would never have been written into a hand-crafted test
 suite, because no developer thinks to produce a WAV header that claims 4 GB of
 audio data backed by 4 bytes of actual bytes.
+
+**See it — fuzzing lifecycle: seed → mutate → crash → regression seed.**
+
+<svg viewBox="0 0 700 260" role="img" aria-labelledby="t22 d22" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="t22">Fuzzing lifecycle diagram</title>
+  <desc id="d22">Five stages: a valid WAV seed enters the fuzzer engine, which mutates bytes and calls FuzzParse. If Parse returns an error the fuzzer loops back. If Parse succeeds all accessors are called. A panic or crash saves a crash file to testdata/fuzz/ which then replays as a permanent CI regression test.</desc>
+  <defs>
+    <marker id="l22-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-default-fg-color,#333)"/>
+    </marker>
+    <marker id="l22-arrow-acc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
+    </marker>
+    <marker id="l22-arrow-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#e5484d"/>
+    </marker>
+  </defs>
+
+  <!-- Box 1: Valid WAV seed -->
+  <rect x="20" y="100" width="110" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
+  <text x="75" y="121" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Valid WAV seed</text>
+  <text x="75" y="139" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lighter,#888)">f.Add(valid)</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="131" y1="126" x2="168" y2="126" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l22-arrow)"/>
+
+  <!-- Box 2: Fuzzer engine -->
+  <rect x="170" y="100" width="120" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
+  <text x="230" y="121" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Fuzzer engine</text>
+  <text x="230" y="139" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lighter,#888)">mutates bytes</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="291" y1="126" x2="328" y2="126" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l22-arrow)"/>
+
+  <!-- Box 3: FuzzParse / Parse -->
+  <rect x="330" y="100" width="120" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
+  <text x="390" y="121" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">FuzzParse</text>
+  <text x="390" y="139" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lighter,#888)">Parse(data)</text>
+
+  <!-- "err != nil → loop back" label -->
+  <path d="M390,100 Q390,55 230,55 Q170,55 170,99" fill="none" stroke="var(--md-default-fg-color--lighter,#888)" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#l22-arrow)"/>
+  <text x="305" y="46" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">err != nil → loop</text>
+
+  <!-- Arrow 3→4 (success path) -->
+  <line x1="451" y1="126" x2="488" y2="126" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l22-arrow-acc)"/>
+  <text x="469" y="119" text-anchor="middle" font-size="9" fill="var(--md-accent-fg-color,#00897b)">ok</text>
+
+  <!-- Box 4: Accessors -->
+  <rect x="490" y="100" width="120" height="52" rx="7" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="550" y="118" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Accessors</text>
+  <text x="550" y="133" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">GetSampleCount</text>
+  <text x="550" y="146" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">ExtractChannels…</text>
+
+  <!-- Arrow 4→5 (panic path) -->
+  <line x1="550" y1="153" x2="550" y2="188" stroke="#e5484d" stroke-width="1.5" marker-end="url(#l22-arrow-red)"/>
+  <text x="560" y="175" font-size="9" fill="#e5484d">panic!</text>
+
+  <!-- Box 5: crash file saved -->
+  <rect x="430" y="190" width="180" height="52" rx="7" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="520" y="210" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Crash file saved</text>
+  <text x="520" y="228" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">testdata/fuzz/FuzzParse/&lt;hash&gt;</text>
+
+  <!-- Arrow 5→CI label -->
+  <line x1="429" y1="216" x2="310" y2="216" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l22-arrow)"/>
+
+  <!-- Box 6: CI regression -->
+  <rect x="140" y="190" width="168" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
+  <text x="224" y="210" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">CI regression test</text>
+  <text x="224" y="228" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">go test replays forever</text>
+</svg>
 
 ---
 

@@ -12,18 +12,11 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- A **goroutine** is a lightweight thread. Sending on a channel blocks the
-  goroutine until someone on the other end receives.
-- A **buffered channel** `make(chan T, N)` lets up to N sends proceed without a
-  matching receive. Send number N+1 blocks.
-- A **`sync.WaitGroup`** is a counter. `wg.Wait()` blocks until the counter
-  reaches zero; each worker decrements it with `defer wg.Done()`.
-- The trap: if a goroutine blocks on a channel send _before_ it calls
-  `wg.Done()`, `wg.Wait()` waits for `wg.Done()` that never comes. Both sides
-  are stuck. That is a **deadlock** (in practice: a process that hangs forever).
-- **Goroutine leak**: a goroutine that is stuck on a channel send is never
-  collected by the GC. It keeps its stack and any slice it references alive. Over
-  time — or on a single bad request — this drains memory.
+- **goroutine** = "a worker you hired who can only leave the room once someone takes what they're handing through the mail slot." A goroutine blocked on a channel send cannot do anything else — including signal that it is done — until a receiver picks up the value.
+- **buffered channel** = "a mail slot with a small inbox tray: you can drop N envelopes without waiting, but the N+1st envelope gets stuck in your hand until someone empties the tray." `make(chan T, N)` allows up to N sends to proceed without a matching receive; the next send blocks.
+- **`sync.WaitGroup`** = "a tally board that main() watches: it will not move on until every worker crosses it off." `wg.Wait()` stalls until the counter hits zero; each worker decrements it via `defer wg.Done()` when it returns.
+- **deadlock** = "two people each waiting for the other to go first, so neither ever moves." Here, `wg.Wait()` waits for workers to call `wg.Done()`, but workers are stuck on a full `resultsCh` send that no one drains until `wg.Wait()` unblocks — a circular wait that never resolves.
+- **goroutine leak** = "a worker who is still frozen at the mail slot long after the building should have closed." A goroutine blocked on a send is invisible to the garbage collector; it holds its stack and any data slice alive, silently draining memory with each bad request.
 
 **Why it matters:** a deadlock in a parser library means one crafted input (or a
 canceled request) can freeze a server permanently, requiring a restart to recover.
