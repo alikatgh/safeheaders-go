@@ -34,6 +34,34 @@
 A single malformed header field can turn "decode this file" into "allocate all
 available RAM and crash."
 
+**See it — the byte layout.** A WAV file is a flat strip of labelled chunks. Each
+chunk is a 4-byte ASCII tag, a 4-byte little-endian size, then that many bytes. The
+parser walks it left to right with `binary.Read`. The one field you can never trust
+is the highlighted `data` size — cap it before any `make([]byte, n)`.
+
+<svg viewBox="0 0 720 230" role="img" aria-labelledby="riff-t riff-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="riff-t">RIFF/WAV byte layout</title>
+  <desc id="riff-d">A WAV file is a strip of chunks: RIFF tag, size, WAVE, fmt chunk, then a data chunk whose size field is the untrusted OOM vector.</desc>
+  <g font-size="11.5" text-anchor="middle">
+    <rect x="20" y="70" width="66" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="53" y="100" fill="currentColor" font-family="ui-monospace,monospace">"RIFF"</text>
+    <rect x="86" y="70" width="66" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="119" y="96" fill="currentColor">file</text><text x="119" y="110" fill="currentColor">size</text>
+    <rect x="152" y="70" width="66" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="185" y="100" fill="currentColor" font-family="ui-monospace,monospace">"WAVE"</text>
+    <rect x="218" y="70" width="62" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="249" y="100" fill="currentColor" font-family="ui-monospace,monospace">"fmt "</text>
+    <rect x="280" y="70" width="50" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="305" y="100" fill="currentColor">16</text>
+    <rect x="330" y="70" width="118" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="389" y="92" fill="currentColor">fmt: channels,</text><text x="389" y="108" fill="var(--md-default-fg-color--light)">rate, bits…</text>
+    <rect x="448" y="70" width="60" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="478" y="100" fill="currentColor" font-family="ui-monospace,monospace">"data"</text>
+    <rect x="508" y="70" width="74" height="50" fill="none" stroke="#e5484d" stroke-width="2"/><text x="545" y="92" fill="#e5484d" font-weight="600">data</text><text x="545" y="108" fill="#e5484d" font-weight="600">size</text>
+    <rect x="582" y="70" width="118" height="50" fill="none" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.4" stroke-dasharray="4 3"/><text x="641" y="100" fill="var(--md-default-fg-color--light)">samples…</text>
+  </g>
+  <g font-size="9" fill="var(--md-default-fg-color--light)" text-anchor="middle">
+    <text x="53" y="136">0</text><text x="119" y="136">4</text><text x="185" y="136">8</text><text x="249" y="136">12</text><text x="305" y="136">16</text><text x="389" y="136">20</text><text x="478" y="136">36</text><text x="545" y="136">40</text><text x="641" y="136">44</text>
+  </g>
+  <text x="360" y="40" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">each chunk = 4-byte tag · 4-byte little-endian size · payload — read left to right</text>
+  <path d="M545,150 L545,178" fill="none" stroke="#e5484d" stroke-width="1.4"/>
+  <text x="360" y="196" text-anchor="middle" font-size="12" fill="#e5484d" font-weight="600">untrusted — a crafted file can claim 4 GB here</text>
+  <text x="360" y="214" text-anchor="middle" font-size="11.5" fill="currentColor" font-family="ui-monospace,monospace">cap it, then make([]byte, n) — never trust the number</text>
+</svg>
+
 ---
 
 ## The RIFF/WAV byte layout

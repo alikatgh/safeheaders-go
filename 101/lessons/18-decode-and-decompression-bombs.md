@@ -30,6 +30,41 @@
 processes files without these guards; with them, the worst outcome is a
 rejected request and a logged error.
 
+**See it — the amplification.** A bomb is a ratio: a tiny input declares an
+enormous output. The top path trusts that number and allocates it — OOM. The
+bottom path wraps the reader in `io.LimitReader(r, budget+1)`, so the read stops
+at the budget and the decode is rejected before any giant allocation.
+
+<svg viewBox="0 0 720 320" role="img" aria-labelledby="bomb-t bomb-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="bomb-t">Decode bomb amplification, unguarded versus bounded</title>
+  <desc id="bomb-d">A tiny input expands to gigabytes when trusted, causing OOM; wrapping the reader in io.LimitReader stops it at the budget.</desc>
+  <defs>
+    <marker id="bomb-ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--md-accent-fg-color,#00897b)"/></marker>
+    <marker id="bomb-rh" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e5484d"/></marker>
+  </defs>
+  <text x="40" y="30" font-size="12" font-weight="600" fill="#e5484d">Unguarded — trusts the header</text>
+  <rect x="40" y="44" width="118" height="56" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="99" y="68" text-anchor="middle" font-size="12" fill="currentColor">42-byte ZIP</text><text x="99" y="86" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">tiny header</text>
+  <path d="M158,72 L214,72" fill="none" stroke="#e5484d" stroke-width="1.6" marker-end="url(#bomb-rh)"/>
+  <text x="186" y="62" text-anchor="middle" font-size="9.5" fill="var(--md-default-fg-color--light)">inflate</text>
+  <rect x="218" y="32" width="320" height="84" rx="6" fill="none" stroke="#e5484d" stroke-width="1.8"/>
+  <text x="378" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">claims 4.5 GB of output</text>
+  <text x="378" y="82" text-anchor="middle" font-size="12" fill="currentColor" font-family="ui-monospace,monospace">make([]byte, 4.5e9)</text>
+  <text x="378" y="102" text-anchor="middle" font-size="11" fill="#e5484d" font-weight="600">allocated before a sanity check</text>
+  <text x="560" y="78" font-size="12" fill="#e5484d" font-weight="700">✗ OOM</text><text x="560" y="94" font-size="10.5" fill="#e5484d">process killed</text>
+  <line x1="40" y1="146" x2="680" y2="146" stroke="var(--md-default-fg-color--lightest)"/>
+  <text x="40" y="178" font-size="12" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">Bounded — io.LimitReader caps the read</text>
+  <rect x="40" y="194" width="118" height="56" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="99" y="218" text-anchor="middle" font-size="12" fill="currentColor">42-byte ZIP</text><text x="99" y="236" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">same input</text>
+  <path d="M158,222 L210,222" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#bomb-ah)"/>
+  <rect x="214" y="196" width="206" height="52" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
+  <text x="317" y="218" text-anchor="middle" font-size="12" fill="currentColor" font-family="ui-monospace,monospace">io.LimitReader(</text>
+  <text x="317" y="236" text-anchor="middle" font-size="12" fill="currentColor" font-family="ui-monospace,monospace">r, budget+1)</text>
+  <path d="M420,222 L476,222" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#bomb-ah)"/>
+  <rect x="480" y="196" width="200" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="580" y="218" text-anchor="middle" font-size="11.5" fill="currentColor">reads ≤ budget, then stops</text>
+  <text x="580" y="236" text-anchor="middle" font-size="11" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">✓ ErrTooLarge — request rejected</text>
+  <text x="360" y="294" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">the guard must fire BEFORE image.Decode / zip.Open allocates — a header check is cheap, the allocation is not</text>
+</svg>
+
 ---
 
 ## Decode bombs: the image case

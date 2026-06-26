@@ -32,6 +32,35 @@
   fast, memory-bounded JSON processing. Every other module in this workspace (cjson-go,
   cgltf-go) sits on top of this idea.
 
+**See it — a tree with no nodes.** The input below tokenizes into one flat
+`[]Token`. The tree shape is *not* a graph of allocated objects — it lives entirely
+in each token's `ParentIdx` (the curved arrows). `Start`/`End` are byte offsets into
+the original input, so no value is ever copied.
+
+<svg viewBox="0 0 720 330" role="img" aria-labelledby="tk-t tk-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="tk-t">A flat token array linked by parent index</title>
+  <desc id="tk-d">The JSON object brace-quote-k-quote-colon-bracket-1-comma-2-bracket-brace tokenizes into five tokens whose ParentIdx fields encode the tree.</desc>
+  <defs><marker id="tk-ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--md-accent-fg-color,#00897b)"/></marker></defs>
+  <text x="40" y="40" font-size="12" fill="var(--md-default-fg-color--light)">input bytes (index above each):</text>
+  <g font-family="ui-monospace,monospace">
+    <g font-size="9" fill="var(--md-default-fg-color--light)" text-anchor="middle"><text x="159" y="58">0</text><text x="199" y="58">1</text><text x="239" y="58">2</text><text x="279" y="58">3</text><text x="319" y="58">4</text><text x="359" y="58">5</text><text x="399" y="58">6</text><text x="439" y="58">7</text><text x="479" y="58">8</text><text x="519" y="58">9</text><text x="559" y="58">10</text></g>
+    <g font-size="15" fill="currentColor" text-anchor="middle"><text x="159" y="84">{</text><text x="199" y="84">"</text><text x="239" y="84">k</text><text x="279" y="84">"</text><text x="319" y="84">:</text><text x="359" y="84">[</text><text x="399" y="84">1</text><text x="439" y="84">,</text><text x="479" y="84">2</text><text x="519" y="84">]</text><text x="559" y="84">}</text></g>
+  </g>
+  <line x1="140" y1="94" x2="580" y2="94" stroke="var(--md-default-fg-color--lightest)"/>
+  <path d="M228,206 C228,150 96,150 96,206" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.3" marker-end="url(#tk-ah)"/>
+  <path d="M360,206 C360,128 96,128 96,206" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.3" marker-end="url(#tk-ah)"/>
+  <path d="M492,206 C492,162 360,162 360,206" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.3" marker-end="url(#tk-ah)"/>
+  <path d="M624,206 C624,140 360,140 360,206" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.3" marker-end="url(#tk-ah)"/>
+  <g font-size="11">
+    <rect x="40" y="206" width="112" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="96" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">t0 Object</text><text x="96" y="246" text-anchor="middle" fill="var(--md-default-fg-color--light)">Start 0 · End 11</text><text x="96" y="263" text-anchor="middle" fill="var(--md-default-fg-color--light)">Size 2</text><text x="96" y="282" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">Parent -1</text>
+    <rect x="172" y="206" width="112" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="228" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">t1 String</text><text x="228" y="246" text-anchor="middle" fill="var(--md-default-fg-color--light)">Start 2 · End 3</text><text x="228" y="263" text-anchor="middle" fill="var(--md-default-fg-color--light)">"k" (key)</text><text x="228" y="282" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">Parent 0</text>
+    <rect x="304" y="206" width="112" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="360" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">t2 Array</text><text x="360" y="246" text-anchor="middle" fill="var(--md-default-fg-color--light)">Start 5 · End 10</text><text x="360" y="263" text-anchor="middle" fill="var(--md-default-fg-color--light)">Size 2</text><text x="360" y="282" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">Parent 0</text>
+    <rect x="436" y="206" width="112" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="492" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">t3 Primitive</text><text x="492" y="246" text-anchor="middle" fill="var(--md-default-fg-color--light)">Start 6 · End 7</text><text x="492" y="263" text-anchor="middle" fill="var(--md-default-fg-color--light)">1</text><text x="492" y="282" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">Parent 2</text>
+    <rect x="568" y="206" width="112" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="624" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">t4 Primitive</text><text x="624" y="246" text-anchor="middle" fill="var(--md-default-fg-color--light)">Start 8 · End 9</text><text x="624" y="263" text-anchor="middle" fill="var(--md-default-fg-color--light)">2</text><text x="624" y="282" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">Parent 2</text>
+  </g>
+  <text x="360" y="314" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">arrows = ParentIdx · one pre-allocated []Token · zero per-value heap allocation</text>
+</svg>
+
 ---
 
 ## The Token struct

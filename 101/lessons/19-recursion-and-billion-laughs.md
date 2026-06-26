@@ -30,6 +30,41 @@
 a crafted input file. They require no authentication, no network, no memory
 corruption — just a malformed file dropped on your API endpoint.
 
+**See it — exponential fan-out.** Each composite glyph references K children, each
+of which references K more. Depth `d` alone is legal, but the *work* is `K^d`. A
+plain depth ceiling does not help once the depth is within bounds — only a shared
+budget counter (`glyphBudget`), decremented across the whole expansion, stops it.
+
+<svg viewBox="0 0 720 330" role="img" aria-labelledby="bl-t bl-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:680px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="bl-t">Billion-laughs composite glyph fan-out</title>
+  <desc id="bl-d">One glyph references K children, each referencing K more, producing K to the power d work; a shared budget counter aborts the expansion.</desc>
+  <defs><marker id="bl-ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--md-default-fg-color--light)"/></marker></defs>
+  <rect x="332" y="26" width="56" height="26" rx="6" fill="var(--md-accent-fg-color,#00897b)"/><text x="360" y="44" text-anchor="middle" font-size="12" fill="#fff">glyph</text>
+  <text x="410" y="44" font-size="11" fill="var(--md-default-fg-color--light)">depth 0 — 1 glyph</text>
+  <g stroke="var(--md-default-fg-color--light)" stroke-width="1.2" fill="none">
+    <path d="M360,52 L175,84" marker-end="url(#bl-ah)"/><path d="M360,52 L360,84" marker-end="url(#bl-ah)"/><path d="M360,52 L545,84" marker-end="url(#bl-ah)"/>
+  </g>
+  <g fill="var(--md-accent-fg-color,#00897b)"><rect x="150" y="86" width="50" height="22" rx="5"/><rect x="335" y="86" width="50" height="22" rx="5"/><rect x="520" y="86" width="50" height="22" rx="5"/></g>
+  <text x="600" y="102" font-size="11" fill="var(--md-default-fg-color--light)">depth 1 — K</text>
+  <g stroke="var(--md-default-fg-color--lighter)" stroke-width="1" fill="none">
+    <path d="M175,108 L120,150"/><path d="M175,108 L175,150"/><path d="M175,108 L230,150"/>
+    <path d="M360,108 L305,150"/><path d="M360,108 L360,150"/><path d="M360,108 L415,150"/>
+    <path d="M545,108 L490,150"/><path d="M545,108 L545,150"/><path d="M545,108 L600,150"/>
+  </g>
+  <g fill="var(--md-accent-fg-color,#00897b)">
+    <circle cx="120" cy="158" r="8"/><circle cx="175" cy="158" r="8"/><circle cx="230" cy="158" r="8"/>
+    <circle cx="305" cy="158" r="8"/><circle cx="360" cy="158" r="8"/><circle cx="415" cy="158" r="8"/>
+    <circle cx="490" cy="158" r="8"/><circle cx="545" cy="158" r="8"/><circle cx="600" cy="158" r="8"/>
+  </g>
+  <text x="652" y="162" font-size="11" fill="var(--md-default-fg-color--light)">K²</text>
+  <line x1="30" y1="196" x2="690" y2="196" stroke="#e5484d" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="360" y="190" text-anchor="middle" font-size="11.5" fill="#e5484d" font-weight="600">glyphBudget exhausted → abort  (maxGlyphComponents = 4096, maxGlyphPoints = 1&lt;&lt;20)</text>
+  <g fill="var(--md-default-fg-color--lightest)"><circle cx="110" cy="224" r="5"/><circle cx="150" cy="224" r="5"/><circle cx="190" cy="224" r="5"/><circle cx="230" cy="224" r="5"/><circle cx="290" cy="224" r="5"/><circle cx="330" cy="224" r="5"/><circle cx="370" cy="224" r="5"/><circle cx="410" cy="224" r="5"/><circle cx="470" cy="224" r="5"/><circle cx="510" cy="224" r="5"/><circle cx="550" cy="224" r="5"/><circle cx="600" cy="224" r="5"/></g>
+  <text x="360" y="250" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">depth d (never reached) — Kᵈ nodes</text>
+  <text x="360" y="288" text-anchor="middle" font-size="13" fill="currentColor">K = 8, depth = 8  →  8⁸ = 16,777,216 components from a few-KB file</text>
+  <text x="360" y="310" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">a depth ceiling alone allows this; the shared budget counter is what stops it</text>
+</svg>
+
 ---
 
 ## Part 1 — XML and the fatal stack overflow

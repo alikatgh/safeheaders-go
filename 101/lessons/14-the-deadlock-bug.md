@@ -26,6 +26,43 @@
 **Why it matters:** a deadlock in a parser library means one crafted input (or a
 canceled request) can freeze a server permanently, requiring a restart to recover.
 
+**See it — the deadlock.** The pool can send `numJobs + numWorkers` messages (one
+result per job, plus one cancel-ack per worker), but the channel buffers only
+`numJobs`. Once the buffer fills, the extra cancel-acks block on send — and
+`wg.Wait()` waits for goroutines that can never finish. The fix sizes the buffer
+`numJobs + numWorkers`.
+
+<svg viewBox="0 0 720 360" role="img" aria-labelledby="dl-t dl-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:680px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="dl-t">The under-sized results channel deadlock</title>
+  <desc id="dl-d">Workers can send numJobs plus numWorkers messages but the channel buffers only numJobs, so the extra cancel-acks block and wg.Wait never returns.</desc>
+  <defs>
+    <marker id="dl-ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--md-accent-fg-color,#00897b)"/></marker>
+    <marker id="dl-mut" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--md-default-fg-color--light)"/></marker>
+    <marker id="dl-rh" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e5484d"/></marker>
+  </defs>
+  <rect x="28" y="150" width="160" height="84" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="108" y="184" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">worker pool</text>
+  <text x="108" y="205" text-anchor="middle" font-size="12" fill="var(--md-default-fg-color--light)">N goroutines</text>
+  <text x="108" y="222" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">each sends 2 kinds</text>
+  <text x="470" y="92" text-anchor="middle" font-size="13" fill="currentColor"><tspan font-family="ui-monospace,monospace">resultsCh</tspan>  ·  cap = numJobs (4)  ·  <tspan fill="#e5484d" font-weight="700">FULL</tspan></text>
+  <rect x="342" y="106" width="58" height="44" rx="4" fill="var(--md-accent-fg-color,#00897b)"/><text x="371" y="133" text-anchor="middle" font-size="12" fill="#fff">r1</text>
+  <rect x="408" y="106" width="58" height="44" rx="4" fill="var(--md-accent-fg-color,#00897b)"/><text x="437" y="133" text-anchor="middle" font-size="12" fill="#fff">r2</text>
+  <rect x="474" y="106" width="58" height="44" rx="4" fill="var(--md-accent-fg-color,#00897b)"/><text x="503" y="133" text-anchor="middle" font-size="12" fill="#fff">r3</text>
+  <rect x="540" y="106" width="58" height="44" rx="4" fill="var(--md-accent-fg-color,#00897b)"/><text x="569" y="133" text-anchor="middle" font-size="12" fill="#fff">r4</text>
+  <path d="M190,168 L334,140" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#dl-ah)"/>
+  <text x="256" y="148" text-anchor="middle" font-size="11" fill="var(--md-accent-fg-color,#00897b)">results × numJobs</text>
+  <path d="M190,210 L322,196" fill="none" stroke="#e5484d" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#dl-rh)"/>
+  <line x1="334" y1="168" x2="334" y2="234" stroke="#e5484d" stroke-width="3"/>
+  <text x="252" y="232" text-anchor="middle" font-size="11" fill="#e5484d">cancel-ack × numWorkers</text>
+  <text x="346" y="205" font-size="11" fill="#e5484d" font-weight="600">✗ no free slot — send blocks</text>
+  <rect x="342" y="266" width="256" height="62" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="470" y="292" text-anchor="middle" font-size="13" fill="currentColor"><tspan font-family="ui-monospace,monospace">main(): wg.Wait()</tspan></text>
+  <text x="470" y="312" text-anchor="middle" font-size="11" fill="#e5484d" font-weight="600">hangs forever — workers never return</text>
+  <path d="M470,150 L470,264" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2" stroke-dasharray="3 4" marker-end="url(#dl-mut)"/>
+  <path d="M340,300 C250,300 184,272 156,238" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2" stroke-dasharray="3 4" marker-end="url(#dl-mut)"/>
+  <text x="250" y="292" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)">circular wait</text>
+</svg>
+
 ---
 
 ## The bug in `jsmn-go/parallel.go`

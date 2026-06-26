@@ -26,6 +26,45 @@
 time leaves most CPU cores idle; a worker pool can saturate all cores while
 keeping memory usage bounded and result order predictable.
 
+**See it — fan-out / fan-in.** One feeder tags each chunk with its index and
+drops it on `jobCh`. A fixed set of workers pull, parse, and push answers onto
+`resultCh`. Because every result carries its index, the collector writes it into
+`slice[idx]` — so the output is in input order even though workers finish in any
+order.
+
+<svg viewBox="0 0 720 300" role="img" aria-labelledby="wp-t wp-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="wp-t">Worker pool fan-out and fan-in</title>
+  <desc id="wp-d">A jobs channel feeds a fixed set of workers; each worker pushes an indexed result onto a results channel, which is reassembled in order.</desc>
+  <defs><marker id="wp-ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--md-accent-fg-color,#00897b)"/></marker></defs>
+  <text x="100" y="36" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">feeder: one job per chunk</text>
+  <rect x="36" y="48" width="128" height="150" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="100" y="68" text-anchor="middle" font-size="12" fill="currentColor" font-family="ui-monospace,monospace">jobCh</text>
+  <rect x="52" y="78" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="100" y="93" text-anchor="middle" font-size="10" fill="currentColor">j0 · idx 0</text>
+  <rect x="52" y="106" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="100" y="121" text-anchor="middle" font-size="10" fill="currentColor">j1 · idx 1</text>
+  <rect x="52" y="134" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="100" y="149" text-anchor="middle" font-size="10" fill="currentColor">j2 · idx 2</text>
+  <rect x="52" y="162" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="100" y="177" text-anchor="middle" font-size="10" fill="currentColor">j3 · idx 3</text>
+  <text x="232" y="64" text-anchor="middle" font-size="11" fill="var(--md-accent-fg-color,#00897b)">fan-out</text>
+  <rect x="298" y="70" width="132" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="364" y="90" text-anchor="middle" font-size="12" fill="currentColor">worker 1</text><text x="364" y="106" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">parse chunk</text>
+  <rect x="298" y="126" width="132" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="364" y="146" text-anchor="middle" font-size="12" fill="currentColor">worker 2</text><text x="364" y="162" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">parse chunk</text>
+  <rect x="298" y="182" width="132" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="364" y="202" text-anchor="middle" font-size="12" fill="currentColor">worker 3</text><text x="364" y="218" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">parse chunk</text>
+  <path d="M164,120 L294,92" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#wp-ah)"/>
+  <path d="M164,128 L294,148" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#wp-ah)"/>
+  <path d="M164,136 L294,204" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#wp-ah)"/>
+  <text x="494" y="64" text-anchor="middle" font-size="11" fill="var(--md-accent-fg-color,#00897b)">fan-in</text>
+  <path d="M430,92 L552,120" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#wp-ah)"/>
+  <path d="M430,148 L552,128" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#wp-ah)"/>
+  <path d="M430,204 L552,136" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#wp-ah)"/>
+  <text x="620" y="36" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">results[idx] — ordered</text>
+  <rect x="556" y="48" width="128" height="150" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="620" y="68" text-anchor="middle" font-size="12" fill="currentColor" font-family="ui-monospace,monospace">resultCh</text>
+  <rect x="572" y="78" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="620" y="93" text-anchor="middle" font-size="10" fill="currentColor">r0 · idx 0</text>
+  <rect x="572" y="106" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="620" y="121" text-anchor="middle" font-size="10" fill="currentColor">r1 · idx 1</text>
+  <rect x="572" y="134" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="620" y="149" text-anchor="middle" font-size="10" fill="currentColor">r2 · idx 2</text>
+  <rect x="572" y="162" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="620" y="177" text-anchor="middle" font-size="10" fill="currentColor">r3 · idx 3</text>
+  <text x="360" y="262" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)"><tspan font-family="ui-monospace,monospace">wg.Wait()</tspan> closes resultCh once every worker signs out (wg.Done)</text>
+  <text x="360" y="280" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">each result written to slice[idx] → input order preserved</text>
+</svg>
+
 ---
 
 ## The skeleton: four moving parts
