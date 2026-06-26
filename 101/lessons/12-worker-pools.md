@@ -5,6 +5,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Fan-out** is giving the same pile of work to several workers at once, like
   a dispatcher handing envelopes to a team of couriers simultaneously instead
   of sending one courier and waiting for them to come back.

@@ -16,6 +16,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Fuzzing** is like hiring a robot to mash a parser with random inputs at
   machine speed — thousands of attempts per second — looking for panics,
   crashes, or hangs that a human-written test would never stumble into.

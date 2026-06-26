@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **A bomb is a ratio trick.** A 42-byte ZIP file can expand to 4.5 GB of
   zeros. A 50 KB PNG can declare dimensions of 65535 × 65535 = 4.3 billion
   pixels. The file is small; the allocation is enormous.

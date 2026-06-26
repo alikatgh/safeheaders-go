@@ -11,6 +11,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Font units vs pixels.** Glyphs are drawn in an abstract grid — maybe 2048
   units tall. Your screen thinks in pixels. "Rendering at 16 px" means: multiply
   every coordinate by `16 / 2048 ≈ 0.0078`. That fraction is called `scale`.

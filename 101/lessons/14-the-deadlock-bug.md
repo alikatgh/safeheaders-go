@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - A **goroutine** is a lightweight thread. Sending on a channel blocks the
   goroutine until someone on the other end receives.
 - A **buffered channel** `make(chan T, N)` lets up to N sends proceed without a

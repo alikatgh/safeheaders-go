@@ -11,6 +11,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Recursion** is when a function calls itself. Parsing a tree naturally looks
   like this: "to parse a node, parse each of its children — which are also nodes."
 - **The call stack** is a fixed-size chunk of memory the OS gives each goroutine.

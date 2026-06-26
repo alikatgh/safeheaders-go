@@ -9,6 +9,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Wrapping, not reimplementing.** The C originals (cJSON, cgltf, tinyxml2) parse bytes
   byte-by-byte in hand-written C. Go already ships battle-tested parsers in the standard library.
   These modules plug those parsers in and add the things the stdlib leaves to you.

@@ -9,6 +9,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - A **package** is a folder of `.go` files that share a `package` declaration.
   Think of it as one chapter in a book — self-contained but part of a larger work.
 - A **module** is a directory tree with a `go.mod` at its root. It is the unit

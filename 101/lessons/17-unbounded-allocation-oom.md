@@ -8,6 +8,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **A WAV file is just a structured binary envelope.** Near the top it has a 32-bit integer
   that says "my audio payload is N bytes long." The parser reads that number and allocates
   a slice to receive the data.

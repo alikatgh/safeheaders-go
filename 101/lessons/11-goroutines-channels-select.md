@@ -9,6 +9,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Goroutine** — a "green thread" launched with `go f()`. It runs concurrently with
   the caller, but costs only a few kilobytes of stack (not a full OS thread). You can
   run thousands of them.

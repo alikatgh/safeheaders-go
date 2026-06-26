@@ -9,6 +9,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Error as a value** — in Go an error is just an interface with one method: `Error() string`.
   A function that can fail returns `(result, error)` as its last two values. There are no
   exceptions, no try/catch.

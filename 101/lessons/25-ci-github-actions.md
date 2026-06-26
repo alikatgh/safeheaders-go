@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Matrix job** — run the same recipe once per module (or OS). GitHub spins up
   nine parallel VMs, each handling one Go module. If `dr-wav-go` fails, the
   others keep running (`fail-fast: false`).

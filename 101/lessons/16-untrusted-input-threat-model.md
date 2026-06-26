@@ -12,6 +12,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **"Untrusted input"** means any bytes whose sender you cannot fully control:
   a file upload, a network response, a message from another service, a file
   sitting in a shared directory.

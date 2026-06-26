@@ -11,6 +11,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Tokenizer vs parser.** A *tokenizer* reads raw bytes and tells you *where* each
   piece is (start byte, end byte, type). It does not build objects, fill structs, or
   validate business rules. A *parser* does all of that on top of the tokenizer's work.

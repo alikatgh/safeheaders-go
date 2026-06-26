@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **"Single-header C library"** — a whole parser or codec living in one `.h` file
   you drop into a C project. They are fast and widely used, but they live in C's
   memory model: you manage every allocation, and one bad index is a buffer overflow.

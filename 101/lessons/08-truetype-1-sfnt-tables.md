@@ -7,6 +7,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - A `.ttf` file is not a single blob — it is a **named-table container** (called "sfnt"). Think of
   it like a ZIP archive: there is a table of contents at the front, and each entry says where
   to find a named chunk of data.

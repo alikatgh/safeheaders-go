@@ -11,6 +11,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Fuzzing is a robot test-case writer.** You give it a valid example and a
   function to call. It then generates millions of random mutations — flipping
   bytes, swapping numbers, inserting NULs — and calls your function with each

@@ -11,6 +11,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **"10 parallel reviewers"** — ten independent AI agents each focused on
   one module, the same way a code-review team splits a large PR. They can
   find things in parallel, but each one misses context the others have.

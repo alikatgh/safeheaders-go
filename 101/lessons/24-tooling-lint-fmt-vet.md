@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **gofmt** is the code formatter. It's not optional in Go — the community
   agreed on one style, and the tool enforces it. Think of it as autocorrect
   for indentation and braces.

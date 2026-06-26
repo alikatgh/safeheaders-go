@@ -5,6 +5,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **`io.Reader` is a pipe tap.** Anything that produces a sequence of bytes — a file, a network socket, a compressed stream, an in-memory `[]byte` — can wear the `io.Reader` face. Your code doesn't care which.
 - **`io.Writer` is a drain.** Anything that can absorb bytes — a file, a network connection, an in-memory buffer — implements `io.Writer`. Write to the drain without knowing what's at the other end.
 - **`bytes.Reader` turns a `[]byte` into a `Reader`; `bytes.Buffer` is both at once.** They are the glue between the "I already have bytes in memory" world and any function that expects a stream.

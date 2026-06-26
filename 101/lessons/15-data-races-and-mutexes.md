@@ -8,6 +8,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Two cooks, one shopping list.** A data race happens when two goroutines
   read and write the same memory at the same time without taking turns. Like
   two cooks both scribbling on the same notepad — the result is illegible.

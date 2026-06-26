@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **`func TestXxx(t *testing.T)`** is the entry point Go's test runner looks for. Any
   exported function starting with `Test` in a `_test.go` file gets run automatically by
   `go test`.

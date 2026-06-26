@@ -9,6 +9,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **cmap is the font's phone book.** You look up a character (say `'A'`) and
   get back a small integer called a *glyph ID*. The book has several editions
   (formats 0, 4, 6, 12); the rasterizer picks the best available one.

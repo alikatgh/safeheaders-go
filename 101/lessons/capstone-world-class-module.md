@@ -11,6 +11,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **"It compiles" is table stakes.** A library that compiles but panics on a
   crafted input, deadlocks under cancellation, or leaks memory on a 1 MB input
   is not production-ready.

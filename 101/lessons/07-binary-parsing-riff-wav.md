@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **A WAV file is a Lego stack of labelled boxes.** The outermost box is called
   RIFF; inside it there is a WAVE box, then a `fmt ` box (audio metadata), and a
   `data` box (the raw sound bytes). Each box has a 4-byte name tag followed by a

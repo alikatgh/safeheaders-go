@@ -12,6 +12,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Context is a "stop light" you pass into long-running calls.** The caller
   creates a context, hands it to a function, and can cancel it at any moment —
   the function's job is to notice and stop promptly.

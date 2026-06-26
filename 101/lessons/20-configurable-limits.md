@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **A parser is like a gate at a venue.** Without a Config, the gate lets everyone
   in regardless of crowd size. With a Config, you set a fire-code limit up front,
   and the gate refuses entry once the limit is hit.

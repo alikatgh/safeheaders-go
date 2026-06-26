@@ -11,6 +11,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - A **unit test** checks one specific input against one specific expected
   output you wrote by hand. It only finds bugs you already anticipated.
 - A **property test** (also called a **round-trip test**) checks that a

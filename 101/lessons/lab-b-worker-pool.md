@@ -14,6 +14,8 @@ applied when they fixed real deadlocks in [`jsmn-go/parallel.go`](src/jsmn-go-pa
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **Worker pool** — instead of launching one goroutine per item (which can
   flood the CPU and exhaust memory for large inputs), you launch a fixed number
   of goroutines. They each pull work from a shared queue and process items one

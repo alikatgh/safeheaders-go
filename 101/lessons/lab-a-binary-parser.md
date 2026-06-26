@@ -13,6 +13,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **A binary format is a sequence of fields with exact byte positions.** Unlike JSON, there
   are no `{` or `"` separators — you have to know the schema ahead of time and read each
   field at the right offset.

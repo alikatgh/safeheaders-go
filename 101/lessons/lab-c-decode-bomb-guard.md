@@ -10,6 +10,8 @@
 
 ## What this actually means (plain English)
 
+No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
+
 - **A decode bomb is a magic trick.** The compressed or encoded file is tiny (a few
   hundred bytes), but it tricks the decoder into allocating gigabytes of RAM. The
   attacker pays almost nothing to send; your server pays everything to receive.
