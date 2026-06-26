@@ -250,7 +250,7 @@ func checkPixelLimit(data []byte) error {
     }
     if cfg.Width > 0 && cfg.Height > 0 &&
         int64(cfg.Width)*int64(cfg.Height) > int64(MaxImagePixels) {
-        return fmt.Errorf("image %dx%d exceeds the %d-pixel decode limit",
+        return fmt.Errorf("image %dx%d exceeds the %d-pixel decode limit (adjust MaxImagePixels)",
             cfg.Width, cfg.Height, MaxImagePixels)
     }
     return nil

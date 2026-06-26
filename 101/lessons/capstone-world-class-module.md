@@ -277,13 +277,13 @@ The repo's `.github/workflows/go-ci.yaml` runs a matrix of jobs:
 
 | Job | What it runs |
 |---|---|
-| `test` | `make test` |
-| `race` | `make test-race` |
-| `lint` | `make lint` |
+| `test` | `go test -race` + coverage gate |
+| `lint` | `golangci-lint` v2 |
 | `security` | `gosec` + `govulncheck` |
-| `fuzz` | `make fuzz FUZZTIME=15s` (smoke) |
+| `benchmark` | benchmarks posted on PRs |
+| `fuzz` | per-target fuzzing (schedule + dispatch) |
 | `examples` | `make examples` |
-| `build` | matrix of OS/arch |
+| `build` | matrix of OS / arch |
 
 Weekly scheduled runs extend the fuzz time to catch slower-emerging crashes.
 

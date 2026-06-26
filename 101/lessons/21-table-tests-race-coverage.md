@@ -56,7 +56,7 @@ func newSinkState(t *testing.T) *State {
 "FAIL at TestFoo:42" (the caller's line) instead of "FAIL at linenoise_engine_test.go:18"
 (the helper's line). That one call makes every future failure message useful.
 
-`t.TempDir()` is called twice in this file — once here, once in `tempInput`. Both temp
+`t.TempDir()` is called once in each of the two helpers shown here (it appears in several places across the file). Both temp
 directories are cleaned up automatically when the parent test finishes.
 
 ```go

@@ -309,7 +309,7 @@ safe entry point.
 
     Expected outcome: all tests pass; output includes lines like
     `--- PASS: TestParse`, `--- PASS: TestParseWithConfig`, and
-    `--- PASS: TestParallelVsSerial` confirming that parallel and serial
+    `--- PASS: TestParallelTokensMatchSerial` confirming that parallel and serial
     tokenization produce identical token slices for the same input.
 
 !!! note "Try it — race detector"
@@ -360,10 +360,10 @@ if p.toksuper != -1 {
 
 ## Related lessons
 
-- [Lesson 06](14-the-deadlock-bug.md) — how `ParseParallel` splits the input at
-  top-level commas, runs per-chunk parsers concurrently, and then merges the token
-  slices (including the `ParentIdx` rebasing fix that was a real production bug).
-- [Lesson 07](14-the-deadlock-bug.md) — the channel-buffer deadlock that lurked
+- [Lesson 12](12-worker-pools.md) — how the parallel path fans per-chunk parsers
+  across goroutines and merges the token slices (including the `ParentIdx`
+  rebasing fix that was a real production bug).
+- [Lesson 14](14-the-deadlock-bug.md) — the channel-buffer deadlock that lurked
   inside the parallel worker pool, and the watchdog test that catches it.
 
 ---

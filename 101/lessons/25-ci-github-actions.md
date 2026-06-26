@@ -35,9 +35,9 @@ machine that runs those tests on every push so humans do not have to remember.
 
 ---
 
-## The six jobs at a glance
+## The seven jobs at a glance
 
-The file is `.github/workflows/go-ci.yaml`. It defines six jobs that run on
+The file is `.github/workflows/go-ci.yaml`. It defines seven jobs that run on
 every push or pull request to `main`, plus a weekly schedule and a
 `workflow_dispatch` so you can trigger fuzzing manually.
 
@@ -61,6 +61,7 @@ on:
 | `security` | every push / PR | gosec (SARIF) + govulncheck |
 | `benchmark` | PR only | benchmarks posted as PR comment |
 | `fuzz` | schedule + dispatch | 120 s fuzzing per target |
+| `examples` | every push / PR | `make examples` — every example program builds and runs |
 | `build` | every push / PR | compile on Linux / macOS / Windows |
 
 ---

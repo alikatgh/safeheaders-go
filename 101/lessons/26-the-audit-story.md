@@ -91,7 +91,7 @@ resultsCh := make(chan chunkResult, numJobs)
 // → one send blocks → worker never calls wg.Done() → wg.Wait() hangs forever
 ```
 
-**H2 — `stb-image-go` batch loader** (stb_image.go line 106):
+**H2 — `stb-image-go` batch loader** (stb_image.go line 109):
 
 ```go
 // errs was sized for exactly len(datas) per-job failures.
@@ -129,7 +129,7 @@ for the full channel-sizing and cancellation mechanics.
 
 ## Bug class 2: the data race on shared global state
 
-**H3 — `linenoise-go` history API** (linenoise.go line 581):
+**H3 — `linenoise-go` history API** (linenoise.go line 631):
 
 ```go
 // A single package-level singleton backs all the "convenience" functions.
@@ -214,7 +214,7 @@ cumulative output crosses `MaxDecompressedSize`.
 
 ### The XML stack overflow (M7)
 
-**`tinyxml2-go`** (tinyxml2.go line 205):
+**`tinyxml2-go`** (tinyxml2.go line 195):
 
 ```go
 // parseElement recurses once per nested XML element.
@@ -225,9 +225,9 @@ cumulative output crosses `MaxDecompressedSize`.
 // recover() CANNOT catch this. The process dies.
 ```
 
-The fix: `Parse` now delegates to `ParseWithConfig` with a hard internal
-ceiling that no caller can disable. Even `UnlimitedConfig` carries a finite
-backstop for the same reason (L5).
+The fix: an absolute `maxNestingDepth = 10000` ceiling was added *inside*
+`parseElement` itself (and `parseElementLimited`), so even `Parse` and
+`UnlimitedConfig` hit a finite backstop that no caller can disable (L5).
 
 !!! warning "recover() does not save you from a stack overflow"
     A Go stack overflow is a runtime fatal error, not a panic. Wrapping
@@ -246,7 +246,7 @@ ceiling pattern.
 Not every finding was a dramatic crash. Some were quiet correctness bugs that
 matter precisely because callers trust the library to be right.
 
-**M3 — `jsmn-go` corrupted parent pointers** (parallel.go lines 156-159):
+**M3 — `jsmn-go` corrupted parent pointers** (parallel.go lines 194-195):
 
 ```go
 // processChunk rebased Token.Start and Token.End by the chunk offset.
@@ -258,7 +258,7 @@ matter precisely because callers trust the library to be right.
 // silently broken.
 ```
 
-**M1 — `cgltf-go` negative mesh index accepted** (cgltf.go line 153):
+**M1 — `cgltf-go` negative mesh index accepted** (cgltf.go line 170):
 
 ```go
 // The only check was: node.Mesh >= len(gltf.Meshes) && node.Mesh != 0

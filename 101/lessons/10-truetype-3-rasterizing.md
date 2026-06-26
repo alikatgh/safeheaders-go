@@ -361,7 +361,7 @@ rune  ──► glyphIndex (cmap)
     To confirm the composite-glyph budget kicks in on a crafted deep nesting:
 
     ```bash
-    go test -v -run TestGlyphBudget ./...
+    go test -v -run TestCompositeBudgetAborts ./...
     ```
 
     You should see a test that feeds a synthetically deep composite chain and
@@ -372,7 +372,7 @@ rune  ──► glyphIndex (cmap)
     file" should never crash the process, only return an error.
 
     ```bash
-    cd stb-truetype-go && go test -fuzz=FuzzRasterize -fuzztime=30s ./...
+    cd stb-truetype-go && go test -fuzz=FuzzLoadFont -fuzztime=30s .
     ```
 
     Any `fatal` exit (stack overflow, nil-pointer) is a bug. A returned `error`

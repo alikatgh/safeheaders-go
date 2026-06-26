@@ -358,7 +358,7 @@ matches. Neither can overflow the goroutine stack no matter how deep the tree is
     To probe the depth limit specifically:
 
     ```bash
-    go test ./tinyxml2-go/... -run TestNesting -v
+    go test ./tinyxml2-go/... -run 'Nesting|DepthCeiling' -v
     ```
 
     To run with the race detector (catches concurrent map writes and slice races):

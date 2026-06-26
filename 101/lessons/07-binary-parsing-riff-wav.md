@@ -299,12 +299,12 @@ composable.
     Run the dr-wav tests, including the fuzz regression corpus:
 
     ```bash
-    cd /Users/s_avelova/Documents/projects/safeheaders-go/dr-wav-go
+    cd dr-wav-go
     go test ./... -v -count=1
     ```
 
     Expected outcome: all tests pass in a few milliseconds. You should see test
-    names like `TestParse`, `TestValidateWAV`, `TestGetSampleCount`, and
+    names like `TestParse`, `TestValidateWAV`, `TestWAV_GetSampleCount`, and
     `TestSerialize`. None should report a FAIL line.
 
     To replay just the fuzz regression seeds (no new mutation, fast):

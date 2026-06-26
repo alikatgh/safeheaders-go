@@ -152,7 +152,10 @@ for _, f := range r.File {
                 " (adjust MaxDecompressedSize)", MaxDecompressedSize)
         }
     }
-    rc, _ := f.Open()
+    rc, err := f.Open()
+    if err != nil {
+        return nil, err
+    }
     data, err := readAllLimited(rc, perEntryLimit)
     rc.Close()
     total += int64(len(data))

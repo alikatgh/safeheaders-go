@@ -161,7 +161,10 @@ func Unmarshal(data []byte, v interface{}) error {
     if len(data) == 0 {
         return errors.New("empty JSON data")
     }
-    return json.Unmarshal(data, v)
+    if err := json.Unmarshal(data, v); err != nil {
+        return fmt.Errorf("unmarshal error: %w", err)
+    }
+    return nil
 }
 ```
 

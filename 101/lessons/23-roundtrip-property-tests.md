@@ -152,7 +152,7 @@ check would fail. The test is short, clear, and finds the bug in one run.
     Run the round-trip test in the miniz-go module:
 
     ```bash
-    cd miniz-go && go test -run TestCreateArchiveConcurrentRoundTrip -v
+    cd miniz-go && go test -run TestConcurrentArchiveRoundTrip -v
     ```
 
     Expected outcome:
@@ -281,7 +281,7 @@ to the wrong position in the merged array.
     automatically:
 
     ```bash
-    cd jsmn-go && go test -fuzz=FuzzParallelEqualsSerial -fuzztime=30s
+    cd jsmn-go && go test -fuzz=FuzzParseConsistency -fuzztime=30s
     ```
 
     If a fuzz corpus file is already present under `testdata/fuzz/`, the

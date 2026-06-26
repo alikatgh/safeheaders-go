@@ -194,7 +194,7 @@ when depth is unbounded.
     From the repo root, run the tinyxml2 tests including the nesting limit:
 
     ```bash
-    cd tinyxml2-go && go test -v -run TestNesting ./...
+    cd tinyxml2-go && go test -v -run 'Nesting|DepthCeiling' ./...
     ```
 
     Expected outcome: the test generates XML nested deeper than `MaxNestingDepth`

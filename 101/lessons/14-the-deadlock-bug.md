@@ -207,8 +207,9 @@ timeouts catch this, but they are slow (the default `go test` timeout is ten
 minutes). A faster approach is a watchdog: cancel a context mid-parse and assert
 the call returns within a short deadline.
 
-The repo's tests follow this pattern (you can find analogous tests in
-`jsmn-go/jsmn_test.go` and `stb-image-go/stb_image_test.go`):
+The repo's tests follow this pattern (the real watchdog tests are
+`TestParseParallelCancellationNoDeadlock` in `jsmn-go/jsmn_parallel_test.go` and
+`TestLoadBatchConcurrentCancellationNoDeadlock` in `stb-image-go/stb_image_audit_test.go`):
 
 ```go
 // Watchdog pattern — assert the call does not hang on cancellation.

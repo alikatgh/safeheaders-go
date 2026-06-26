@@ -227,7 +227,7 @@ runtime.
 !!! note "The race detector has a runtime cost"
     Binaries compiled with `-race` run 2–20× slower and use more memory. Use
     it in CI and development, not in production builds. In this repo the
-    `go-ci.yaml` workflow runs a dedicated `race` job.
+    `go-ci.yaml` workflow runs `go test -race` as a step inside its `test` job.
 
 ---
 
@@ -260,7 +260,7 @@ modes pass.
     From the repo root, run the linenoise race test:
 
     ```bash
-    cd linenoise-go && go test -race -run TestHistory -v ./...
+    cd linenoise-go && go test -race -run History -v ./...
     ```
 
     **Expected outcome:** all tests pass, no `WARNING: DATA RACE` output. If you

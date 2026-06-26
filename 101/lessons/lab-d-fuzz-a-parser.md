@@ -292,20 +292,28 @@ The workflow after that is:
 
 ## How CI picks this up
 
-In `.github/workflows/go-ci.yaml`, the weekly `fuzz` job runs:
+In `.github/workflows/go-ci.yaml`, the weekly `fuzz` job runs every module's
+target through a build matrix (shown here with the `dr-wav-go` row expanded):
 
 ```yaml
-# from .github/workflows/go-ci.yaml — fuzz job
-- name: Fuzz dr-wav-go (FuzzParse)
-  working-directory: dr-wav-go
-  run: go test -run='^$' -fuzz="^FuzzParse$" -fuzztime=120s .
+# from .github/workflows/go-ci.yaml — fuzz job (matrix)
+strategy:
+  matrix:
+    include:
+      - module: dr-wav-go
+        target: FuzzParse
+      # … jsmn-go/FuzzParse, miniz-go/FuzzExtract, stb-truetype-go/FuzzLoadFont, …
+steps:
+  - name: Fuzz ${{ matrix.module }} (${{ matrix.target }})
+    working-directory: ${{ matrix.module }}
+    run: go test -run='^$' -fuzz="^${{ matrix.target }}$" -fuzztime=120s .
 
-- name: Upload crash corpus on failure
-  if: failure()
-  uses: actions/upload-artifact@v4
-  with:
-    name: fuzz-crash-dr-wav-go
-    path: dr-wav-go/testdata/fuzz/
+  - name: Upload crash corpus on failure
+    if: failure()
+    uses: actions/upload-artifact@v4
+    with:
+      name: fuzz-crash-${{ matrix.module }}
+      path: ${{ matrix.module }}/testdata/fuzz/
 ```
 
 On failure the corpus is uploaded as a CI artifact so a developer can download

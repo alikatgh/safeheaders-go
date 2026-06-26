@@ -430,13 +430,13 @@ contours, err := f.glyphContours(gid, 0, &budget)
     the repo root:
 
     ```bash
-    cd stb-truetype-go && go test -v -run TestGlyphBudget ./...
+    cd stb-truetype-go && go test -v -run TestCompositeBudgetAborts ./...
     ```
 
-    Expected outcome: all `TestGlyphBudget*` subtests pass, reporting that
+    Expected outcome: `TestCompositeBudgetAborts` passes, confirming that
     composite budget violations are caught and returned as errors rather than
-    hanging or panicking. If no such test exists yet, `go test ./...` should
-    still pass cleanly with no panics on the bundled font fixtures.
+    hanging or panicking. `go test ./...` should also pass cleanly with no
+    panics on the bundled font fixtures.
 
 !!! tip "Also try the race detector"
     The GlyphCache in `stb_truetype.go` uses a sync.Mutex-guarded LRU. Run:

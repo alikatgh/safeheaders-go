@@ -260,7 +260,7 @@ sends block. `wg.Wait()` waits for the workers to finish. Deadlock.
 
     ```bash
     cd /path/to/safeheaders-go/stb-image-go
-    go test -race -v -run TestLoadBatchCancelMidParse -timeout 10s ./...
+    go test -race -v -run TestLoadBatchConcurrent_Cancellation -timeout 10s ./...
     ```
 
     Expected outcome: the test passes and completes well within the 10-second

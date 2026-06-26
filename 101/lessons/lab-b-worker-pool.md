@@ -364,7 +364,7 @@ lab the `out` channel serves the same isolation purpose.
 
 ## Step 5 — optional: a pre-allocated output slice variant
 
-The jsmn-go parallel path allocates `results := make([]Token, numJobs)` once
+The jsmn-go parallel path allocates `jobResults := make([]chunkResult, numJobs)` once
 and lets each worker write to its own slot. That removes the channel entirely
 for the output, at the cost of one allocation up front. The `stb-image-go`
 pool does the same thing (line 105 in `stb_image.go`):
@@ -396,8 +396,8 @@ up front and accept that failed slots remain their zero value.
 | Jobs channel | pre-filled, closed | pre-filled, closed | pre-filled, closed |
 | Results channel buffer | `numJobs + numWorkers` | `len(datas) + numWorkers` | `len(items) + numWorkers` |
 | Output storage | pre-allocated `[]chunkResult` | pre-allocated `[]image.Image` | collected from channel |
-| Cancel check | `ctx.Err()` before select | `ctx.Err()` before select | same |
-| Race-safe? | yes (`-race` CI job) | yes (`-race` CI job) | verified in Step 4 |
+| Cancel check | bare `select` (`ctx.Done()` case) | `ctx.Err()` before `select` | `ctx.Err()` before `select` |
+| Race-safe? | yes (`-race` in CI) | yes (`-race` in CI) | verified in Step 4 |
 
 The channel buffer formula is identical in both production modules and this
 lab. Once you see the shape — `(one send per job) + (one send per worker on

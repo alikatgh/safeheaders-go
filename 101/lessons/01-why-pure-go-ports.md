@@ -86,7 +86,7 @@ Here is what each module does and which C library it replaces:
 | `miniz-go` | miniz | ZIP / DEFLATE compress and extract |
 | `linenoise-go` | linenoise (Sanfilippo) | CLI line editing with history |
 
-All nine are at `v0.5.0` and marked **Stable** in `README.md`:
+All are marked **Stable** in `README.md`; eight are at `v0.5.0`, with `linenoise-go` at `v0.1.0`:
 
 > Status: all 9 modules are production-ready. Every module is lint-clean,
 > race-tested, fuzzed where it parses untrusted input, and above the 70%
