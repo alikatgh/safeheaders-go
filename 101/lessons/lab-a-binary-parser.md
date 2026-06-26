@@ -15,23 +15,82 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **A binary format is a sequence of fields with exact byte positions.** Unlike JSON, there
-  are no `{` or `"` separators — you have to know the schema ahead of time and read each
-  field at the right offset.
-- **Every "length" field is a claim, not a fact.** A file can say its data chunk is 4 GB
-  long while the actual file is 100 bytes. If you trust it blindly and call `make([]byte, n)`,
-  your program crashes with an out-of-memory panic.
-- **Bounds-checking means: read what remains, not what is claimed.** Cap any allocation to
-  `reader.Len()` (bytes remaining in the buffer) before you `make` the slice.
-- **`encoding/binary.Read` is your friend.** It reads fixed-size values in a specified byte
-  order and returns an error instead of silently misaligning everything.
-- **A chunk-based format lets you skip unknown sections.** RIFF, IFF, PNG, and many others
-  use a repeating `[4-byte tag][4-byte length][data…]` pattern. Unknown tags get `Seek`-ed
-  past, not crashed on.
+- **Binary format** = "a book with no chapter titles — you must already know that page 4 is the index and page 6 is the preface." Every field sits at a fixed byte offset; there are no `{` or `"` separators, so the parser must know the schema ahead of time and read each field at the exact right position.
+- **Length field** = "a stranger's claim about how heavy their suitcase is before you try to lift it." A file can declare its data chunk is 4 GB long while the actual file is 100 bytes; trust it blindly and `make([]byte, n)` crashes the process with an out-of-memory panic.
+- **Bounds check** = "measuring the shelf before buying the bookcase." Cap any allocation to `reader.Len()` (bytes actually remaining in the buffer) before calling `make`, so a lying length field cannot exhaust RAM.
+- **`encoding/binary.Read`** = "a calibrated tape measure instead of eyeballing it." It reads fixed-size values in the specified byte order and returns an error on short reads, rather than silently misaligning every subsequent field.
+- **Chunk-based format** = "a train where each car has a label and a length, so you can skip cargo cars you don't recognise." RIFF, IFF, PNG, and LP-Chunk all use a repeating `[4-byte tag][4-byte length][data…]` pattern; unknown tags are `Seek`-ed past, not crashed on.
 
 **Why it matters:** a single missing bounds check in a binary parser is a denial-of-service
 waiting to happen — pass in a crafted file, exhaust the server's memory, game over. The
 fix is three lines; skipping it costs you the production incident.
+
+**See it — how the bounds check intercepts an oversized chunk claim.**
+
+<svg viewBox="0 0 700 310" role="img" aria-labelledby="txlababi dxlababi" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="txlababi">Bounds-check flow for a binary chunk parser</title>
+  <desc id="dxlababi">A block-and-arrow diagram showing how the LP-Chunk parser reads a declared length from the file, compares it to the bytes actually remaining via r.Len(), takes the minimum, and either allocates safely or rejects a crafted oversized claim.</desc>
+  <defs>
+    <marker id="xlababi-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L8,3.5 Z" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <!-- File box -->
+  <rect x="20" y="110" width="120" height="52" rx="7" fill="none" stroke="currentColor" stroke-width="1.4"/>
+  <text x="80" y="131" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Untrusted file</text>
+  <text x="80" y="150" text-anchor="middle" font-size="10" fill="currentColor">ChunkLen = 0xFFFFFFFF</text>
+
+  <!-- Arrow: file → read declared -->
+  <line x1="140" y1="136" x2="190" y2="136" stroke="currentColor" stroke-width="1.4" marker-end="url(#xlababi-arrow)"/>
+
+  <!-- Read declared box -->
+  <rect x="192" y="110" width="140" height="52" rx="7" fill="none" stroke="currentColor" stroke-width="1.4"/>
+  <text x="262" y="131" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Read declaredLen</text>
+  <text x="262" y="150" text-anchor="middle" font-size="10" fill="currentColor">binary.Read → uint32</text>
+
+  <!-- Arrow: read declared → compare -->
+  <line x1="332" y1="136" x2="382" y2="136" stroke="currentColor" stroke-width="1.4" marker-end="url(#xlababi-arrow)"/>
+
+  <!-- Compare / decision diamond -->
+  <polygon points="432,104 492,136 432,168 372,136" fill="none" stroke="currentColor" stroke-width="1.4"/>
+  <text x="432" y="131" text-anchor="middle" font-size="10" fill="currentColor" font-weight="600">declaredLen</text>
+  <text x="432" y="146" text-anchor="middle" font-size="10" fill="currentColor">&gt; r.Len()?</text>
+
+  <!-- YES branch — down to cap box -->
+  <line x1="432" y1="168" x2="432" y2="218" stroke="#e5484d" stroke-width="1.4" marker-end="url(#xlababi-arrow)"/>
+  <text x="443" y="200" font-size="10" fill="#e5484d">yes (lie)</text>
+
+  <!-- Cap / safe alloc box -->
+  <rect x="352" y="220" width="160" height="52" rx="7" fill="none" stroke="#e5484d" stroke-width="1.4"/>
+  <text x="432" y="241" text-anchor="middle" font-size="11" fill="#e5484d" font-weight="600">allocLen = r.Len()</text>
+  <text x="432" y="258" text-anchor="middle" font-size="10" fill="currentColor">cap to bytes present</text>
+
+  <!-- NO branch — right to safe alloc -->
+  <line x1="492" y1="136" x2="556" y2="136" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#xlababi-arrow)"/>
+  <text x="518" y="128" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">no (honest)</text>
+
+  <!-- Honest alloc box -->
+  <rect x="558" y="110" width="122" height="52" rx="7" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4"/>
+  <text x="619" y="131" text-anchor="middle" font-size="11" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">allocLen = declaredLen</text>
+  <text x="619" y="150" text-anchor="middle" font-size="10" fill="currentColor">claim is trustworthy</text>
+
+  <!-- Both branches converge → make([]byte) -->
+  <!-- Arrow from cap box right to make box -->
+  <line x1="512" y1="246" x2="556" y2="246" stroke="currentColor" stroke-width="1.4" marker-end="url(#xlababi-arrow)"/>
+  <!-- Arrow from honest alloc down to make box -->
+  <line x1="619" y1="162" x2="619" y2="246" stroke="currentColor" stroke-width="1.4"/>
+  <line x1="619" y1="246" x2="680" y2="246" stroke="currentColor" stroke-width="1.4"/>
+  <line x1="680" y1="136" x2="680" y2="246" stroke="currentColor" stroke-width="1.4"/>
+
+  <!-- make box -->
+  <rect x="558" y="220" width="122" height="52" rx="7" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="619" y="241" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">make([]byte, allocLen)</text>
+  <text x="619" y="258" text-anchor="middle" font-size="10" fill="#fff">✓ safe allocation</text>
+
+  <!-- Label: the critical check -->
+  <text x="432" y="295" text-anchor="middle" font-size="10" fill="currentColor" font-style="italic">The three-line critical check — declaredLen vs r.Len() — sits at the diamond.</text>
+</svg>
 
 ---
 

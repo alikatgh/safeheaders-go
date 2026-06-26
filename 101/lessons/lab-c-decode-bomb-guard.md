@@ -12,25 +12,80 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **A decode bomb is a magic trick.** The compressed or encoded file is tiny (a few
-  hundred bytes), but it tricks the decoder into allocating gigabytes of RAM. The
-  attacker pays almost nothing to send; your server pays everything to receive.
-- **Image headers lie.** A PNG file stores `width` and `height` in a small header
-  that is read in microseconds. A crafted file can set `width = 32768, height =
-  32768` (one billion pixels) so that the allocator tries to reserve ~4 GB before
-  a single pixel is decoded.
-- **ZIP bombs stack the same trick.** A handful of compressed entries can each
-  expand 1000x. The per-entry check stops one entry; without an *aggregate* budget,
-  many small entries still blow the limit together.
-- **Read the header first, pay for the full decode only if safe.** Both guards in
-  this repo follow that pattern: cheap metadata check first, expensive allocation
-  only when the dimensions are within budget.
-- **Sentinel variables make the limit easy to tune.** `MaxImagePixels` and
-  `MaxDecompressedSize` are package-level `var` values — tests can override them
-  for a single case without recompiling.
-- **Why it matters:** a single unguarded `image.Decode` call on untrusted input
-  is a one-line DoS. The guard costs one extra header read; skipping it costs
-  your server's memory.
+- **Decode bomb** = "a shipping container labelled 'small parcel' that expands into a warehouse when opened." The compressed or encoded file is tiny, but it tricks the decoder into allocating gigabytes of RAM; the attacker pays almost nothing to send while your server pays everything to receive.
+- **Image header** = "the nutrition label on the outside of the tin — you read it before you open the tin." A PNG stores `width` and `height` in a cheap header read in microseconds; a crafted file sets `width = 32768, height = 32768` so the allocator tries to reserve ~4 GB before a single pixel is decoded.
+- **Aggregate ZIP budget** = "a per-person buffet limit that also caps the whole table, not just each individual plate." A handful of compressed entries can each expand 1000x; without a running `total` across all entries, many small ones still blow the limit together.
+- **Header-first guard** = "check the passport at the door, not after you've seated the guest." Both guards in this repo follow that pattern: `image.DecodeConfig` or `io.LimitReader` runs cheaply before the expensive `image.Decode` or `io.ReadAll` ever allocates.
+- **Sentinel limit variable** = "a thermostat dial you can turn in tests without rewiring the house." `MaxImagePixels` and `MaxDecompressedSize` are package-level `var` values — a test saves the original, overrides it with a low cap, and restores it with `defer`, no recompile needed.
+
+**Why it matters:** a single unguarded `image.Decode` call on untrusted input
+is a one-line DoS. The guard costs one extra header read; skipping it costs
+your server's memory.
+
+**See it — cheap header check gates the expensive full decode.**
+
+<svg viewBox="0 0 700 310" role="img" aria-labelledby="txlabcde dxlabcde" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="txlabcde">Decode-bomb guard flow: header check gates full decode</title>
+  <desc id="dxlabcde">A block-and-arrow diagram showing untrusted input flowing into a cheap header check (image.DecodeConfig / io.LimitReader). If the header exceeds the limit the request is rejected with an error. If it is within budget the flow continues to the expensive full decode (image.Decode / io.ReadAll) which produces safe output.</desc>
+  <defs>
+    <marker id="xlabcde-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <!-- Untrusted input box -->
+  <rect x="20" y="120" width="130" height="54" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="85" y="142" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Untrusted input</text>
+  <text x="85" y="160" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">(image / archive)</text>
+
+  <!-- Arrow: input → header check -->
+  <line x1="150" y1="147" x2="198" y2="147" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
+
+  <!-- Header check box (accent) -->
+  <rect x="200" y="110" width="160" height="74" rx="8" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
+  <text x="280" y="133" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">Cheap header check</text>
+  <text x="280" y="151" text-anchor="middle" font-size="10" fill="#fff">image.DecodeConfig</text>
+  <text x="280" y="167" text-anchor="middle" font-size="10" fill="#fff">io.LimitReader</text>
+
+  <!-- Arrow: header check → reject (up-right) -->
+  <line x1="280" y1="110" x2="280" y2="62" stroke="#e5484d" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
+
+  <!-- Reject box -->
+  <rect x="200" y="18" width="160" height="44" rx="8" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="280" y="38" text-anchor="middle" font-size="12" fill="#e5484d" font-weight="600">✗ Rejected</text>
+  <text x="280" y="54" text-anchor="middle" font-size="10" fill="#e5484d">exceeds limit → error</text>
+
+  <!-- Label on reject arrow -->
+  <text x="294" y="92" font-size="10" fill="#e5484d">over limit</text>
+
+  <!-- Arrow: header check → full decode -->
+  <line x1="360" y1="147" x2="408" y2="147" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
+
+  <!-- Label on pass arrow -->
+  <text x="362" y="140" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">within budget</text>
+
+  <!-- Full decode box -->
+  <rect x="410" y="110" width="160" height="74" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="490" y="133" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Full decode</text>
+  <text x="490" y="151" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">image.Decode</text>
+  <text x="490" y="167" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">io.ReadAll</text>
+
+  <!-- Arrow: full decode → safe output -->
+  <line x1="570" y1="147" x2="618" y2="147" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
+
+  <!-- Safe output box -->
+  <rect x="620" y="120" width="60" height="54" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="650" y="142" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">✓ Safe</text>
+  <text x="650" y="158" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">output</text>
+
+  <!-- Bottom legend -->
+  <rect x="200" y="220" width="14" height="14" rx="3" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="220" y="232" font-size="11" fill="currentColor">header check (cheap — no pixel alloc)</text>
+  <rect x="200" y="244" width="14" height="14" rx="3" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="220" y="256" font-size="11" fill="currentColor">reject path — error returned before any allocation</text>
+  <rect x="200" y="268" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="220" y="280" font-size="11" fill="currentColor">full decode — only reached when dimensions are safe</text>
+</svg>
 
 ---
 

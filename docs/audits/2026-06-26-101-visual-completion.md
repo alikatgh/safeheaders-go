@@ -33,6 +33,18 @@ deterministic guard verified this against the committed baseline:
 The accuracy work from the 2026-06-26 audit pass is fully preserved — no code, command, test
 name, line citation, source include, or link was altered by any agent.
 
+## Addendum — labs + capstone (second pass)
+
+A follow-up 5-agent sonnet fan-out applied the same treatment to the 4 labs and the
+capstone (they already had the section but it was un-restyled and had no diagram):
+**5/5 restyled + 5 new diagrams** (binary-parser bounds-check decision flow, worker-pool
+fan-out with the buffer-sizing contrast, decode-bomb header-check gate, the fuzzing loop,
+and the capstone nine-gate pipeline). Same gate: **0 code-fence / include / link changes,
+0 malformed SVGs, strict build clean.** Whole-folder coverage is now **31/31 docs with the
+section + a visual** (26 lessons, 4 labs, capstone). Agents were told to use literal
+`→`/`✓`/`✗` characters rather than HTML entities — which eliminated the one malformed-SVG
+defect from the first pass.
+
 ## Regenerating / re-running
 
 The diagrams are inline SVG in the lesson markdown. The "What this actually means" framing

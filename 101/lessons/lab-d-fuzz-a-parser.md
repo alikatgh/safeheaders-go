@@ -18,23 +18,72 @@
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Fuzzing** is like hiring a robot to mash a parser with random inputs at
-  machine speed — thousands of attempts per second — looking for panics,
-  crashes, or hangs that a human-written test would never stumble into.
-- **A seed corpus** is a bag of starting examples you hand the fuzzer. It
-  mutates them (flip a bit, insert a byte, truncate) rather than starting from
-  random noise, so it reaches interesting corners faster.
-- **A crash seed** is the exact byte string that caused a panic. The fuzzer
-  writes it into `testdata/fuzz/<FuzzName>/` automatically.
-- **Committing the seed** turns a one-time discovery into a permanent
-  regression test. Every future `go test` run (no `-fuzz` flag) replays the
-  seed and the test fails if the bug comes back.
-- **Corpus-driven coverage** means the fuzzer tracks which branches each input
-  exercises and keeps inputs that open new branches, gradually mapping the
-  parser's full state space.
+- **Fuzzing** = "a robot that hammers a lock with millions of random keys until one breaks it." The Go fuzzer mutates byte inputs at machine speed — thousands per second — calling your `FuzzXxx` function each time, looking for panics or hangs that no human-written test case would think to try.
+- **A seed corpus** = "the handful of real keys you give the robot so it mutates plausible shapes, not random noise." Each `f.Add(...)` call registers a starting example; the engine flips bits and inserts bytes from there, reaching dangerous corners far faster than pure randomness.
+- **A crash seed** = "the one broken key the robot found, bagged and labelled." When the fuzzer triggers a panic, it writes the exact byte sequence to `testdata/fuzz/<FuzzName>/` so you can replay and study it.
+- **Committing the seed** = "bolting the broken key to the wall so no one can ever forget it exists." Once the seed file is in the repo, every plain `go test ./...` run (no `-fuzz` flag) replays it — the bug's ghost stands guard against regressions forever.
+- **Corpus-driven coverage** = "the robot keeps any key that opened even one new door, building a map of the lock." The fuzzer tracks which code branches each input exercises and retains inputs that discover new branches, gradually charting the parser's full state space.
 
 **Why it matters:** the two real OOM bugs found in dr-wav-go were not caught by
 any hand-written test — the fuzzer found them in minutes.
+
+**See it — fuzz loop: mutate, execute, branch-track, crash-save.**
+
+<svg viewBox="0 0 700 310" role="img" aria-labelledby="txlabdfu dxlabdfu" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="txlabdfu">Fuzzing loop diagram: seed corpus feeds the mutator, mutated input runs the fuzz target, new branches extend the corpus, crashes write a seed file and stop.</title>
+  <desc id="dxlabdfu">A block-and-arrow diagram showing the four stages of Go fuzzing: seed corpus, mutator, fuzz target execution (with branch tracking), and two outcomes — new branch (input kept) or crash (seed written to testdata).</desc>
+  <defs>
+    <marker id="xlabdfu-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L8,3.5 Z" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <!-- Seed Corpus box -->
+  <rect x="20" y="110" width="130" height="52" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="85" y="131" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Seed Corpus</text>
+  <text x="85" y="149" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">f.Add(...) + committed</text>
+  <text x="85" y="163" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">crash seeds</text>
+
+  <!-- Arrow: Corpus → Mutator -->
+  <line x1="150" y1="136" x2="198" y2="136" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
+
+  <!-- Mutator box -->
+  <rect x="200" y="110" width="130" height="52" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="265" y="131" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Mutator</text>
+  <text x="265" y="149" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">flip bits, insert bytes,</text>
+  <text x="265" y="163" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">truncate</text>
+
+  <!-- Arrow: Mutator → Fuzz Target -->
+  <line x1="330" y1="136" x2="378" y2="136" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
+
+  <!-- Fuzz Target box -->
+  <rect x="380" y="100" width="140" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
+  <text x="450" y="123" text-anchor="middle" font-size="12" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">Fuzz Target</text>
+  <text x="450" y="141" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">Parse → Validate →</text>
+  <text x="450" y="157" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">GetDuration → …</text>
+  <text x="450" y="170" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lightest)">(branch tracking on)</text>
+
+  <!-- Arrow: Target → New branch (up-right) -->
+  <line x1="520" y1="120" x2="588" y2="60" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
+
+  <!-- New branch outcome box -->
+  <rect x="590" y="30" width="90" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="635" y="50" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">✓ New branch</text>
+  <text x="635" y="66" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">keep input</text>
+
+  <!-- Arrow: New branch → Corpus (loop back, below boxes) -->
+  <path d="M635,74 L635,270 L85,270 L85,162" stroke="currentColor" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#xlabdfu-arrow)"/>
+  <text x="360" y="287" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">add to corpus, repeat</text>
+
+  <!-- Arrow: Target → Crash (down-right) -->
+  <line x1="520" y1="153" x2="588" y2="210" stroke="#e5484d" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
+
+  <!-- Crash outcome box -->
+  <rect x="590" y="200" width="90" height="52" rx="6" fill="none" stroke="#e5484d" stroke-width="2"/>
+  <text x="635" y="221" text-anchor="middle" font-size="11" font-weight="600" fill="#e5484d">✗ Panic</text>
+  <text x="635" y="237" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">write crash seed</text>
+  <text x="635" y="250" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">to testdata/fuzz/</text>
+</svg>
 
 ---
 

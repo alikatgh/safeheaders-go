@@ -16,26 +16,91 @@ applied when they fixed real deadlocks in [`jsmn-go/parallel.go`](src/jsmn-go-pa
 
 No jargon — here's what the ideas in this lesson *actually* mean, and why they matter.
 
-- **Worker pool** — instead of launching one goroutine per item (which can
-  flood the CPU and exhaust memory for large inputs), you launch a fixed number
-  of goroutines. They each pull work from a shared queue and process items one
-  at a time until the queue is empty.
-- **Fan-out** — the coordinator sends every item into the queue ("fans out")
-  and waits for all workers to finish.
-- **Context cancellation** — a `context.Context` is a signal you can fire
-  from outside: "stop what you're doing, we're done." Workers check this
-  signal and exit early instead of churning through work nobody needs.
-- **Channel buffering** — a Go channel can hold a fixed number of values
-  without a receiver waiting. If the buffer is too small, a sender blocks
-  forever waiting for space; if the buffer is sized for the worst case, sends
-  always succeed immediately.
-- **`sync.WaitGroup`** — a counter the coordinator increments for each
-  goroutine it starts and each goroutine decrements when it finishes. When the
-  counter hits zero the coordinator unblocks and knows all work is done.
+- **Worker pool** = "a team of cashiers sharing one queue, not one cashier per customer." A fixed number of goroutines drain a shared jobs channel; no matter how large the input, only that many goroutines ever run concurrently.
+- **Fan-out** = "the manager deals every card face-down on the table before sitting back." The coordinator pushes all job indices into the channel up front, closes it, and blocks at `wg.Wait()` while workers pick items up.
+- **Context cancellation** = "a fire alarm that every worker can hear from any floor." A `context.Context` carries a Done channel; when cancel fires, workers detect it via `ctx.Err()` or a `ctx.Done()` case and exit early rather than finishing unneeded work.
+- **Channel buffering** = "a mail slot: if the slot is full, the letter carrier is stuck in the hallway until someone clears it." A buffered channel holds values without a receiver ready; if the buffer is smaller than the maximum possible sends, a sender goroutine blocks permanently and never calls `wg.Done()`.
+- **`sync.WaitGroup`** = "a departure board that flips to LANDED only when every flight has checked in." The coordinator calls `wg.Add(1)` per goroutine; each goroutine calls `wg.Done()` on exit; `wg.Wait()` blocks until the counter returns to zero.
 
 **Why it matters:** the deadlock bug in jsmn-go ([`parallel.go`](src/jsmn-go-parallel-go.md)) was caused by
 an under-sized channel buffer — safe to fix by understanding exactly how many
 sends can happen in the worst case.
+
+**See it — worker pool fan-out and the buffer sizing that prevents deadlock.**
+
+<svg viewBox="0 0 700 340" role="img" aria-labelledby="txlabbwo dxlabbwo" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="txlabbwo">Worker pool fan-out diagram showing jobs channel, workers, results channel, and correct buffer sizing</title>
+  <desc id="dxlabbwo">The coordinator fans all jobs into a closed buffered channel. N workers drain it concurrently, each sending one result per job plus one cancel result on context cancellation. The results channel buffer is sized numJobs + numWorkers to guarantee no worker ever blocks on send, allowing every worker to reach wg.Done and wg.Wait to unblock.</desc>
+  <defs>
+    <marker id="xlabbwo-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <!-- Coordinator box -->
+  <rect x="20" y="130" width="120" height="50" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="80" y="150" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Coordinator</text>
+  <text x="80" y="168" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">wg.Wait()</text>
+
+  <!-- Arrow: coordinator → jobs channel -->
+  <line x1="140" y1="155" x2="188" y2="155" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
+
+  <!-- Jobs channel box -->
+  <rect x="190" y="118" width="110" height="74" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="245" y="140" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">jobs chan</text>
+  <text x="245" y="156" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">[0] [1] [2] … [N]</text>
+  <text x="245" y="172" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">closed after fill</text>
+  <text x="245" y="185" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter)">buf = numJobs</text>
+
+  <!-- Arrows: jobs channel → workers -->
+  <line x1="300" y1="138" x2="348" y2="98" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
+  <line x1="300" y1="155" x2="348" y2="155" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
+  <line x1="300" y1="172" x2="348" y2="212" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
+
+  <!-- Worker boxes -->
+  <rect x="350" y="68" width="100" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="400" y="88" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 1</text>
+  <text x="400" y="104" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fn(item) → send</text>
+
+  <rect x="350" y="133" width="100" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="400" y="153" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 2</text>
+  <text x="400" y="169" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fn(item) → send</text>
+
+  <rect x="350" y="198" width="100" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="400" y="218" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker N</text>
+  <text x="400" y="234" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fn(item) → send</text>
+
+  <!-- Arrows: workers → results channel -->
+  <line x1="450" y1="90" x2="498" y2="130" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
+  <line x1="450" y1="155" x2="498" y2="155" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
+  <line x1="450" y1="220" x2="498" y2="180" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
+
+  <!-- Results channel box -->
+  <rect x="500" y="118" width="110" height="74" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
+  <text x="555" y="140" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">results chan</text>
+  <text x="555" y="156" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">job results</text>
+  <text x="555" y="172" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">+ cancel results</text>
+  <text x="555" y="185" text-anchor="middle" font-size="9" fill="var(--md-accent-fg-color,#00897b)">buf = jobs + workers ✓</text>
+
+  <!-- Context cancel signal -->
+  <rect x="350" y="282" width="100" height="36" rx="6" fill="#e5484d" stroke="none"/>
+  <text x="400" y="298" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">ctx cancel</text>
+  <text x="400" y="312" text-anchor="middle" font-size="10" fill="#fff">fires early</text>
+
+  <!-- Arrows: ctx cancel → workers -->
+  <line x1="400" y1="282" x2="400" y2="244" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#xlabbwo-arrow)"/>
+
+  <!-- Under-sized label (danger) -->
+  <rect x="500" y="270" width="130" height="36" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
+  <text x="565" y="286" text-anchor="middle" font-size="11" fill="#e5484d" font-weight="600">buf = jobs only ✗</text>
+  <text x="565" y="302" text-anchor="middle" font-size="10" fill="#e5484d">wg.Wait() hangs forever</text>
+  <!-- Arrow pointing at results box -->
+  <line x1="555" y1="270" x2="555" y2="194" stroke="#e5484d" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#xlabbwo-arrow)"/>
+
+  <!-- wg.Done label on workers -->
+  <text x="400" y="16" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">each worker: defer wg.Done()</text>
+  <line x1="400" y1="20" x2="400" y2="66" stroke="var(--md-default-fg-color--lighter)" stroke-width="1" stroke-dasharray="3,3"/>
+</svg>
 
 ---
 
