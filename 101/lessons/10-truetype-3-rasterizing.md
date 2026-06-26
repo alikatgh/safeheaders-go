@@ -35,6 +35,43 @@ terminal glyph goes through exactly these steps. Knowing them helps you predict
 quality, debug blurry rendering, and understand why a 4096-pixel size limit is a
 safety constraint, not an arbitrary number.
 
+**See it — scanline fill, then supersample.** Each horizontal scanline finds where
+it crosses the outline's edges; the span between a matching pair is "inside". To
+anti-alias, each pixel is sampled on a 4×4 grid and the inside-fraction becomes its
+grey level.
+
+<svg viewBox="0 0 720 340" role="img" aria-labelledby="ras-t ras-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="ras-t">Scanline fill and 4x supersampling</title>
+  <desc id="ras-d">A scanline crosses the glyph outline at two edges; the span between is filled. Each pixel is sampled 16 times and the inside-fraction sets its grey level.</desc>
+  <g stroke="var(--md-default-fg-color--lightest)" stroke-width="1">
+    <line x1="60" y1="60" x2="60" y2="280"/><line x1="100" y1="60" x2="100" y2="280"/><line x1="140" y1="60" x2="140" y2="280"/><line x1="180" y1="60" x2="180" y2="280"/><line x1="220" y1="60" x2="220" y2="280"/><line x1="260" y1="60" x2="260" y2="280"/><line x1="300" y1="60" x2="300" y2="280"/><line x1="340" y1="60" x2="340" y2="280"/>
+    <line x1="60" y1="60" x2="340" y2="60"/><line x1="60" y1="100" x2="340" y2="100"/><line x1="60" y1="140" x2="340" y2="140"/><line x1="60" y1="180" x2="340" y2="180"/><line x1="60" y1="220" x2="340" y2="220"/><line x1="60" y1="260" x2="340" y2="260"/>
+  </g>
+  <path d="M120,260 L240,80 L330,260 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+  <line x1="70" y1="190" x2="350" y2="190" stroke="var(--md-default-fg-color--light)" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <line x1="167" y1="190" x2="295" y2="190" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="7" opacity="0.4"/>
+  <circle cx="167" cy="190" r="4" fill="var(--md-accent-fg-color,#00897b)"/><circle cx="295" cy="190" r="4" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="160" y="178" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">+1</text>
+  <text x="302" y="178" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">−1</text>
+  <text x="231" y="300" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)">scanline → edge crossings → fill the span</text>
+  <text x="545" y="52" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">1 pixel = 4×4 = 16 samples</text>
+  <g fill="var(--md-accent-fg-color,#00897b)" opacity="0.4">
+    <rect x="545" y="107.5" width="37.5" height="37.5"/><rect x="582.5" y="107.5" width="37.5" height="37.5"/>
+    <rect x="470" y="145" width="37.5" height="37.5"/><rect x="507.5" y="145" width="37.5" height="37.5"/><rect x="545" y="145" width="37.5" height="37.5"/><rect x="582.5" y="145" width="37.5" height="37.5"/>
+    <rect x="470" y="182.5" width="37.5" height="37.5"/><rect x="507.5" y="182.5" width="37.5" height="37.5"/><rect x="545" y="182.5" width="37.5" height="37.5"/><rect x="582.5" y="182.5" width="37.5" height="37.5"/>
+  </g>
+  <g stroke="var(--md-default-fg-color--lighter)" stroke-width="1">
+    <line x1="507.5" y1="70" x2="507.5" y2="220"/><line x1="545" y1="70" x2="545" y2="220"/><line x1="582.5" y1="70" x2="582.5" y2="220"/>
+    <line x1="470" y1="107.5" x2="620" y2="107.5"/><line x1="470" y1="145" x2="620" y2="145"/><line x1="470" y1="182.5" x2="620" y2="182.5"/>
+  </g>
+  <rect x="470" y="70" width="150" height="150" fill="none" stroke="currentColor" stroke-width="1.6"/>
+  <line x1="470" y1="150" x2="620" y2="90" stroke="currentColor" stroke-width="1.8"/>
+  <text x="545" y="246" text-anchor="middle" font-size="11.5" fill="currentColor">10 of 16 inside → 62% coverage</text>
+  <text x="500" y="270" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">grey level →</text>
+  <rect x="546" y="258" width="40" height="16" fill="currentColor" opacity="0.62" stroke="var(--md-default-fg-color--lightest)"/>
+  <text x="360" y="324" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">nonzero winding: +1 crossing a left→right edge, −1 right→left — inside where the counter ≠ 0</text>
+</svg>
+
 ---
 
 ## The scale factor: font-units → pixels

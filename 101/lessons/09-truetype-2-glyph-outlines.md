@@ -34,6 +34,46 @@
 **Why it matters:** without these bounds, a single maliciously crafted `.ttf`
 file can freeze or crash any program that renders text - including your own.
 
+**See it — on-curve, off-curve, and the implied midpoint.** A contour is a loop
+of points. *On-curve* points sit on the outline; *off-curve* points are quadratic
+Bézier control handles. Two off-curve points in a row imply a hidden on-curve
+midpoint between them. Coordinates arrive as deltas, so the decoder keeps a running
+sum.
+
+<svg viewBox="0 0 720 340" role="img" aria-labelledby="tt-t tt-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="tt-t">Glyph contour points and quadratic Bézier curves</title>
+  <desc id="tt-d">On-curve points sit on the outline, off-curve points are Bézier control handles, and two consecutive off-curve points imply an on-curve midpoint.</desc>
+  <text x="195" y="40" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">one quadratic segment</text>
+  <path d="M70,165 Q190,55 320,150" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
+  <line x1="70" y1="165" x2="190" y2="55" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="4 3"/>
+  <line x1="190" y1="55" x2="320" y2="150" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="4 3"/>
+  <circle cx="70" cy="165" r="5" fill="var(--md-accent-fg-color,#00897b)"/>
+  <circle cx="320" cy="150" r="5" fill="var(--md-accent-fg-color,#00897b)"/>
+  <circle cx="190" cy="55" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="70" y="186" text-anchor="middle" font-size="10" fill="currentColor">on-curve</text>
+  <text x="320" y="171" text-anchor="middle" font-size="10" fill="currentColor">on-curve</text>
+  <text x="190" y="46" text-anchor="middle" font-size="10" fill="currentColor">off-curve control</text>
+  <path d="M60,300 Q150,238 220,238 Q290,238 380,300" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
+  <line x1="150" y1="238" x2="290" y2="238" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="4 3"/>
+  <circle cx="60" cy="300" r="5" fill="var(--md-accent-fg-color,#00897b)"/>
+  <circle cx="380" cy="300" r="5" fill="var(--md-accent-fg-color,#00897b)"/>
+  <circle cx="150" cy="238" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <circle cx="290" cy="238" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <circle cx="220" cy="238" r="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/><circle cx="220" cy="238" r="1.8" fill="var(--md-accent-fg-color,#00897b)"/>
+  <text x="220" y="324" text-anchor="middle" font-size="10" fill="currentColor">two off-curve in a row ⇒ implied on-curve midpoint (M)</text>
+  <g font-size="11">
+    <circle cx="456" cy="66" r="5" fill="var(--md-accent-fg-color,#00897b)"/><text x="472" y="70" fill="currentColor">on-curve point — on the outline</text>
+    <circle cx="456" cy="96" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="472" y="100" fill="currentColor">off-curve — quadratic control handle</text>
+    <circle cx="456" cy="126" r="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/><circle cx="456" cy="126" r="1.8" fill="var(--md-accent-fg-color,#00897b)"/><text x="472" y="130" fill="currentColor">implied on-curve midpoint</text>
+    <line x1="448" y1="154" x2="466" y2="154" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="4 3"/><text x="472" y="158" fill="currentColor">control handle</text>
+  </g>
+  <rect x="440" y="190" width="262" height="116" rx="6" fill="none" stroke="var(--md-default-fg-color--lightest)"/>
+  <text x="454" y="214" font-size="11" fill="currentColor">Coordinates are stored as deltas:</text>
+  <text x="454" y="236" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-family="ui-monospace,monospace">x += dx ;  y += dy</text>
+  <text x="454" y="266" font-size="11" fill="currentColor">glyphBudget caps total points:</text>
+  <text x="454" y="288" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-family="ui-monospace,monospace">maxGlyphPoints = 1&lt;&lt;20</text>
+</svg>
+
 ---
 
 ## Step 1 - the table directory and tableData

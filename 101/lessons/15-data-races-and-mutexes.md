@@ -33,6 +33,38 @@
 slice header itself — length, capacity, pointer — turning a safe append into a
 write past the end of a GC'd array.
 
+**See it — two goroutines, one shared global.** The convenience functions all
+write the same package-level `defaultState`. Called concurrently (top), both append
+to the same slice header at once — undefined behaviour. A `sync.Mutex` (bottom)
+lets one goroutine hold the data at a time; the other waits at `Lock()`.
+
+<svg viewBox="0 0 720 330" role="img" aria-labelledby="dr-t dr-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;display:block;margin:1.6rem auto;color:var(--md-default-fg-color);font-family:var(--md-text-font-family,system-ui,sans-serif)">
+  <title id="dr-t">A data race on a shared global, and the mutex fix</title>
+  <desc id="dr-d">Two goroutines write the package-level defaultState concurrently causing a data race; a sync.Mutex serialises access.</desc>
+  <defs>
+    <marker id="dr-rh" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e5484d"/></marker>
+    <marker id="dr-ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--md-accent-fg-color,#00897b)"/></marker>
+    <marker id="dr-mh" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--md-default-fg-color--light)"/></marker>
+  </defs>
+  <text x="360" y="26" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">✗ concurrent write — DATA RACE</text>
+  <rect x="34" y="44" width="128" height="54" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="98" y="68" text-anchor="middle" font-size="12" fill="currentColor">goroutine 1</text><text x="98" y="86" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)" font-family="ui-monospace,monospace">AddHistory(s)</text>
+  <rect x="558" y="44" width="128" height="54" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="622" y="68" text-anchor="middle" font-size="12" fill="currentColor">goroutine 2</text><text x="622" y="86" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)" font-family="ui-monospace,monospace">AddHistory(s)</text>
+  <rect x="276" y="42" width="168" height="60" rx="6" fill="none" stroke="#e5484d" stroke-width="2"/><text x="360" y="64" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">defaultState</text><text x="360" y="82" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)" font-family="ui-monospace,monospace">.history []string</text><text x="360" y="96" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">len · cap · ptr</text>
+  <path d="M162,71 L272,71" fill="none" stroke="#e5484d" stroke-width="1.6" marker-end="url(#dr-rh)"/>
+  <path d="M558,71 L448,71" fill="none" stroke="#e5484d" stroke-width="1.6" marker-end="url(#dr-rh)"/>
+  <text x="360" y="124" text-anchor="middle" font-size="10.5" fill="#e5484d">torn write: slice header corrupted → append past a GC'd array</text>
+  <text x="360" y="140" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)" font-family="ui-monospace,monospace">go test -race → WARNING: DATA RACE</text>
+  <line x1="34" y1="160" x2="686" y2="160" stroke="var(--md-default-fg-color--lightest)"/>
+  <text x="360" y="184" text-anchor="middle" font-size="12" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">✓ sync.Mutex — one holder at a time</text>
+  <rect x="34" y="200" width="128" height="54" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="98" y="224" text-anchor="middle" font-size="12" fill="currentColor">goroutine 1</text><text x="98" y="242" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">holds the lock</text>
+  <rect x="558" y="200" width="128" height="54" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="622" y="224" text-anchor="middle" font-size="12" fill="currentColor">goroutine 2</text><text x="622" y="242" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">waits at Lock()</text>
+  <rect x="300" y="196" width="120" height="26" rx="4" fill="var(--md-accent-fg-color,#00897b)"/><text x="360" y="214" text-anchor="middle" font-size="11" fill="#fff" font-family="ui-monospace,monospace">mu.Lock()</text>
+  <rect x="276" y="230" width="168" height="46" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6"/><text x="360" y="250" text-anchor="middle" font-size="11" fill="currentColor">defaultState.history</text><text x="360" y="266" text-anchor="middle" font-size="9.5" fill="var(--md-default-fg-color--light)">mutex-guarded</text>
+  <path d="M162,219 L296,212" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#dr-ah)"/>
+  <path d="M558,219 L424,212" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#dr-mh)"/>
+  <text x="360" y="300" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)">snapshot under lock, then do slow I/O on the copy — keep critical sections short</text>
+</svg>
+
 ---
 
 ## The real bug: H3 in `linenoise-go`
