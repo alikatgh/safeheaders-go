@@ -1,0 +1,46 @@
+/* SafeHeaders-Go 101 — restrained editorial overrides.
+   Hairline borders, no card shadows, hierarchy in weight/size, one quiet accent. */
+
+:root {
+  --md-primary-fg-color: #009688;
+  --md-accent-fg-color: #00897b;
+}
+
+/* Tables: hairlines, not boxes. */
+.md-typeset table:not([class]) {
+  box-shadow: none;
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+.md-typeset table:not([class]) th {
+  font-weight: 600;
+}
+
+/* Admonitions: flat, hairline, no heavy shadow. */
+.md-typeset .admonition,
+.md-typeset details {
+  box-shadow: none;
+  border-width: 1px;
+  border-radius: 6px;
+}
+
+/* Inline code: subtle. */
+.md-typeset code {
+  border-radius: 4px;
+}
+
+/* Lead paragraph after each H1 reads slightly larger. */
+.md-typeset h1 + p {
+  font-size: 1.05rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* "Try it" / objective callouts use the accent sparingly. */
+.md-typeset blockquote {
+  border-left: 2px solid var(--md-accent-fg-color);
+}
+
+/* Tighten figure captions. */
+.md-typeset figure figcaption {
+  font-size: 0.78rem;
+  color: var(--md-default-fg-color--light);
+}

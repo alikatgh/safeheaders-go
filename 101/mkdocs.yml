@@ -1,0 +1,98 @@
+site_name: SafeHeaders-Go 101
+site_description: From zero to a production-grade, secure Go library — taught from the real safeheaders-go code.
+docs_dir: lessons
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+extra_css:
+  - assets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.keys
+  - pymdownx.emoji
+
+nav:
+  - Welcome: index.md
+  - "1 · Go & the workspace":
+      - "01 · Why pure-Go ports of C libraries": 01-why-pure-go-ports.md
+      - "02 · Modules, packages & go.work": 02-modules-and-workspaces.md
+      - "03 · Errors, wrapping & sentinels": 03-errors-and-wrapping.md
+      - "04 · The interfaces that matter: io.Reader/Writer": 04-io-reader-writer.md
+  - "2 · Parsing untrusted input":
+      - "05 · Tokenizing text: the jsmn JSON tokenizer": 05-tokenizing-json-jsmn.md
+      - "06 · Standing on the stdlib: cjson, cgltf, tinyxml2": 06-wrapping-the-stdlib.md
+      - "07 · Binary parsing: dr-wav RIFF/PCM": 07-binary-parsing-riff-wav.md
+      - "08 · TrueType I — the sfnt table directory": 08-truetype-1-sfnt-tables.md
+      - "09 · TrueType II — decoding glyph outlines": 09-truetype-2-glyph-outlines.md
+      - "10 · TrueType III — rasterizing the outline": 10-truetype-3-rasterizing.md
+      - "Lab A · Write a bounds-checked binary parser": lab-a-binary-parser.md
+  - "3 · Concurrency in Go":
+      - "11 · Goroutines, channels & select": 11-goroutines-channels-select.md
+      - "12 · Worker pools: fan-out / fan-in": 12-worker-pools.md
+      - "13 · Context cancellation done right": 13-context-cancellation.md
+      - "14 · The deadlock we shipped (and the fix)": 14-the-deadlock-bug.md
+      - "15 · Data races & the -race detector": 15-data-races-and-mutexes.md
+      - "Lab B · A worker pool that cancels cleanly": lab-b-worker-pool.md
+  - "4 · Security & DoS resistance":
+      - "16 · The untrusted-input threat model": 16-untrusted-input-threat-model.md
+      - "17 · Unbounded allocation = OOM": 17-unbounded-allocation-oom.md
+      - "18 · Decode & decompression bombs": 18-decode-and-decompression-bombs.md
+      - "19 · Recursion: stack overflow & billion-laughs": 19-recursion-and-billion-laughs.md
+      - "20 · The configurable-limits pattern": 20-configurable-limits.md
+      - "Lab C · Add a decode-bomb guard": lab-c-decode-bomb-guard.md
+  - "5 · Testing, fuzzing & correctness":
+      - "21 · Table tests, -race & coverage": 21-table-tests-race-coverage.md
+      - "22 · Fuzzing: how go test -fuzz found real bugs": 22-fuzzing.md
+      - "23 · Round-trip & property tests": 23-roundtrip-property-tests.md
+      - "Lab D · Fuzz a parser, commit the crash seed": lab-d-fuzz-a-parser.md
+  - "6 · Tooling, CI & the audit story":
+      - "24 · gofmt, vet, golangci-lint & the Makefile": 24-tooling-lint-fmt-vet.md
+      - "25 · CI: GitHub Actions, govulncheck, gosec": 25-ci-github-actions.md
+      - "26 · The 10-agent audit (a war story)": 26-the-audit-story.md
+      - "Capstone · Take a module to world-class": capstone-world-class-module.md
+  - Glossary: glossary.md

@@ -46,3 +46,7 @@ go.work.sum
 *~
 .idea/
 *.iml
+
+# MkDocs build output (101 course)
+/101/site/
+101/site/

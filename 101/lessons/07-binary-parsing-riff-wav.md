@@ -1,0 +1,318 @@
+# 07 · Binary parsing: dr-wav RIFF/PCM
+
+> **Objectives:** Understand how a WAV file is laid out as a sequence of binary
+> chunks, learn how `encoding/binary` reads little-endian integers directly into
+> Go structs, and see why every size field from an untrusted file is a potential
+> OOM vector that must be capped before allocation.
+> Estimated time: 20 minutes.
+
+---
+
+## What this actually means (plain English)
+
+- **A WAV file is a Lego stack of labelled boxes.** The outermost box is called
+  RIFF; inside it there is a WAVE box, then a `fmt ` box (audio metadata), and a
+  `data` box (the raw sound bytes). Each box has a 4-byte name tag followed by a
+  4-byte size.
+- **Little-endian means the small end comes first.** On most desks a pile of
+  money goes big-bill-first; WAV files are the opposite — the least-significant
+  byte of a number sits at the lowest address. `encoding/binary.LittleEndian`
+  handles the byte-swapping for you.
+- **`binary.Read` is like `fmt.Sscanf` but for raw bytes.** Pass it a reader, a
+  byte order, and a pointer to any fixed-size Go value; it advances the read
+  position by exactly `sizeof(value)` bytes.
+- **Size fields in file formats are just numbers — any number.** A crafted file
+  can claim its data chunk is 4 GB even if the file is 100 bytes. Believing that
+  number and calling `make([]byte, 4<<30)` crashes the process.
+- **Seek, don't allocate, to skip unknown sections.** `r.Seek(n, io.SeekCurrent)`
+  moves the cursor without touching memory.
+- **Validate after parse, not during.** The parser accepts the bytes; a separate
+  `ValidateWAV` function checks semantic rules (channels != 0, known bit depth,
+  PCM format code).
+
+**Why it matters:** audio processing pipelines ingest user-supplied WAV files.
+A single malformed header field can turn "decode this file" into "allocate all
+available RAM and crash."
+
+---
+
+## The RIFF/WAV byte layout
+
+A canonical 44-byte WAV header looks like this:
+
+```
+Offset  Size  Field
+------  ----  -----
+0       4     "RIFF"            (ASCII magic)
+4       4     fileSize - 8      (uint32 LE)
+8       4     "WAVE"            (format tag)
+12      4     "fmt "            (subchunk ID)
+16      4     16                (subchunk1 size, uint32 LE)
+20      2     audioFormat       (1 = PCM, uint16 LE)
+22      2     numChannels       (uint16 LE)
+24      4     sampleRate        (uint32 LE)
+28      4     byteRate          (uint32 LE)
+32      2     blockAlign        (uint16 LE)
+34      2     bitsPerSample     (uint16 LE)
+36      4     "data"            (subchunk ID)
+40      4     dataSize          (uint32 LE)
+44      …     PCM samples
+```
+
+After the mandatory header, any number of extra subchunks may appear before
+`data`. The parser must scan forward until it finds the `"data"` tag.
+
+---
+
+## Reading fixed fields with `encoding/binary`
+
+From `dr-wav-go/dr_wav.go`, the `WAVHeader` struct maps directly onto the fixed
+fields in the `fmt ` subchunk:
+
+```go
+// from dr-wav-go/dr_wav.go
+type WAVHeader struct {
+    AudioFormat   uint16 // 1 = PCM
+    NumChannels   uint16
+    SampleRate    uint32
+    ByteRate      uint32
+    BlockAlign    uint16
+    BitsPerSample uint16
+}
+```
+
+`Parse` wraps the input slice in a `bytes.Reader` and reads each field in order:
+
+```go
+// from dr-wav-go/dr_wav.go
+r := bytes.NewReader(data)
+
+var riff [4]byte
+binary.Read(r, binary.LittleEndian, &riff)   // advances 4 bytes
+// … validate "RIFF" …
+
+var chunkSize uint32
+binary.Read(r, binary.LittleEndian, &chunkSize) // advances 4 bytes
+
+// … read "WAVE", "fmt ", subchunk1Size …
+
+var header WAVHeader
+binary.Read(r, binary.LittleEndian, &header.AudioFormat)
+binary.Read(r, binary.LittleEndian, &header.NumChannels)
+binary.Read(r, binary.LittleEndian, &header.SampleRate)
+// … and so on for ByteRate, BlockAlign, BitsPerSample
+```
+
+Each `binary.Read` call consumes exactly the number of bytes that the target
+type requires. There is no manual offset arithmetic — `bytes.Reader` tracks the
+position internally.
+
+!!! note "Why not read the whole struct at once?"
+    `binary.Read` *can* decode a whole struct in one call if every field is a
+    fixed-size type. The code reads field-by-field to make each error message
+    name the failing field explicitly, which is more useful when debugging
+    corrupted files. Both styles are correct.
+
+---
+
+## Skipping unknown `fmt ` bytes safely
+
+The `fmt ` subchunk is 16 bytes for PCM but can be larger for compressed formats.
+The size is declared by `subchunk1Size`, a `uint32` from the file.
+
+```go
+// from dr-wav-go/dr_wav.go
+// Skip any extra format bytes. Seek rather than allocate: subchunk1Size is an
+// untrusted uint32, so make([]byte, subchunk1Size-16) is an OOM vector. If the
+// declared size runs past EOF, the next chunk read fails cleanly.
+if subchunk1Size > 16 {
+    if _, err := r.Seek(int64(subchunk1Size-16), io.SeekCurrent); err != nil {
+        return nil, fmt.Errorf("failed to skip extra format bytes: %w", err)
+    }
+}
+```
+
+`Seek` with `io.SeekCurrent` moves the internal cursor by `n` bytes without
+reading or allocating. If the seek lands past EOF, the *next* read operation
+returns an error — a clean, safe failure rather than an OOM crash.
+
+---
+
+## Finding the data chunk
+
+WAV files can have subchunks between `fmt ` and `data` (e.g. `LIST`, `cue `).
+`readDataChunk` loops over them, skipping unknown ones and stopping when it sees
+`"data"`:
+
+```go
+// from dr-wav-go/dr_wav.go
+func readDataChunk(r *bytes.Reader) ([]byte, error) {
+    for {
+        var subchunkID [4]byte
+        binary.Read(r, binary.LittleEndian, &subchunkID)
+
+        var subchunkSize uint32
+        binary.Read(r, binary.LittleEndian, &subchunkSize)
+
+        if string(subchunkID[:]) == "data" {
+            allocSize := int(subchunkSize)
+            if allocSize > r.Len() {
+                allocSize = r.Len() // never trust the declared size past EOF
+            }
+            pcmData := make([]byte, allocSize)
+            io.ReadFull(r, pcmData)
+            return pcmData, nil
+        }
+
+        // Skip this subchunk.
+        r.Seek(int64(subchunkSize), io.SeekCurrent)
+    }
+}
+```
+
+The critical line is the cap:
+
+```go
+if allocSize > r.Len() {
+    allocSize = r.Len()
+}
+```
+
+`r.Len()` returns the number of bytes *actually remaining* in the reader. A
+file claiming a 4 GB data chunk but containing only 100 bytes will allocate
+100 bytes, not 4 GB. This is the fix for the fuzz-discovered OOM bug (see
+[Lesson 17](17-unbounded-allocation-oom.md) for how `go test -fuzz` found it).
+
+!!! warning "Size fields are always untrusted"
+    Any integer read from a file, network packet, or user input that controls
+    an allocation is an OOM vector. The rule is: **cap to bytes present, not
+    bytes declared**. The same principle applies in `miniz-go` for ZIP entry
+    sizes and in `tinyxml2-go` for nesting depth.
+
+---
+
+## Division-by-zero guards in derived calculations
+
+After parse, `GetSampleCount` computes how many samples are in the data:
+
+```go
+// from dr-wav-go/dr_wav.go
+func (w *WAV) GetSampleCount() int {
+    bytesPerSample := int(w.Header.BitsPerSample) / 8
+    if bytesPerSample == 0 || w.Header.NumChannels == 0 {
+        return 0
+    }
+    return len(w.Data) / bytesPerSample / int(w.Header.NumChannels)
+}
+```
+
+`Parse` does not reject a zero-channel header — that is left to `ValidateWAV`.
+So `GetSampleCount` must guard the division independently. The same guard
+applies to `bytesPerSample`: if `BitsPerSample` is 0, dividing by 8 gives 0,
+and dividing by that would panic.
+
+---
+
+## Serialization: the 4 GB guard
+
+`Serialize` writes a WAV file back to bytes. RIFF size fields are `uint32`, so
+a PCM payload larger than `2^32 - 1 - 44` bytes cannot be represented:
+
+```go
+// from dr-wav-go/dr_wav.go
+const maxWAVDataSize = math.MaxUint32 - 44
+
+func Serialize(wav *WAV) ([]byte, error) {
+    if len(wav.Data) > maxWAVDataSize {
+        return nil, fmt.Errorf("WAV data too large to serialize: %d bytes", len(wav.Data))
+    }
+    // … write fields …
+}
+```
+
+The check happens before any allocation. Failing fast with a clear error is
+preferable to writing a truncated file that silently corrupts audio data.
+
+---
+
+## Validation as a second pass
+
+`ValidateWAV` enforces semantic constraints that `Parse` intentionally skips:
+
+```go
+// from dr-wav-go/dr_wav.go
+func ValidateWAV(wav *WAV) error {
+    if wav.Header.AudioFormat != 1 {
+        return fmt.Errorf("unsupported audio format: %d (only PCM supported)", wav.Header.AudioFormat)
+    }
+    if wav.Header.NumChannels == 0 {
+        return errors.New("invalid number of channels: 0")
+    }
+    if wav.Header.SampleRate == 0 {
+        return errors.New("invalid sample rate: 0")
+    }
+    if wav.Header.BitsPerSample != 8 && wav.Header.BitsPerSample != 16 &&
+        wav.Header.BitsPerSample != 24 && wav.Header.BitsPerSample != 32 {
+        return fmt.Errorf("unsupported bits per sample: %d", wav.Header.BitsPerSample)
+    }
+    return nil
+}
+```
+
+This separation keeps `Parse` focused on structure (does the byte layout make
+sense?) and `ValidateWAV` focused on semantics (do the values make sense?). A
+library that silently rejects odd-but-parseable headers surprises callers; one
+that parses everything and surfaces validation as a separate step is more
+composable.
+
+---
+
+!!! note "Try it"
+    Run the dr-wav tests, including the fuzz regression corpus:
+
+    ```bash
+    cd /Users/s_avelova/Documents/projects/safeheaders-go/dr-wav-go
+    go test ./... -v -count=1
+    ```
+
+    Expected outcome: all tests pass in a few milliseconds. You should see test
+    names like `TestParse`, `TestValidateWAV`, `TestGetSampleCount`, and
+    `TestSerialize`. None should report a FAIL line.
+
+    To replay just the fuzz regression seeds (no new mutation, fast):
+
+    ```bash
+    go test ./... -run=FuzzParse -v
+    ```
+
+    If fuzz seeds exist under `testdata/fuzz/FuzzParse/`, each one is run as a
+    named sub-test and should pass cleanly — these are the exact byte sequences
+    that previously caused OOM crashes.
+
+---
+
+!!! tip "Reading deeper"
+    `ParseBatch` in `dr-wav-go/dr_wav.go` uses a worker pool (one goroutine per
+    CPU) to parse multiple WAV files concurrently. The channel buffer sizes
+    match `len(dataList)` exactly so no goroutine blocks on a send —
+    compare this with the deadlock bug in `jsmn-go` described in
+    [Lesson 14](14-the-deadlock-bug.md), where a buffer that was one slot too
+    small caused `wg.Wait` to hang forever.
+
+---
+
+## Key takeaways
+
+- **`encoding/binary.LittleEndian` + `bytes.Reader`** gives you a streaming,
+  stateful view of raw bytes; each `binary.Read` advances the cursor by exactly
+  the size of its target type — no offset math needed.
+- **Every size field from an untrusted source is an OOM vector.** Cap allocations
+  to `r.Len()` (bytes actually present), never to the declared size.
+- **Seek to skip, never allocate-and-discard.** `r.Seek(n, io.SeekCurrent)` is
+  free; `make([]byte, n)` followed by a read is proportional to `n`.
+- **Separate parse from validate.** `Parse` checks byte-level structure;
+  `ValidateWAV` checks semantic invariants. Callers that only need to transcode
+  a file can skip validation; callers that need clean data run both.
+- **Guard every division by a field that could be zero.** `BitsPerSample` and
+  `NumChannels` come from the file and can both be zero; `GetSampleCount`
+  returns 0 rather than panicking when either is absent.
