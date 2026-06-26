@@ -37,7 +37,7 @@ That's the whole contract. `Read` fills `p` and returns how many bytes it put th
 
 Most functions in safeheaders-go receive raw `[]byte` from the caller (because the caller already loaded or received a blob). They bridge to the streaming world with `bytes.NewReader`:
 
-From `miniz-go/miniz.go`:
+From [`miniz-go/miniz.go`](src/miniz-go-miniz-go.md):
 
 ```go
 func ExtractArchive(data []byte) ([]ZipFile, error) {
@@ -153,7 +153,7 @@ The aggregate cap across all ZIP entries is enforced in `ExtractArchive` by trac
 
 ## UnmarshalStream and MarshalStream — JSON over a Reader/Writer
 
-`cjson-go/cjson.go` shows the same pattern for JSON. The all-in-memory variants take `[]byte`:
+[`cjson-go/cjson.go`](src/cjson-go-cjson-go.md) shows the same pattern for JSON. The all-in-memory variants take `[]byte`:
 
 ```go
 // from cjson-go/cjson.go
@@ -203,7 +203,7 @@ func MarshalStream(w io.Writer, v interface{}) error {
 
 ## LoadStream — streaming image decode with a header peek
 
-`stb-image-go/stb_image.go` shows a slightly more involved pattern: it needs to read the image header (to check dimensions) and then re-read the full stream for decoding — but it has only one `io.Reader`, and reading consumes bytes.
+[`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) shows a slightly more involved pattern: it needs to read the image header (to check dimensions) and then re-read the full stream for decoding — but it has only one `io.Reader`, and reading consumes bytes.
 
 ```go
 // from stb-image-go/stb_image.go

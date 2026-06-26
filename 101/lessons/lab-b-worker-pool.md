@@ -7,8 +7,8 @@
 
 This is a hands-on lab. You will write the pool in stages, break it
 deliberately, then fix it using the same reasoning the safeheaders-go team
-applied when they fixed real deadlocks in `jsmn-go/parallel.go` and
-`stb-image-go/stb_image.go`.
+applied when they fixed real deadlocks in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md) and
+[`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md).
 
 ---
 
@@ -31,7 +31,7 @@ applied when they fixed real deadlocks in `jsmn-go/parallel.go` and
   goroutine it starts and each goroutine decrements when it finishes. When the
   counter hits zero the coordinator unblocks and knows all work is done.
 
-**Why it matters:** the deadlock bug in jsmn-go (`parallel.go`) was caused by
+**Why it matters:** the deadlock bug in jsmn-go ([`parallel.go`](src/jsmn-go-parallel-go.md)) was caused by
 an under-sized channel buffer — safe to fix by understanding exactly how many
 sends can happen in the worst case.
 
@@ -367,7 +367,7 @@ lab the `out` channel serves the same isolation purpose.
 The jsmn-go parallel path allocates `jobResults := make([]chunkResult, numJobs)` once
 and lets each worker write to its own slot. That removes the channel entirely
 for the output, at the cost of one allocation up front. The `stb-image-go`
-pool does the same thing (line 105 in `stb_image.go`):
+pool does the same thing (line 105 in [`stb_image.go`](src/stb-image-go-stb-image-go.md)):
 
 ```go
 results := make([]image.Image, len(datas))

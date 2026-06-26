@@ -61,7 +61,7 @@ this repository.
 go fmt ./...
 ```
 
-The `Makefile` (from `Makefile`) exposes this as `make fmt`.  It is a no-op on
+The [`Makefile`](src/makefile.md) (from `Makefile`) exposes this as `make fmt`.  It is a no-op on
 clean code and a fast sanity check before any commit.
 
 ### go vet
@@ -273,7 +273,7 @@ one that `recover()` cannot catch.
 
 ## Gate 8: CI — every gate runs on every PR
 
-The repo's `.github/workflows/go-ci.yaml` runs a matrix of jobs:
+The repo's [`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md) runs a matrix of jobs:
 
 | Job | What it runs |
 |---|---|
@@ -345,7 +345,7 @@ those two gates.
 | H2 `stb-image-go` deadlock under cancellation | Gate 5 — watchdog test missing |
 | H3 `linenoise-go` data race on global history | Gate 5 — `-race` not in CI |
 | H4 `stb-truetype-go` billion-laughs composite glyphs | Gate 7 — per-component budget only |
-| H5 `Dockerfile` missing `linenoise-go` module | Gate 8 — docker build not in CI |
+| H5 [`Dockerfile`](src/dockerfile.md) missing `linenoise-go` module | Gate 8 — docker build not in CI |
 
 Every finding was fixed with a regression test committed in the same PR as the
 fix.  The audit report itself lives in `docs/audits/` so future reviewers can

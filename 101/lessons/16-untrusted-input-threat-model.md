@@ -66,7 +66,7 @@ PNG/JPEG, TTF, glTF.
 A malformed header declares a huge size; the parser blindly allocates that
 many bytes; the process runs out of memory or is killed by the OS.
 
-**Example from dr-wav-go** (from `dr-wav-go/dr_wav.go`):
+**Example from dr-wav-go** (from [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md)):
 
 ```go
 // readDataChunk scans subchunks until it finds the "data" chunk and returns its
@@ -112,7 +112,7 @@ without bounding `n` against the bytes actually present.
 A crafted input forces the parser into a very long (or infinite) loop. Memory
 stays flat; your goroutine pegs a CPU core and never finishes.
 
-**Example from jsmn-go** — token-count limit (from `jsmn-go/config.go`):
+**Example from jsmn-go** — token-count limit (from [`jsmn-go/config.go`](src/jsmn-go-config-go.md)):
 
 ```go
 // StrictConfig returns a stricter configuration suitable for untrusted input.
@@ -130,7 +130,7 @@ causes the tokenizer to emit millions of tokens. `StrictConfig` caps both the
 input bytes and the token count so the work is bounded before it starts.
 
 The same pattern appears in tinyxml2-go, which limits input size, total node
-count, and nesting depth (from `tinyxml2-go/tinyxml2.go`):
+count, and nesting depth (from [`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md)):
 
 ```go
 // ParseWithConfig builds a full DOM tree while enforcing the limits in config
@@ -170,7 +170,7 @@ This constant is enforced at every level of recursion — even in the
 `Parse` function that has no config object — so there is no path an attacker
 can take to skip it.
 
-**Example from stb-truetype-go** — composite glyph budget (from `stb-truetype-go/sfnt.go`):
+**Example from stb-truetype-go** — composite glyph budget (from [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md)):
 
 ```go
 // glyphBudget bounds total work for one top-level glyph. The depth cap alone
@@ -217,7 +217,7 @@ glyph tree's shape.
 A compressed or encoded file stores a tiny payload that expands to gigabytes
 when decoded. The attacker does no work; your CPU and memory do all of it.
 
-**Decompression bomb — miniz-go** (from `miniz-go/miniz.go`):
+**Decompression bomb — miniz-go** (from [`miniz-go/miniz.go`](src/miniz-go-miniz-go.md)):
 
 ```go
 // MaxDecompressedSize caps how many bytes ExtractArchive and DecompressData will
@@ -231,7 +231,7 @@ The critical detail: the cap is on the **aggregate** output across all ZIP
 entries, not per entry. A naive per-entry cap can be bypassed with 1000
 entries each "under the limit."
 
-**Decode bomb — stb-image-go** (from `stb-image-go/stb_image.go`):
+**Decode bomb — stb-image-go** (from [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md)):
 
 ```go
 // MaxImagePixels caps the number of pixels Load will decode, guarding against

@@ -53,7 +53,7 @@ Offset  Size  Field
 
 Every number is **little-endian**. This is the same layout RIFF/WAV uses: a file-level
 header, a count of sub-chunks, then repeating `[tag][length][data]` records. dr-wav-go
-(`dr-wav-go/dr_wav.go`) does exactly this for real WAV files.
+([`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md)) does exactly this for real WAV files.
 
 ---
 

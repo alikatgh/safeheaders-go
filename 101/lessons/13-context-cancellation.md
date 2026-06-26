@@ -37,8 +37,8 @@ This lesson grounds every example in two real files from this repository:
 
 | File | Function |
 |------|----------|
-| `stb-image-go/stb_image.go` | `LoadBatchConcurrent` — decodes a slice of images in parallel |
-| `dr-wav-go/dr_wav.go` | `ParseBatch` — parses a slice of WAV files in parallel |
+| [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) | `LoadBatchConcurrent` — decodes a slice of images in parallel |
+| [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) | `ParseBatch` — parses a slice of WAV files in parallel |
 
 Both functions spin up a worker pool, hand out jobs through a channel, and
 accept a `context.Context` from the caller. They solve the cancellation problem

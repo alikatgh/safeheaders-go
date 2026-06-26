@@ -42,7 +42,7 @@ Then come `numTables` records of 16 bytes each:
 | 8–11 | offset | byte offset from file start |
 | 12–15 | length | byte length of table data |
 
-`parseSFNT` in `stb-truetype-go/sfnt.go` reads this structure directly:
+`parseSFNT` in [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md) reads this structure directly:
 
 ```go
 // from stb-truetype-go/sfnt.go
@@ -227,7 +227,7 @@ back. Both formats are length-checked before the loop. Later, `glyphContours` re
 
 ## The Font struct: what parseSFNT produces
 
-After all five sub-parsers succeed, the `Font` struct in `stb-truetype-go/stb_truetype.go`
+After all five sub-parsers succeed, the `Font` struct in [`stb-truetype-go/stb_truetype.go`](src/stb-truetype-go-stb-truetype-go.md)
 holds everything the rasterizer needs:
 
 ```go
@@ -284,7 +284,7 @@ load. `tableData` slices into this copy, so every returned `[]byte` is a stable 
 ## How tableData feeds the rest of the pipeline
 
 After `parseSFNT`, every downstream function calls `tableData` by name. For example,
-`glyphContours` in `sfnt.go` retrieves the `glyf` table:
+`glyphContours` in [`sfnt.go`](src/stb-truetype-go-sfnt-go.md) retrieves the `glyf` table:
 
 ```go
 // from stb-truetype-go/sfnt.go (inside glyphContours)

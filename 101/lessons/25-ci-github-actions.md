@@ -37,7 +37,7 @@ machine that runs those tests on every push so humans do not have to remember.
 
 ## The seven jobs at a glance
 
-The file is `.github/workflows/go-ci.yaml`. It defines seven jobs that run on
+The file is [`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md). It defines seven jobs that run on
 every push or pull request to `main`, plus a weekly schedule and a
 `workflow_dispatch` so you can trigger fuzzing manually.
 

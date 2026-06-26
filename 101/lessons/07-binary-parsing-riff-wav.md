@@ -94,7 +94,7 @@ After the mandatory header, any number of extra subchunks may appear before
 
 ## Reading fixed fields with `encoding/binary`
 
-From `dr-wav-go/dr_wav.go`, the `WAVHeader` struct maps directly onto the fixed
+From [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), the `WAVHeader` struct maps directly onto the fixed
 fields in the `fmt ` subchunk:
 
 ```go

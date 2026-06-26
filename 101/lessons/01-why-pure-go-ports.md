@@ -105,12 +105,12 @@ Three representative fixes show what the hardening involved:
 
 **Memory exhaustion — dr-wav-go.** The original port read a size field from the file
 header and called `make([]byte, size)`. A malformed WAV could declare `size = 2 GB`
-and crash the process before reading a single sample. The fix, in `dr-wav-go/dr_wav.go`,
+and crash the process before reading a single sample. The fix, in [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md),
 caps every allocation to `r.Len()` — the bytes actually present in the reader — so
 the claimed size cannot exceed reality.
 
 **Decompression bomb — miniz-go.** ZIP archives can be crafted so that a tiny
-compressed file expands to gigabytes (the classic "zip bomb"). `miniz-go/miniz.go`
+compressed file expands to gigabytes (the classic "zip bomb"). [`miniz-go/miniz.go`](src/miniz-go-miniz-go.md)
 enforces `MaxDecompressedSize` (256 MiB by default) as an aggregate budget across
 all entries in an archive, not just per-stream. A single stream limit is easy to
 circumvent with many small entries; the aggregate budget is not.
@@ -118,7 +118,7 @@ circumvent with many small entries; the aggregate budget is not.
 **Billion-laughs / stack overflow — tinyxml2-go.** XML entity expansion or deeply
 nested elements can make a recursive descent parser overflow the goroutine stack.
 Go's `recover()` cannot catch a stack overflow — the process simply dies. The fix in
-`tinyxml2-go/tinyxml2.go` is a hard ceiling at `maxNestingDepth = 10000` in
+[`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) is a hard ceiling at `maxNestingDepth = 10000` in
 `parseElement`, checked before each recursive call, so the depth is bounded
 before the stack is exhausted.
 
@@ -149,14 +149,14 @@ the standard library. There is no `github.com/some-vendor/something` to audit, p
 or worry about in a supply-chain scan. The tradeoff is that anything not in the
 standard library must be written from scratch — which is exactly what
 `stb-truetype-go` does: a full TrueType rasteriser including contour flattening,
-scanline crossing, and span accumulation, implemented in `sfnt.go` without any
+scanline crossing, and span accumulation, implemented in [`sfnt.go`](src/stb-truetype-go-sfnt-go.md) without any
 external font library.
 
 ---
 
 ## How the quality bar is maintained
 
-The CI pipeline (`.github/workflows/go-ci.yaml`) runs on every commit:
+The CI pipeline ([`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md)) runs on every commit:
 
 ```yaml
 # Abbreviated from go-ci.yaml
@@ -198,7 +198,7 @@ every CI pass, not just during dedicated fuzz sessions.
 
     Expected outcome: same passing result. If any test fails with `-race` but passes
     without it, that is a data race — a real concurrency bug. The linenoise-go history
-    race (fixed in `linenoise-go/linenoise.go` with `sync.Mutex`) was caught exactly
+    race (fixed in [`linenoise-go/linenoise.go`](src/linenoise-go-linenoise-go.md) with `sync.Mutex`) was caught exactly
     this way.
 
 ---
@@ -224,7 +224,7 @@ every CI pass, not just during dedicated fuzz sessions.
     extend it, and apply the same hardening patterns to your own parsers.
 
     Lessons you will reach soon:
-    - The deadlock bug and its fix in `jsmn-go/parallel.go` and `stb-image-go/stb_image.go`
+    - The deadlock bug and its fix in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md) and [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md)
     - The data race in `linenoise-go/linenoise.go` and how `-race` catches it
     - Fuzz testing: how `go test -fuzz` found the dr-wav OOM
 

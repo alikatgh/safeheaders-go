@@ -36,7 +36,7 @@ A *sentinel* is an error value that lives in the package's public API surface.
 Callers never need to read its text; they compare with `==` (or `errors.Is`).
 
 Both `jsmn-go` and `tinyxml2-go` declare their sentinels the same way.
-From `jsmn-go/config.go`:
+From [`jsmn-go/config.go`](src/jsmn-go-config-go.md):
 
 ```go
 // Common errors.
@@ -56,7 +56,7 @@ var (
 produce two *different* errors. That uniqueness is what makes sentinel comparison
 reliable — there is no accidental collision.
 
-`tinyxml2-go/config.go` follows the exact same pattern with its own set:
+[`tinyxml2-go/config.go`](src/tinyxml2-go-config-go.md) follows the exact same pattern with its own set:
 `ErrInputTooLarge`, `ErrTooManyNodes`, `ErrNestingTooDeep`, `ErrEmptyInput`.
 
 ### How the guard code uses them
@@ -111,7 +111,7 @@ The `%w` verb is the only Go formatting verb that *wraps* rather than *stringifi
 It stores the original error inside the new one so `errors.Is` / `errors.As` can
 unwrap it later.
 
-`dr-wav-go/dr_wav.go` is a binary parser and wraps liberally at every read step.
+[`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) is a binary parser and wraps liberally at every read step.
 Here is the RIFF header section of `Parse`:
 
 ```go
@@ -178,7 +178,7 @@ the wrapped `res.err` carries the machine-testable cause.
 
 ## Wrapping vs bare: the decision rule
 
-`tinyxml2-go/tinyxml2.go` shows both patterns next to each other in `parseElement`:
+[`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) shows both patterns next to each other in `parseElement`:
 
 ```go
 // tinyxml2-go/tinyxml2.go  — parseElement

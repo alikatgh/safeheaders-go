@@ -136,7 +136,7 @@ The fuzzer produced a header where `subchunkSize` was 4,294,967,295
 it. The `make` call tried to allocate 4 GB on the heap and the process was
 killed by the OOM killer.
 
-The fix is in `dr-wav-go/dr_wav.go`, inside `readDataChunk`:
+The fix is in [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), inside `readDataChunk`:
 
 ```go
 // AFTER — cap to bytes actually present (from dr-wav-go/dr_wav.go)
@@ -279,7 +279,7 @@ just the primary one, is the lesson.
 
 !!! tip "CI fuzzing on a schedule"
     The repository runs a weekly scheduled fuzzing job in
-    `.github/workflows/go-ci.yaml`. Even after all known seeds pass, the
+    [`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md). Even after all known seeds pass, the
     fuzzer keeps exploring. A regression that slips through code review may
     still be caught by the next scheduled run before it reaches a release.
 

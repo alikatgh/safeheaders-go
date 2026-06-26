@@ -33,7 +33,7 @@ denial-of-service bugs happen in production.
 ## The Config struct
 
 Both `jsmn-go` and `tinyxml2-go` follow the same pattern. Here is the JSON
-tokenizer's version, from `jsmn-go/config.go`:
+tokenizer's version, from [`jsmn-go/config.go`](src/jsmn-go-config-go.md):
 
 ```go
 // Config holds parsing configuration and limits.
@@ -56,7 +56,7 @@ type Config struct {
 }
 ```
 
-And the XML parser's version, from `tinyxml2-go/config.go`:
+And the XML parser's version, from [`tinyxml2-go/config.go`](src/tinyxml2-go-config-go.md):
 
 ```go
 type Config struct {

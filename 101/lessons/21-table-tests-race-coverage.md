@@ -242,7 +242,7 @@ user hitting the feature for the first time will always trigger.
 Any concurrent access to shared memory without proper synchronisation is reported
 immediately with a full goroutine stack trace.
 
-The Makefile has a dedicated target (from `Makefile`):
+The Makefile has a dedicated target (from [`Makefile`](src/makefile.md)):
 
 ```makefile
 # from Makefile

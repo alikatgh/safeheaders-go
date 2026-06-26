@@ -33,7 +33,7 @@ audit — use the stdlib for the grammar, write Go for everything else.
 
 ## cjson-go: JSON with an array-size brake
 
-`cjson-go/cjson.go` is a thin layer over `encoding/json`.
+[`cjson-go/cjson.go`](src/cjson-go-cjson-go.md) is a thin layer over `encoding/json`.
 The interesting addition is `UnmarshalArrayParallel`.
 
 ### The cap
@@ -131,7 +131,7 @@ if err := cjsongo.UnmarshalStream(limited, &v); err != nil { ... }
 
 ## cgltf-go: parse once, validate separately
 
-`cgltf-go/cgltf.go` is structured around a deliberate two-step: **parse** (grammar),
+[`cgltf-go/cgltf.go`](src/cgltf-go-cgltf-go.md) is structured around a deliberate two-step: **parse** (grammar),
 then **validate** (semantics). This mirrors how the original C library works.
 
 ### Parse: grammar only
@@ -226,7 +226,7 @@ input order regardless of which worker finishes first.
 
 ## tinyxml2-go: depth limits against the billion-laughs attack
 
-`tinyxml2-go/tinyxml2.go` wraps `encoding/xml` into a DOM, which means it builds a
+[`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) wraps `encoding/xml` into a DOM, which means it builds a
 recursive tree in memory. Recursive trees have a specific failure mode: deeply nested
 input can overflow the goroutine stack — and unlike a panic, a stack overflow is a
 **fatal** error that `recover()` cannot catch.
@@ -253,7 +253,7 @@ way to configure it away — that is intentional.
 
 ### Three config presets
 
-The config lives in `tinyxml2-go/config.go`:
+The config lives in [`tinyxml2-go/config.go`](src/tinyxml2-go-config-go.md):
 
 ```go
 // DefaultConfig — sensible production values

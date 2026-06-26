@@ -49,7 +49,12 @@ markdown_extensions:
       line_spans: __span
   - pymdownx.inlinehilite
   - pymdownx.superfences
-  - pymdownx.snippets
+  # snippets pulls the live repo source into the "Source code" pages at build
+  # time. base_path is the repo root; the build is run from there. check_paths
+  # fails the build if a cited file goes missing, so the browser can't rot.
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.details
@@ -96,3 +101,28 @@ nav:
       - "26 · The 10-agent audit (a war story)": 26-the-audit-story.md
       - "Capstone · Take a module to world-class": capstone-world-class-module.md
   - Glossary: glossary.md
+  - "Source code":
+      - Browse the source: src/index.md
+      - "Library modules":
+          - "jsmn-go/jsmn.go": src/jsmn-go-jsmn-go.md
+          - "jsmn-go/config.go": src/jsmn-go-config-go.md
+          - "jsmn-go/parallel.go": src/jsmn-go-parallel-go.md
+          - "cjson-go/cjson.go": src/cjson-go-cjson-go.md
+          - "cgltf-go/cgltf.go": src/cgltf-go-cgltf-go.md
+          - "tinyxml2-go/tinyxml2.go": src/tinyxml2-go-tinyxml2-go.md
+          - "tinyxml2-go/config.go": src/tinyxml2-go-config-go.md
+          - "dr-wav-go/dr_wav.go": src/dr-wav-go-dr-wav-go.md
+          - "stb-image-go/stb_image.go": src/stb-image-go-stb-image-go.md
+          - "stb-truetype-go/sfnt.go": src/stb-truetype-go-sfnt-go.md
+          - "stb-truetype-go/stb_truetype.go": src/stb-truetype-go-stb-truetype-go.md
+          - "miniz-go/miniz.go": src/miniz-go-miniz-go.md
+          - "linenoise-go/linenoise.go": src/linenoise-go-linenoise-go.md
+      - "Examples":
+          - "examples/production-usage/main.go": src/examples-production-usage-main-go.md
+          - "examples/json-parser/main.go": src/examples-json-parser-main-go.md
+          - "examples/jsmn-demo/main.go": src/examples-jsmn-demo-main-go.md
+          - "examples/linenoise-repl/main.go": src/examples-linenoise-repl-main-go.md
+      - "Build, CI & tooling":
+          - ".github/workflows/go-ci.yaml": src/github-workflows-go-ci-yaml.md
+          - "Dockerfile": src/dockerfile.md
+          - "Makefile": src/makefile.md

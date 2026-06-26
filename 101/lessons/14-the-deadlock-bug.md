@@ -65,7 +65,7 @@ result per job, plus one cancel-ack per worker), but the channel buffers only
 
 ---
 
-## The bug in `jsmn-go/parallel.go`
+## The bug in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md)
 
 `parseParallelWithConfig` tokenises a large JSON input by splitting it into chunks
 and fanning out to `numWorkers` goroutines. Each goroutine pulls jobs from `jobCh`
@@ -171,7 +171,7 @@ the fix so the next reader does not have to re-derive it.
 
 ---
 
-## The same shape in `stb-image-go/stb_image.go`
+## The same shape in [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md)
 
 The audit found the identical pattern in `LoadBatchConcurrent` (finding H2). The
 `errs` channel was originally sized to `len(datas)` — one slot per image. But

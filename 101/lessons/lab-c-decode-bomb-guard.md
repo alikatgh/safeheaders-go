@@ -34,7 +34,7 @@
 
 ## The image pixel guard (`stb-image-go`)
 
-`stb-image-go/stb_image.go` exports a single tunable:
+[`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) exports a single tunable:
 
 ```go
 // from stb-image-go/stb_image.go
@@ -102,7 +102,7 @@ img, _, err := image.Decode(r)
 
 ## The decompression-size guard (`miniz-go`)
 
-`miniz-go/miniz.go` uses a different shape: a byte budget instead of a pixel
+[`miniz-go/miniz.go`](src/miniz-go-miniz-go.md) uses a different shape: a byte budget instead of a pixel
 count. The package variable is:
 
 ```go
@@ -309,7 +309,7 @@ The guard has four moving parts:
 
 | Part | Where | Role |
 |------|-------|------|
-| `MaxImagePixels` | `stb_image.go` var | Tunable ceiling; 0 = disabled |
+| `MaxImagePixels` | [`stb_image.go`](src/stb-image-go-stb-image-go.md) var | Tunable ceiling; 0 = disabled |
 | `image.DecodeConfig` | `checkPixelLimit` | Reads header only — no pixel alloc |
 | pixel count check | `checkPixelLimit` | `Width * Height > limit` → error |
 | `Load` gate | `Load()` | Calls `checkPixelLimit` before `image.Decode` |
@@ -318,7 +318,7 @@ And for the ZIP side:
 
 | Part | Where | Role |
 |------|-------|------|
-| `MaxDecompressedSize` | `miniz.go` var | Aggregate byte budget |
+| `MaxDecompressedSize` | [`miniz.go`](src/miniz-go-miniz-go.md) var | Aggregate byte budget |
 | `io.LimitReader(r, limit+1)` | `readAllLimited` | Cuts the stream early |
 | `len(data) > limit` | `readAllLimited` | Detects the bomb trigger |
 | `total` accumulator | `ExtractArchive` | Tracks aggregate across all entries |

@@ -69,7 +69,7 @@ io.ReadFull(r, extra)
 
 ## The fix: cap to bytes present
 
-From `dr-wav-go/dr_wav.go`, the current `readDataChunk` function:
+From [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), the current `readDataChunk` function:
 
 ```go
 // readDataChunk scans subchunks until it finds the "data" chunk and returns its

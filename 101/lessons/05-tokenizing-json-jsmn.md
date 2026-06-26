@@ -66,7 +66,7 @@ the original input, so no value is ever copied.
 ## The Token struct
 
 All the information jsmn-go records about one JSON value lives in four fields.
-From `jsmn-go/jsmn.go`:
+From [`jsmn-go/jsmn.go`](src/jsmn-go-jsmn-go.md):
 
 ```go
 type Token struct {
@@ -221,7 +221,7 @@ that builds an adjacency list — still no extra allocations on the token side.
 ## Choosing a Config
 
 For production code that accepts user-supplied JSON, use `ParseWithConfig` from
-`jsmn-go/config.go` instead of the bare `Parse` method.
+[`jsmn-go/config.go`](src/jsmn-go-config-go.md) instead of the bare `Parse` method.
 
 ```go
 // DefaultConfig: 100 MB input, 1 000 000 tokens
@@ -320,7 +320,7 @@ safe entry point.
     ```
 
     Expected outcome: `PASS` with no `DATA RACE` reports. The parallel path
-    in `jsmn-go/parallel.go` was designed to share no mutable state between
+    in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md) was designed to share no mutable state between
     workers; each chunk gets its own `Parser` instance.
 
 ---

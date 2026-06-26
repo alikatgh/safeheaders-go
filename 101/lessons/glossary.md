@@ -170,7 +170,7 @@ that load everything first.
 **RIFF (Resource Interchange File Format)**
 A generic container format used by WAV audio files. The file is divided into
 labeled chunks (`RIFF`, `fmt `, `data`, …), each with a 4-byte tag and a 4-byte
-little-endian size. `dr-wav-go` parses RIFF/PCM by hand in `dr_wav.go`, reading
+little-endian size. `dr-wav-go` parses RIFF/PCM by hand in [`dr_wav.go`](src/dr-wav-go-dr-wav-go.md), reading
 chunk headers and dispatching to handlers like `readDataChunk`.
 See [Lesson 07](07-binary-parsing-riff-wav.md).
 
@@ -191,7 +191,7 @@ node→mesh, etc.) in `ValidateGLTF`.
 **SFNT**
 The binary container format shared by TrueType and OpenType fonts. A font file
 begins with an offset table listing named tables; `stb-truetype-go` reads it in
-`parseSFNT` (in `sfnt.go`).
+`parseSFNT` (in [`sfnt.go`](src/stb-truetype-go-sfnt-go.md)).
 See [Lesson 08](08-truetype-1-sfnt-tables.md).
 
 **glyf table**
@@ -231,7 +231,7 @@ See [Lesson 10](10-truetype-3-rasterizing.md).
 **LRU cache (Least Recently Used)**
 A fixed-capacity cache that evicts the entry that was accessed longest ago when
 the cache is full. `stb-truetype-go` uses a `GlyphCache` LRU in
-`stb_truetype.go` so rendered glyphs are not rasterized twice. Without it, a
+[`stb_truetype.go`](src/stb-truetype-go-stb-truetype-go.md) so rendered glyphs are not rasterized twice. Without it, a
 line of text with repeated characters would re-rasterize each glyph on every
 occurrence.
 

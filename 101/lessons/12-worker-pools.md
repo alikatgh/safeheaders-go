@@ -116,7 +116,7 @@ Each number above maps to a concrete code location you can read right now.
 
 ## Seeing it in dr-wav-go: ParseBatch
 
-`dr-wav-go/dr_wav.go` contains `ParseBatch`, which decodes multiple WAV files
+[`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) contains `ParseBatch`, which decodes multiple WAV files
 concurrently. It is a clean, self-contained example of all four parts.
 
 ### Part 1 — the channels
@@ -230,7 +230,7 @@ worker B finishes file 2; the index routes each result to the right slot.
 
 ## The same pattern in cgltf-go: ParseBatch
 
-`cgltf-go/cgltf.go` contains an identical four-part structure for 3D model
+[`cgltf-go/cgltf.go`](src/cgltf-go-cgltf-go.md) contains an identical four-part structure for 3D model
 files. Compare the result struct:
 
 ```go
@@ -266,7 +266,7 @@ and test than creative one-offs.
 
 ## A twist in miniz-go: parallel compression then raw assembly
 
-`miniz-go/miniz.go` has `CreateArchiveConcurrent`, which compresses ZIP entries
+[`miniz-go/miniz.go`](src/miniz-go-miniz-go.md) has `CreateArchiveConcurrent`, which compresses ZIP entries
 in parallel. It follows the same fan-out / fan-in skeleton, but the assembly
 step is more interesting because the work products (raw DEFLATE streams) must
 be written into the ZIP file in a specific order.
@@ -339,7 +339,7 @@ w.Write(r.compressed)
     the collector goroutine is not yet reading. In the simple case — N jobs,
     each producing exactly one result — `make(chan result, N)` is correct.
 
-    This repo had a real deadlock in `jsmn-go/parallel.go`: the results channel
+    This repo had a real deadlock in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md): the results channel
     was buffered to `numJobs`, but workers could send an *extra* result on the
     cancel branch, so the last worker blocked forever on send while
     `wg.Wait()` hung. The fix was `numJobs + numWorkers`. See

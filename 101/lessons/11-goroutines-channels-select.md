@@ -134,7 +134,7 @@ That randomness is a feature: it prevents starvation.
 
 ---
 
-## Reading the real worker loop — `stb-image-go/stb_image.go`
+## Reading the real worker loop — [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md)
 
 `LoadBatchConcurrent` decodes a batch of images in parallel. It uses every
 primitive from above, so it is a perfect reading exercise.

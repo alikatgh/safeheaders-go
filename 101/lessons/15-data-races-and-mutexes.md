@@ -227,7 +227,7 @@ runtime.
 !!! note "The race detector has a runtime cost"
     Binaries compiled with `-race` run 2–20× slower and use more memory. Use
     it in CI and development, not in production builds. In this repo the
-    `go-ci.yaml` workflow runs `go test -race` as a step inside its `test` job.
+    [`go-ci.yaml`](src/github-workflows-go-ci-yaml.md) workflow runs `go test -race` as a step inside its `test` job.
 
 ---
 

@@ -78,7 +78,7 @@ sum.
 
 ## Step 1 - the table directory and tableData
 
-Before anything else, `parseSFNT` (from `stb-truetype-go/sfnt.go`) reads the
+Before anything else, `parseSFNT` (from [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md)) reads the
 file header and builds a map of every table's byte range:
 
 ```go
@@ -133,7 +133,7 @@ func (f *Font) tableData(tag string) ([]byte, bool) {
 ## Step 2 - cmap: four formats, one goal
 
 `parseCmap` scores each subtable and keeps the best one. The priority (from
-`cmapScore` in `sfnt.go`) is:
+`cmapScore` in [`sfnt.go`](src/stb-truetype-go-sfnt-go.md)) is:
 
 | Score | Platform / Encoding |
 |-------|---------------------|
@@ -439,7 +439,7 @@ contours, err := f.glyphContours(gid, 0, &budget)
     panics on the bundled font fixtures.
 
 !!! tip "Also try the race detector"
-    The GlyphCache in `stb_truetype.go` uses a sync.Mutex-guarded LRU. Run:
+    The GlyphCache in [`stb_truetype.go`](src/stb-truetype-go-stb-truetype-go.md) uses a sync.Mutex-guarded LRU. Run:
 
     ```bash
     cd stb-truetype-go && go test -race ./...

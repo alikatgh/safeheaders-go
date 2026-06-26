@@ -35,7 +35,7 @@ it at runtime. Tools find bugs before users do.
 ## The MODULES variable — one list to rule them all
 
 SafeHeaders-Go is a Go workspace with nine independent modules. The Makefile
-starts with a single variable (from `Makefile`):
+starts with a single variable (from [`Makefile`](src/makefile.md)):
 
 ```makefile
 MODULES := cgltf-go cjson-go dr-wav-go jsmn-go linenoise-go miniz-go \
@@ -351,7 +351,7 @@ would resolve it. This is a subtle but important correctness distinction.
 
 ## How CI uses the same Makefile
 
-`.github/workflows/go-ci.yaml` has separate jobs (`test`, `lint`, `security`,
+[`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md) has separate jobs (`test`, `lint`, `security`,
 `fuzz`, `examples`, `build`) that each call the corresponding Makefile target.
 The Makefile is the single implementation; CI is just a caller. This means:
 

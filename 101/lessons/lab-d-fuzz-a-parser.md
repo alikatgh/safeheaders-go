@@ -102,7 +102,7 @@ The fuzzer discovered that a WAV whose `data` subchunk header claims a huge
 size (e.g. 4 GB) caused `Parse` to call `make([]byte, 4294967295)` and crash
 the process with out-of-memory.
 
-The fix in `dr-wav-go/dr_wav.go` caps the allocation to the bytes actually
+The fix in [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) caps the allocation to the bytes actually
 remaining in the reader:
 
 ```go
@@ -292,7 +292,7 @@ The workflow after that is:
 
 ## How CI picks this up
 
-In `.github/workflows/go-ci.yaml`, the weekly `fuzz` job runs every module's
+In [`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md), the weekly `fuzz` job runs every module's
 target through a build matrix (shown here with the `dr-wav-go` row expanded):
 
 ```yaml

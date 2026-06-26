@@ -71,7 +71,7 @@ budget counter (`glyphBudget`), decremented across the whole expansion, stops it
 
 ### How the recursive parser works
 
-`tinyxml2-go/tinyxml2.go` builds an XML DOM by calling `parseElement` once per
+[`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) builds an XML DOM by calling `parseElement` once per
 node. When it reads a child start-tag, it recurses:
 
 ```go
@@ -237,7 +237,7 @@ tiny storage, exponential work.
 
 ### How the rasterizer enters this path
 
-In `stb-truetype-go/sfnt.go`, `rasterizeGlyph` calls `glyphContours` for the
+In [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md), `rasterizeGlyph` calls `glyphContours` for the
 top-level glyph. If `numContours < 0`, the glyph is composite and
 `compositeContours` is called, which calls `glyphContours` recursively for each
 component:

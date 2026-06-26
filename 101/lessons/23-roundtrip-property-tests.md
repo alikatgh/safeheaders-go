@@ -39,7 +39,7 @@ would have caught it immediately; the hand-written unit tests did not.
 
 ### What happened
 
-`CreateArchiveConcurrent` (in `miniz-go/miniz.go`) compresses files in
+`CreateArchiveConcurrent` (in [`miniz-go/miniz.go`](src/miniz-go-miniz-go.md)) compresses files in
 parallel, then assembles the results into a ZIP. The assembly step is
 `buildRawZip`. The bug was in *how* `buildRawZip` inserted the already-
 compressed bytes into the ZIP writer.
@@ -115,7 +115,7 @@ Here is the shape of the test. It follows the *"compress then extract must
 equal the input"* property:
 
 ```go
-func TestCreateArchiveConcurrentRoundTrip(t *testing.T) {
+func TestConcurrentArchiveRoundTrip(t *testing.T) {
     inputs := []minizgo.FileEntry{
         {Name: "hello.txt",  Data: []byte("hello, world")},
         {Name: "empty.txt",  Data: []byte{}},
@@ -158,7 +158,7 @@ check would fail. The test is short, clear, and finds the bug in one run.
     Expected outcome:
 
     ```
-    --- PASS: TestCreateArchiveConcurrentRoundTrip (0.00s)
+    --- PASS: TestConcurrentArchiveRoundTrip (0.00s)
     PASS
     ```
 
@@ -171,7 +171,7 @@ check would fail. The test is short, clear, and finds the bug in one run.
 ## The parallel-vs-serial property for jsmn-go
 
 The same idea applies to the parallel JSON tokenizer. The contract of
-`parseParallelWithConfig` (in `jsmn-go/parallel.go`) is:
+`parseParallelWithConfig` (in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md)) is:
 
 > *For the same input and config, the parallel path must produce exactly the
 > same token slice as the serial path.*

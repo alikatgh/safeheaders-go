@@ -76,7 +76,7 @@ grey level.
 
 ## The scale factor: font-units → pixels
 
-The code in `stb-truetype-go/sfnt.go` computes `scale` once and reuses it
+The code in [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md) computes `scale` once and reuses it
 everywhere:
 
 ```go
