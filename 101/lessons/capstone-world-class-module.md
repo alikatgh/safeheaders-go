@@ -132,8 +132,14 @@ verifiably safe, not just probably safe.
 [ ] 9. Audited: independent review, all confirmed findings fixed
 ```
 
+**In plain terms:** this is a nine-item checklist. Each `[ ]` is one box to
+tick before the code is trustworthy enough to ship. The rest of this lesson
+walks through each item one at a time.
+
 Work through these in order. Each section below shows what "done" looks like in
-this repository.
+this repository. (A "repository," or "repo," is just the folder-plus-history
+that holds all the project's code — think of it as the project's filing
+cabinet, tracked by a version-control tool so every past change is saved.)
 
 ---
 
@@ -146,8 +152,19 @@ this repository.
 go fmt ./...
 ```
 
+**In plain terms:** this command automatically rewrites every source file in
+the project so the spacing and layout follow one consistent house style — no
+human has to nitpick indentation by hand. A "module," here, is one
+self-contained chunk of the codebase — like one folder that does one job and
+can be built and shared on its own (you'll see several named below, like
+`jsmn-go` and `tinyxml2-go`).
+
 The [`Makefile`](src/makefile.md) (from `Makefile`) exposes this as `make fmt`.  It is a no-op on
-clean code and a fast sanity check before any commit.
+clean code and a fast sanity check before any commit. (A `Makefile` is a
+plain-text list of named shortcuts for common commands — typing `make fmt`
+just runs the longer command written next to that name, so nobody has to
+remember or retype it. A "commit" is a saved, timestamped snapshot of the
+project's files, recorded so you can always go back to it later.)
 
 ### go vet
 
@@ -165,9 +182,20 @@ for dir in cgltf-go cjson-go dr-wav-go jsmn-go linenoise-go \
 done
 ```
 
+**In plain terms:** this repeats the same check — "go into this module's
+folder and run `go vet`" — once for each of the nine modules in the list, so
+every one of them gets vetted, not just the first.
+
 `go vet` catches a family of bugs at zero cost: wrong `Printf` format strings,
 unreachable code, suspicious struct tags, and more.  It is not a substitute for
-lint, but it runs in seconds and is always worth running first.
+lint, but it runs in seconds and is always worth running first. (A "struct" is
+a custom data shape you define — a bundle of named, labeled slots grouped
+under one name, similar to a form with labeled fields. A "tag" on a struct is
+a small piece of text attached to one of those slots that tells other tools
+how to treat it. "Lint" — short for a linter/linting tool — is a program that
+reads your source code without running it and flags patterns that are legal
+but risky or sloppy, the way a spell-checker flags a word that's technically
+real but probably wrong here.)
 
 ### golangci-lint
 
@@ -197,9 +225,21 @@ linters:
     - nestif                  # flag deeply nested conditionals
 ```
 
+**In plain terms:** this is a configuration file — a settings document, not
+program logic — that turns on a specific set of automated checks
+("linters") beyond the default set, each one hunting for a different kind of
+risky pattern (insecure code, overly tangled logic, missing memory
+pre-reservations, and so on). "Pre-allocation," mentioned by the `prealloc`
+linter, means reserving a chunk of the computer's memory for something up
+front, once, instead of asking for a little more memory repeatedly as the
+work grows — the single upfront reservation is faster.
+
 `nolintlint` with `require-explanation: true` means every suppression must
 justify itself.  This prevents the common pattern where a `//nolint` silences a
-real finding and nobody notices.
+real finding and nobody notices. (A `//nolint` is a one-line comment a
+programmer adds directly above a piece of code to tell the linter "ignore
+this specific warning here" — useful when the warning is a false alarm, risky
+when used to hide a real problem.)
 
 ```bash
 make lint
@@ -218,7 +258,15 @@ make lint
 
 Every module uses the standard Go pattern: a `[]struct{ name, input, want }`
 slice iterated with `t.Run(tc.name, ...)`.  Sub-tests let you run a single case
-with `-run TestParse/empty_input` and pinpoint failures instantly.
+with `-run TestParse/empty_input` and pinpoint failures instantly. (A "test,"
+in programming, is a small piece of code that runs another piece of code with
+a known input and automatically checks whether the result matches what's
+expected — it replaces a human manually re-checking behavior every time
+something changes. Here, `[]struct{ name, input, want }` is a list — Go calls
+an ordered list a "slice" — where each entry is one of those labeled-field
+struct bundles: a test's name, the input to feed in, and the answer ("want")
+it should produce. Running one such list entry through the same check is
+called a "table-driven test," and each individual run of it is a "sub-test.")
 
 ### The race detector
 
@@ -234,11 +282,24 @@ for dir in $(MODULES); do
 done
 ```
 
+**In plain terms:** this runs every module's tests again, but with a special
+"race detector" watchdog switched on that watches for two pieces of code
+touching the same shared data at the same time in an unsafe way (explained
+just below).
+
 The race detector found the `linenoise-go` data race (bug H3 from the audit):
 concurrent `AddHistory` and `LoadHistory` callers raced on `defaultState.history`
 with no mutex.  The fix was a `sync.Mutex` around every read and write of the
 history slice — see [Lesson on the data race](15-data-races-and-mutexes.md) for the full
-walkthrough.
+walkthrough. (Modern programs often do several things at once — separate
+independent "workers," in Go called goroutines, running concurrently. A "data
+race" happens when two of these workers read and write the same piece of
+memory at the same time with no coordination, so the result depends on
+unpredictable timing and can silently corrupt data. A "mutex" — short for
+mutual exclusion, and `sync.Mutex` is Go's built-in version — is a lock: only
+one worker may hold it at a time, so whoever has it can safely touch the
+shared data while every other worker trying to grab the same lock simply
+waits — pauses there, doing nothing else — until it's released.)
 
 !!! note "Try it"
     ```bash

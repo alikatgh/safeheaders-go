@@ -91,14 +91,23 @@ yourself.
 ## The problem with C single-header libraries in Go services
 
 Most Go HTTP services eventually need to parse something: JSON, XML, images, audio,
-fonts, archives. The Go standard library covers the common cases, but specialized
-formats often have only a C implementation available. The typical solution is CGO:
+fonts, archives. The Go standard library (in plain terms: the big collection of
+ready-made, official tools that ship with the Go language itself, so you don't have
+to write them yourself) covers the common cases, but specialized formats often have
+only a C implementation available. The typical solution is CGO:
 
 ```go
 // The CGO route — you don't want this in production
 // #include "jsmn.h"
 // import "C"
 ```
+
+**In plain terms:** this snippet shows the shape of the "bad" approach — a Go
+program reaching into a C file (`jsmn.h`) and pulling its code in with a special
+`import "C"` line. `import` is how a program says "give me the tools defined
+somewhere else"; here it's importing not another Go package (a bundle of Go code with
+a name, meant to be reused) but an entire foreign-language library, which is where
+the trouble starts.
 
 CGO works, but it comes with costs that compound in production:
 
@@ -116,14 +125,21 @@ in return.
 
 ## The nine modules at a glance
 
-The project is a `go.work` workspace — nine independent Go modules under one repo.
-You can use any one of them without pulling in the others.
+The project is a `go.work` workspace (in plain terms: a folder set up so several
+separate Go modules can be worked on together, side by side, as one project) — nine
+independent Go modules under one repo. A "module" here is just a self-contained
+package of Go code with its own name and version, the unit you install and import
+on its own. You can use any one of them without pulling in the others.
 
 ```bash
 # From README.md — install only what you need
 go get github.com/alikatgh/safeheaders-go/jsmn-go
 go get github.com/alikatgh/safeheaders-go/stb-image-go
 ```
+
+**In plain terms:** `go get` is the command that downloads a module from the
+internet and adds it to your project so your own code can use it — like installing
+an app, but for a chunk of reusable code.
 
 Here is what each module does and which C library it replaces:
 
@@ -157,10 +173,14 @@ turned up 25 issues (0 critical, 5 high); all 25 are fixed in the current codeba
 Three representative fixes show what the hardening involved:
 
 **Memory exhaustion — dr-wav-go.** The original port read a size field from the file
-header and called `make([]byte, size)`. A malformed WAV could declare `size = 2 GB`
-and crash the process before reading a single sample. The fix, in [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md),
-caps every allocation to `r.Len()` — the bytes actually present in the reader — so
-the claimed size cannot exceed reality.
+header and called `make([]byte, size)`. (In plain terms: `make` is the Go command
+that reserves a chunk of the computer's memory — "allocates" it — to hold data;
+here, a block of raw bytes, the smallest units of stored data a computer works
+with, sized however big `size` says it should be.) A malformed WAV could declare
+`size = 2 GB` and crash the process before reading a single sample. The fix, in
+[`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), caps every allocation to
+`r.Len()` — the bytes actually present in the reader — so the claimed size cannot
+exceed reality.
 
 **Decompression bomb — miniz-go.** ZIP archives can be crafted so that a tiny
 compressed file expands to gigabytes (the classic "zip bomb"). [`miniz-go/miniz.go`](src/miniz-go-miniz-go.md)
@@ -169,11 +189,21 @@ all entries in an archive, not just per-stream. A single stream limit is easy to
 circumvent with many small entries; the aggregate budget is not.
 
 **Billion-laughs / stack overflow — tinyxml2-go.** XML entity expansion or deeply
-nested elements can make a recursive descent parser overflow the goroutine stack.
-Go's `recover()` cannot catch a stack overflow — the process simply dies. The fix in
-[`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) is a hard ceiling at `maxNestingDepth = 10000` in
-`parseElement`, checked before each recursive call, so the depth is bounded
-before the stack is exhausted.
+nested elements can make a recursive descent parser (in plain terms: a parser —
+code that reads through raw text and figures out its structure — built out of a
+function that, to handle one nested piece, calls itself again on the piece nested
+inside it; this calling-itself pattern is "recursion") overflow the goroutine stack.
+A goroutine (in plain terms: a lightweight, independently-running line of execution
+that Go can run at the same time as others — Go's building block for doing more
+than one thing "concurrently," i.e. with tasks overlapping in time) keeps its own
+reserved slice of memory, the "stack," to track each nested function call still in
+progress; too many nested calls and that reserved space runs out — a "stack
+overflow." Go's `recover()` — the mechanism that normally lets a program catch a
+crash and keep going — cannot catch a stack overflow — the process simply dies. The
+fix in [`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) is a hard ceiling
+at `maxNestingDepth = 10000` in `parseElement`, checked before each recursive call
+(a recursive call is the function invoking — running — itself again, one nesting
+level deeper), so the depth is bounded before the stack is exhausted.
 
 These are all documented in `SECURITY.md` under "Built-in DoS Protections":
 
@@ -197,19 +227,25 @@ These are all documented in `SECURITY.md` under "Built-in DoS Protections":
 > SafeHeaders-Go has zero external dependencies (pure stdlib). This minimizes
 > supply chain attack surface.
 
-This is a deliberate design constraint. Every `go.mod` in the workspace lists only
-the standard library. There is no `github.com/some-vendor/something` to audit, pin,
-or worry about in a supply-chain scan. The tradeoff is that anything not in the
-standard library must be written from scratch — which is exactly what
-`stb-truetype-go` does: a full TrueType rasteriser including contour flattening,
-scanline crossing, and span accumulation, implemented in [`sfnt.go`](src/stb-truetype-go-sfnt-go.md) without any
-external font library.
+This is a deliberate design constraint. Every `go.mod` — the small file inside a Go
+module that declares its name and lists the other modules it depends on — in the
+workspace lists only the standard library. There is no
+`github.com/some-vendor/something` to audit, pin, or worry about in a supply-chain
+scan. The tradeoff is that anything not in the standard library must be written
+from scratch — which is exactly what `stb-truetype-go` does: a full TrueType
+rasteriser including contour flattening, scanline crossing, and span accumulation,
+implemented in [`sfnt.go`](src/stb-truetype-go-sfnt-go.md) without any external font
+library.
 
 ---
 
 ## How the quality bar is maintained
 
-The CI pipeline ([`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md)) runs on every commit:
+The CI pipeline (in plain terms: "CI" stands for continuous integration — an
+automated robot that runs a checklist of checks every time someone changes the
+code, rather than trusting a human to remember to run them) ([`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md))
+runs on every commit (a commit is one saved, labeled snapshot of the code, made
+with the version-control tool Git):
 
 ```yaml
 # Abbreviated from go-ci.yaml
@@ -221,12 +257,27 @@ jobs:
   build:     # matrix: linux / macOS / Windows
 ```
 
+**In plain terms:** this lists the five automated jobs CI runs on every change:
+run every module's tests (a "test" is a small piece of code written to check that
+another piece of code behaves correctly — it runs the real code with known inputs
+and confirms the output matches expectations), check style with a linter, scan for
+known security problems, run randomized "fuzz" inputs looking for crashes (a
+benchmark, by contrast — mentioned later in the course — measures speed rather than
+correctness), and rebuild the project on three different operating systems to make
+sure it compiles everywhere (to "compile" is to turn the human-readable source code
+into a program the computer can actually run).
+
 The 70% coverage gate is enforced in CI. The race detector is mandatory:
 
 ```bash
 # README.md — Development Setup
 go test -race ./...
 ```
+
+**In plain terms:** this command runs the test suite with Go's race detector
+switched on — a tool that watches for a "data race," which is a bug where two
+goroutines read and write the same piece of memory at the same time with no
+coordination, producing unpredictable results.
 
 Fuzzing found the two dr-wav crashes (OOM from a malformed size field). The
 regression seeds are committed under `testdata/fuzz/` so those inputs are re-run on
@@ -251,22 +302,30 @@ every CI pass, not just during dedicated fuzz sessions.
 
     Expected outcome: same passing result. If any test fails with `-race` but passes
     without it, that is a data race — a real concurrency bug. The linenoise-go history
-    race (fixed in [`linenoise-go/linenoise.go`](src/linenoise-go-linenoise-go.md) with `sync.Mutex`) was caught exactly
-    this way.
+    race (fixed in [`linenoise-go/linenoise.go`](src/linenoise-go-linenoise-go.md) with `sync.Mutex` — a "mutex," short
+    for mutual exclusion, is a lock: a way to make sure only one goroutine at a time
+    is allowed to touch a given piece of data, so two of them can never collide on it)
+    was caught exactly this way.
 
 ---
 
 !!! warning "What you give up"
-    Pure Go does not reach the throughput of SIMD-optimised C for single-threaded
-    workloads. The README is explicit about this:
+    Pure Go does not reach the throughput (in plain terms: how much work gets done
+    per second) of SIMD-optimised C for single-threaded (running as one single line
+    of execution, with no work split across goroutines) workloads. The README is
+    explicit about this:
 
     > Because throughput depends heavily on CPU count, input shape, and allocator
     > behavior, this README intentionally does not quote fixed numbers — measure on
     > your target hardware.
 
-    The parallel APIs (`ParseParallel`, `LoadBatchConcurrent`, `ParseBatch`) close
-    much of the gap for large inputs. For small inputs the goroutine overhead is not
-    worth paying: `jsmn-go` always parses serially below 4 KB.
+    The parallel APIs (in plain terms: an API, short for application programming
+    interface, is simply the set of named functions a piece of code offers you to
+    call — here, `ParseParallel`, `LoadBatchConcurrent`, `ParseBatch`) close much of
+    the gap for large inputs. For small inputs the goroutine overhead — the small
+    amount of extra work Go spends creating and coordinating a goroutine — is not
+    worth paying: `jsmn-go` always parses serially below 4 KB (a KB, kilobyte, is
+    1,024 bytes — a unit of data size).
 
 ---
 
@@ -277,7 +336,9 @@ every CI pass, not just during dedicated fuzz sessions.
     extend it, and apply the same hardening patterns to your own parsers.
 
     Lessons you will reach soon:
-    - The deadlock bug and its fix in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md) and [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md)
+    - The deadlock bug (in plain terms: a situation where two or more goroutines
+      each end up waiting for the other to finish first, so every one of them
+      blocks forever and nothing moves) and its fix in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md) and [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md)
     - The data race in `linenoise-go/linenoise.go` and how `-race` catches it
     - Fuzz testing: how `go test -fuzz` found the dr-wav OOM
 

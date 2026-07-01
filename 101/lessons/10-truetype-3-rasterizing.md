@@ -66,7 +66,7 @@ grey level.
 ## The scale factor: font-units → pixels
 
 The code in [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md) computes `scale` once and reuses it
-everywhere:
+everywhere (this code lives in a **package** — in plain terms, a named folder of Go source files that can be reused elsewhere by **importing** it, i.e. declaring "I want to use the code from that folder"):
 
 ```go
 // from stb-truetype-go/sfnt.go — rasterizeGlyph
@@ -76,6 +76,8 @@ metrics := GlyphMetrics{
     Scale:        scale,
 }
 ```
+
+**In plain terms:** this computes one multiplier (`scale`) from the font's size and its internal unit grid, then packages up the glyph's measurements — how wide it is, and that same multiplier — into a labeled bundle called `GlyphMetrics` (in plain terms: a **struct**, a bundle of named values grouped under one name; each named value inside, like `AdvanceWidth`, is called a **field**).
 
 `f.unitsPerEm` was read from the `head` table during parsing (see [Lesson 8](08-truetype-1-sfnt-tables.md)).
 A font with `unitsPerEm = 1000` rendered at 20 px uses `scale = 0.02`.
@@ -96,9 +98,11 @@ if w > 4096 || h > 4096 {
 }
 ```
 
+**In plain terms:** this rounds the glyph's scaled corner coordinates outward to whole pixels to get the box's edges, computes its width and height, and if either is bigger than 4096 pixels it stops and hands back an error instead of the glyph (`return` here means: the function immediately finishes and sends these values back to whoever called it, rather than continuing on to draw anything).
+
 The `4096` ceiling is a safety guard: a pathological or malicious font file
 might claim a glyph that spans a million font units; without this check, the
-coverage array allocation would be enormous.
+coverage array allocation would be enormous (in plain terms: the program would try to **reserve** — set aside — a huge chunk of the computer's working memory just to hold one glyph's coverage data, which could slow or crash the program).
 
 ---
 
@@ -110,7 +114,7 @@ imply a hidden on-curve midpoint between them — the spec calls these "implied"
 points.
 
 `withImpliedPoints` inserts those midpoints, then `flattenContour` walks the
-expanded sequence and emits straight-line segments from each Bézier:
+expanded sequence and emits straight-line segments from each Bézier. (`withImpliedPoints` and `flattenContour` are **functions** — named, reusable chunks of code that do one job; writing their name followed by parentheses, like `withImpliedPoints(pts)`, is called **calling** or **invoking** the function, which simply means: run it, with the values in the parentheses handed to it as input.)
 
 ```go
 // from stb-truetype-go/sfnt.go
@@ -133,6 +137,8 @@ func withImpliedPoints(pts []glyphPoint) []glyphPoint {
 }
 ```
 
+**In plain terms:** `pts` is a **slice** — an ordinable, resizable list of items, here a list of glyph points — and the function walks through it one point at a time (`for i := 0; i < n; i++` is a loop: it repeats the same steps, once per point, until it's covered them all). Each original point is kept; and whenever two off-curve points sit next to each other, a new on-curve point is inserted exactly halfway between them (`glyphPoint{...}` builds one point value with its `x`, `y`, and `onCurve` fields filled in; `append` adds it onto the growing list `seq`). Once every point has been checked, the function returns — finishes and hands back — the new, longer list.
+
 Each on-curve-to-off-curve-to-on-curve triplet becomes a quadratic Bézier.
 `flattenQuad` samples it at 10 evenly-spaced values of `t`:
 
@@ -150,6 +156,8 @@ func flattenQuad(out *[]fpoint, p0, p1, p2 fpoint) {
     }
 }
 ```
+
+**In plain terms:** this walks the curve in 10 small steps from one end to the other, and at each step computes a point that lies on the curve, adding it onto the output list `out` so the smooth curve becomes a chain of straight-line points. (`out` is a **pointer** — instead of the function receiving a plain copy of the list, it receives a note saying "here is where the real list lives in memory," so any changes it makes are visible back where the function was called from, without needing to separately return the list.)
 
 The quadratic Bézier formula `B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2` in code form,
 evaluated once per step. The result is a `[]fpoint` polygon — the glyph contour
@@ -183,6 +191,8 @@ func buildEdges(polys [][]fpoint, scale float64, px0, py0 int) []gEdge {
 }
 ```
 
+**In plain terms:** `polys` is a list of polygons (each itself a list of points — a "slice of slices"). `toDev` is a small, throwaway function defined right here that converts one font-unit point into a supersampled screen-pixel point. The outer loop goes polygon by polygon; the inner loop walks each polygon's points two at a time (a point and the one right after it) to describe one edge of the shape, and appends that edge (`gEdge`, a struct holding both endpoints) onto the growing `edges` list, which is returned once every polygon has been processed.
+
 The minus sign on `y` flips from font space (y-up) to screen space (y-down).
 Multiplying by `ssaa` expands the coordinate space: a 16 × 20 pixel bitmap
 becomes a 64 × 80 supersampled grid. Every polygon edge gets one `gEdge` entry.
@@ -212,6 +222,8 @@ func scanlineCrossings(edges []gEdge, yc float64, xs []xCrossing) []xCrossing {
     return xs
 }
 ```
+
+**In plain terms:** for every edge of the glyph's outline, this checks whether the current horizontal line (`yc`) actually passes through that edge's vertical span; if it doesn't, `continue` skips straight to the next edge without doing anything else. If it does pass through, the code works out exactly where (`t` is "how far along the edge, as a fraction, the line crosses it") and records that x position plus a direction, onto the `xs` list, which is handed back once every edge has been checked.
 
 Each crossing records the x position and a `dir` (+1 or −1) based on whether
 the edge travels downward or upward. This direction is the raw material for the
@@ -246,6 +258,8 @@ func accumulateSpans(coverage []uint32, xs []xCrossing, py, w, sw int) {
 }
 ```
 
+**In plain terms:** `coverage` is a slice — a resizable list — of counters, one per output pixel, each holding an unsigned (never-negative) whole number (`uint32`). `rowBase` finds where the current row's counters begin within that flat list, since `coverage` stores every row of the image back-to-back rather than as a grid (`py` — one form of what's often called an **index**: a position/count used to locate something within a list). The loop walks each pair of neighboring crossings; it adds the current crossing's direction into `winding`, and if the running total is exactly zero, `continue` skips ahead — nothing between here and the next crossing is "inside" the glyph. Otherwise, it works out the range of sub-pixel columns (`lo` to `hi`) between this crossing and the next, clamps that range so it can't run off either edge of the row, and increments the coverage counter for each sub-pixel's parent pixel (`sx/ssaa` maps a fine sub-pixel column back to its coarser output-pixel column).
+
 Each supersampled sub-pixel that lands inside a nonzero-winding span increments
 the `coverage` counter for its parent output pixel (`sx/ssaa`). After all 4 × 4
 sub-rows, the maximum possible count is `ssaa * ssaa = 16`.
@@ -254,7 +268,8 @@ sub-rows, the maximum possible count is `ssaa * ssaa = 16`.
 
 ## Step 5: Coverage → pixel intensity
 
-Back in `rasterizeGlyph`, the coverage counts are converted to 8-bit grey values:
+Back in `rasterizeGlyph`, the coverage counts are converted to 8-bit grey values
+(an "8-bit value" is a number built from 8 **bits** — the smallest unit of computer information, each either a 0 or a 1 — which together can represent whole numbers from 0 to 255; a **byte** is exactly 8 bits, so this is one byte per pixel):
 
 ```go
 // from stb-truetype-go/sfnt.go
@@ -268,6 +283,8 @@ for i, c := range coverage {
 }
 ```
 
+**In plain terms:** this walks every pixel's coverage count and rescales it from the 0–16 range onto the 0–255 grey-level range that an image actually stores, writing the result into `img.Pix` (the image's raw pixel bytes) at the matching position `i`.
+
 A pixel fully inside the glyph (all 16 sub-samples hit) gets `255`. One on the
 edge with 8 sub-samples inside gets `127` — perceptually half-covered grey.
 That's anti-aliasing, mechanically.
@@ -276,7 +293,10 @@ That's anti-aliasing, mechanically.
 
 ## The glyphBudget: stopping the billion-laughs amplification
 
-Composite glyphs (like accented characters) reference other glyphs recursively.
+Composite glyphs (like accented characters) reference other glyphs
+**recursively** — in plain terms, a function that (directly or indirectly)
+calls itself again to handle a smaller piece of the same problem, the way a
+composite glyph can be built from other glyphs that are themselves composite.
 A malicious font could nest K components per level, 8 levels deep — K⁸
 recursive calls from a small file. The rasterizer guards this with
 `glyphBudget`:
@@ -294,6 +314,8 @@ type glyphBudget struct {
 }
 ```
 
+**In plain terms:** this defines two fixed limits (constants, values that never change while the program runs) and a small struct, `glyphBudget`, that carries two running counters — how many components and how many points are still "allowed" — down through each recursive call.
+
 Both counters are decremented on every recursive call to `glyphContours`; if
 either goes negative the call returns an error immediately. The depth cap (8
 levels) alone is not enough — a tree 8 levels deep with 4 children each still
@@ -303,11 +325,16 @@ See [Lesson 9](09-truetype-2-glyph-outlines.md) for how composite glyphs are
 assembled before rasterization.
 
 !!! warning "Why `recover` can't save you here"
-    Unbounded recursion causes a Go stack overflow — a *fatal* crash, not a
-    panic. `defer/recover` does not catch fatal crashes. The `glyphBudget` + depth
-    ceiling are the only lines of defence. This same class of bug (billion-laughs
-    amplification) also appeared in tinyxml2-go's XML parser; see
-    [Lesson 6](19-recursion-and-billion-laughs.md).
+    Unbounded recursion (recursion with no limit stopping it) causes a Go
+    stack overflow — a *fatal* crash, not a panic. (The **stack** is the
+    region of the computer's memory that keeps track of which function called
+    which, and where to resume when each one finishes; if recursion never
+    stops, that record keeps growing until it runs out of room.) `defer/recover`
+    is a mechanism Go code can use to catch certain errors and keep running
+    instead of crashing, but it does not catch fatal crashes like a stack
+    overflow. The `glyphBudget` + depth ceiling are the only lines of defence.
+    This same class of bug (billion-laughs amplification) also appeared in
+    tinyxml2-go's XML parser; see [Lesson 6](19-recursion-and-billion-laughs.md).
 
 ---
 
@@ -337,7 +364,9 @@ rune  ──► glyphIndex (cmap)
 ---
 
 !!! note "Try it"
-    Run the full rasterizer test suite from the module root:
+    Run the full rasterizer test suite from the module root (a **test** is a small
+    piece of code written specifically to check that another piece of code behaves
+    correctly; running the suite executes all of them and reports pass/fail):
 
     ```bash
     cd stb-truetype-go && go test -v -run TestRasterize ./...
@@ -357,15 +386,20 @@ rune  ──► glyphIndex (cmap)
     expects an error containing `"budget exceeded"`.
 
 !!! tip "Fuzz the rasterizer"
-    The parser pipeline is a natural fuzzing target — random bytes as a "font
-    file" should never crash the process, only return an error.
+    The parser pipeline is a natural fuzzing target — **fuzzing** means
+    automatically feeding a program huge amounts of random or malformed input to
+    see if anything makes it crash — random bytes (a **byte** is 8 bits, the
+    basic unit raw file data is measured in) as a "font file" should never crash
+    the process, only return an error.
 
     ```bash
     cd stb-truetype-go && go test -fuzz=FuzzLoadFont -fuzztime=30s .
     ```
 
     Any `fatal` exit (stack overflow, nil-pointer) is a bug. A returned `error`
-    is fine and expected.
+    is fine and expected. (A **nil pointer** is a pointer — a note saying where a
+    value lives in memory — that points nowhere; trying to use it crashes the
+    program.)
 
 ---
 

@@ -104,7 +104,7 @@ workflow that collapses under rapid iteration.
 
 ## One module up close — `jsmn-go/go.mod`
 
-Every Go module starts with a two-line minimum:
+Every Go module starts with a two-line minimum (in the code block below, lines starting with `//` are comments — notes for human readers that the computer ignores):
 
 ```go
 // jsmn-go/go.mod
@@ -113,12 +113,15 @@ module github.com/alikatgh/safeheaders-go/jsmn-go
 go 1.23
 ```
 
-- `module` declares the canonical import path. Any file anywhere on earth can
+**In plain terms:** this whole block is the entire content of a file named `go.mod` — it just declares the module's official name and the minimum version of the Go language it needs.
+
+- `module` declares the canonical import path. "Importing" is how one piece of code says "I want to use the code that lives in that other folder" — Go then goes and fetches or locates it. Any file anywhere on earth can
   write `import "github.com/alikatgh/safeheaders-go/jsmn-go"` and Go's toolchain
+  (the collection of programs that turns Go source text into a runnable program, checks it for errors, and manages its dependencies)
   knows exactly where to fetch it from.
 - `go 1.23` is the minimum language version this module requires. You can write
   `go 1.23` features freely; the toolchain enforces the floor.
-- There is no `require` block because `jsmn-go` has no third-party dependencies —
+- There is no `require` block (a `require` block is a list, inside `go.mod`, of other modules this one depends on) because `jsmn-go` has no third-party dependencies —
   a deliberate design choice for a security-hardening library.
 
 All nine modules in this repo follow the same pattern:
@@ -150,6 +153,8 @@ use (
     ./tinyxml2-go
 )
 ```
+
+**In plain terms:** this file tells Go's tools "here are nine folders on my own computer, each one a separate module — while I'm working locally, treat all nine as if they were already published, so I can test changes across them together before publishing anything."
 
 Each `use` line tells the toolchain: "this directory contains a real `go.mod`;
 treat it as the authoritative source for that module path."
@@ -185,6 +190,8 @@ require github.com/alikatgh/safeheaders-go/jsmn-go v0.5.0
 replace github.com/alikatgh/safeheaders-go/jsmn-go => ../../jsmn-go
 ```
 
+**In plain terms:** this example's own `go.mod` first says "I officially depend on version v0.5.0 of jsmn-go," then immediately adds a second line that overrides that and says "actually, for now, get it from this folder on my own disk instead."
+
 Two things are happening here:
 
 1. **`require ... v0.5.0`** — the example declares an explicit published version.
@@ -197,7 +204,7 @@ Example modules are treated as if they are external consumers. Keeping them out
 of the workspace means the workspace resolver doesn't override their `replace`
 directives in unexpected ways.
 
-When the Makefile builds examples it also sets `GOWORK=off`:
+When the Makefile builds examples it also sets `GOWORK=off`. (A Makefile is a plain-text file named `Makefile` that lists short, named recipes — here called "targets" — of shell commands; typing `make examples` on the command line runs the recipe named `examples` below.)
 
 ```makefile
 # Makefile (examples target, abridged)
@@ -210,6 +217,8 @@ examples:
     @(cd examples/json-parser && GOWORK=off go run .) || exit 1
     @(cd examples/jsmn-demo   && GOWORK=off go run .) || exit 1
 ```
+
+**In plain terms:** this recipe loops over four example folders, and inside each one runs `go build` (turn the source code into a runnable program — this is "compiling") and `go vet` (a check that scans the code for likely mistakes without running it) with the workspace switched off, then actually runs two of them with `go run`.
 
 `GOWORK=off` prevents the parent workspace from leaking into the example's
 build. The `replace` directive in the example's own `go.mod` still applies, so
@@ -238,6 +247,8 @@ MODULES := cgltf-go cjson-go dr-wav-go jsmn-go linenoise-go miniz-go \
            stb-image-go stb-truetype-go tinyxml2-go
 ```
 
+**In plain terms:** this line creates a named list (a "variable") called `MODULES` holding the names of all nine module folders, so other recipes can say "loop over `MODULES`" instead of spelling out all nine names again.
+
 Every looping target then expands that variable:
 
 ```makefile
@@ -247,6 +258,8 @@ test:
         (cd $$dir && go test -v ./...) || exit 1; \
     done
 ```
+
+**In plain terms:** this recipe walks through every name in `MODULES` one at a time and, for each one, runs that module's automated tests (a test is a small piece of code written specifically to check that another piece of code behaves correctly) — stopping immediately if any module's tests fail.
 
 The comment "Keep alphabetized" is load-bearing documentation: it signals that
 this list is the canonical registry — if you add a new module, you update
@@ -266,6 +279,8 @@ security scans, fuzz) picks it up automatically.
 ---
 
 ## Workspace vs. replace directives — when to use each
+
+(In the table below, "CI" stands for Continuous Integration — an automated system that runs builds and tests every time someone submits new code, without a human triggering it by hand.)
 
 | Scenario | Tool |
 |---|---|

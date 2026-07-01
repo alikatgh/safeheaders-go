@@ -75,7 +75,7 @@ it at runtime. Tools find bugs before users do.
 
 ## The MODULES variable — one list to rule them all
 
-SafeHeaders-Go is a Go workspace with nine independent modules. The Makefile
+SafeHeaders-Go is a Go workspace with nine independent modules (in plain terms: a "module" is a self-contained folder of related source code with its own name and version, a bit like a chapter of a book that can also stand alone as its own booklet). The Makefile
 starts with a single variable (from [`Makefile`](src/makefile.md)):
 
 ```makefile
@@ -83,10 +83,12 @@ MODULES := cgltf-go cjson-go dr-wav-go jsmn-go linenoise-go miniz-go \
            stb-image-go stb-truetype-go tinyxml2-go
 ```
 
+**In plain terms:** this line just writes down the names of all nine modules in one place, under the label `MODULES`, so every other instruction in the file can refer to "all of them" without listing the names again.
+
 Every target that needs to iterate — `test`, `lint`, `vet`, `fuzz` — loops
-over `$(MODULES)`. Add a new module to that one line and every target picks it
+over `$(MODULES)`. (A "target" here is one named, runnable instruction inside the Makefile — think of it as a labeled button; typing `make` followed by the target's name presses that button. "Iterate" and "loop" both mean the same everyday thing: do the same step once for each item in a list, one after another.) Add a new module to that one line and every target picks it
 up automatically. This is the "single source of truth" pattern: no copy-paste
-drift between CI and local dev.
+drift between CI and local dev. ("CI" — continuous integration — is a service that automatically runs these same checks on every proposed change, before it's allowed to merge.)
 
 The loop pattern looks like this (from `Makefile`, the `vet` target):
 
@@ -97,14 +99,16 @@ vet:
 	done
 ```
 
+**In plain terms:** for each module's folder, step into it and run the `go vet` check inside it; if that check fails, stop the whole process right there instead of continuing to the next module.
+
 The `|| exit 1` is important: if any module fails, the whole loop stops
-immediately and returns a non-zero exit code to CI. No silent partial success.
+immediately and returns a non-zero exit code to CI. No silent partial success. (An "exit code" is a small number a program hands back when it finishes, signaling success or failure — by convention `0` means "all good" and anything else means "something went wrong.")
 
 ---
 
 ## gofmt — the formatter
 
-`gofmt` ships with Go and rewrites source files in place. The Makefile wraps
+`gofmt` ships with Go and rewrites source files in place — meaning it edits the actual `.go` text files on disk to match the standard layout, rather than just printing a suggestion. The Makefile wraps
 it as (from `Makefile`, the `fmt` target):
 
 ```makefile
@@ -112,8 +116,10 @@ fmt:
 	@go fmt ./...
 ```
 
+**In plain terms:** this target runs Go's built-in formatter over every source file the project has.
+
 `go fmt` is a thin wrapper around `gofmt` that works with the module system.
-Running it is idempotent — running it twice changes nothing.
+Running it is idempotent — running it twice changes nothing (in plain terms: once the files are already in the standard layout, running the formatter again makes no further edits — same result no matter how many times you repeat it).
 
 !!! note "Try it"
     From the repo root:
@@ -134,7 +140,7 @@ if you forget `make fmt`, `make lint` will catch it.
 ## go vet — the compiler's safety net
 
 `go vet` performs deeper analysis than the compiler without actually running
-the code. Common catches:
+the code. (The "compiler" is the program that turns the human-written source text into a program the machine can actually run; it already rejects text that's outright broken, but it lets plenty of "technically valid, almost certainly wrong" code through — that's the gap `go vet` fills.) Common catches:
 
 | What vet checks | Real mistake it prevents |
 |-----------------|--------------------------|
@@ -142,6 +148,8 @@ the code. Common catches:
 | Struct literal has correct field count | `Point{1, 2, 3}` when `Point` has two fields |
 | `sync.Mutex` copied by value | Copying a mutex breaks its invariant (see [Lesson 17](15-data-races-and-mutexes.md)) |
 | `context.WithCancel` result unused | Leaked goroutines |
+
+(A "struct" is a bundled group of named values traveling together as one unit — like a form with labeled boxes; each labeled box is a "field". A "mutex" is a tool that lets only one worker touch a shared piece of data at a time, so two workers never scribble on it simultaneously; copying it — duplicating its value instead of sharing the original — breaks that guarantee. A "goroutine" is a lightweight, independently-running unit of work Go can juggle many of at once; a "leaked" goroutine is one that never finishes and just sits there forever, quietly wasting memory.)
 
 Run it in isolation (from `Makefile`):
 
@@ -169,12 +177,14 @@ The config at `.golangci.yml` opens with:
 version: "2"
 ```
 
+**In plain terms:** this one line just tells golangci-lint which "shape" of settings file to expect — like specifying which edition of a rulebook you're handing someone, so they don't misread the page numbers.
+
 This is not a lint version — it is the **config-schema version**. golangci-lint
 v2 introduced a new YAML layout (top-level `linters`, `formatters`,
 `exclusions` sections) that is incompatible with the v1 layout (flat
 `linters.enable-all`, `linters-settings`, `issues` keys). If you copy a v1
 config into a v2 binary you get cryptic parse errors; the schema version field
-makes the binary fail fast with a clear message instead.
+makes the binary fail fast with a clear message instead. (A "binary" here is the ready-to-run program file produced after compiling — in this case, the `golangci-lint` tool itself. A "parse error" happens when a program tries to read a piece of text into its expected structure and the text doesn't match that structure, so it gives up with a complaint.)
 
 To verify your config at any time:
 
@@ -205,23 +215,24 @@ Here is what each enabled linter catches, grounded in this repo's own bug histor
 
 **Correctness and safety**
 
-- `bodyclose` — HTTP response bodies that are never `Close()`d leak connections;
+- `bodyclose` — HTTP response bodies that are never `Close()`d leak connections
+  (in plain terms: something opened a network connection to fetch data, but the code never told it "I'm done, release this connection back to the pool" — so the connection sits there unused forever, wasting resources);
   this fires on every unclosed `resp.Body`.
-- `errcheck` — an unchecked error is a hidden failure path. The config adds
+- `errcheck` — an unchecked error is a hidden failure path (in Go, most operations that can fail return an "error" value alongside their normal result, and it is entirely possible to just ignore it — this linter flags the places where that error value is silently dropped). The config adds
   `check-type-assertions: true` so a bare `x.(T)` (without the `ok` guard) is
-  also flagged — it panics if the assertion fails.
+  also flagged — it panics if the assertion fails. (A "type assertion" is a check of the form "I believe this value is actually of this more specific kind — confirm it or tell me if I'm wrong"; done without the `ok` guard, being wrong causes a "panic" — Go's term for the program crashing right there instead of continuing.)
 - `gosec` — security-focused: flags hardcoded credentials, integer overflow
   from `math/rand`, unbounded decompression, and similar. This is the same
   analyser the `make security` target runs standalone.
 - `makezero` — catches `make([]T, n)` followed by `append`, which silently
-  produces leading zeros in the slice.
+  produces leading zeros in the slice. (A "slice" is Go's resizable list of values, one after another in memory; `make` reserves space for one up front, and `append` adds more items onto the end.)
 - `prealloc` — suggests pre-allocating slices where the length is known,
   avoiding repeated `append` reallocations (relevant in dr-wav-go and
-  jsmn-go's hot paths).
+  jsmn-go's hot paths). ("Pre-allocating" means reserving the right amount of memory space up front, in one step, instead of growing it piece by piece; a "reallocation" is the costly step of finding a new, bigger chunk of memory and copying everything over when the old chunk runs out of room. A "hot path" is the part of the code that runs extremely often, so its speed matters more than usual.)
 - `rowserrcheck` — `sql.Rows.Err()` must be checked after iteration; easy to
   forget, silent data loss.
 - `wrapcheck` — errors returned from external packages should be wrapped with
-  context (e.g. `fmt.Errorf("parse: %w", err)`). The `ignore-sigs` section
+  context (e.g. `fmt.Errorf("parse: %w", err)`) — "wrapping" here means attaching a short note about what the code was doing when the error happened, so it's still readable once it bubbles up further away from where it occurred. The `ignore-sigs` section
   carves out idiomatic exceptions:
 
 ```yaml
@@ -236,21 +247,22 @@ wrapcheck:
 
 The comment explains the `.Err()` carve-out: `context.Context.Err()` returns
 sentinel values (`context.Canceled`, `context.DeadlineExceeded`) that callers
+(the "caller" is whatever other piece of code ran this one and is waiting to hear back from it)
 compare with `errors.Is`. Wrapping them would break those comparisons.
 
 **Code quality**
 
 - `gocyclo` / `gocognit` — cyclomatic and cognitive complexity ceilings (20
   and 30 respectively). If a function is too tangled to lint cleanly, it is
-  too tangled to review safely.
+  too tangled to review safely. (A "function" is a named, reusable chunk of instructions that does one job — you can run, or "call," it by name whenever you need that job done, from wherever in the code you need it. "Complexity" here is roughly a count of how many different paths a function's logic can branch into; the more branches, the harder for a human to hold the whole thing in their head at once.)
 - `dupl` — detects copy-paste duplications; the signal to extract a shared
-  helper.
+  helper. (A "helper" is just a small function pulled out so multiple places in the code can call the same one instead of each repeating the same instructions.)
 - `nestif` — deeply nested `if` trees are flagged. The stb-truetype-go glyph
   parser would trip this without its iterative redesign.
 - `nakedret` — named return values with a bare `return` are forbidden past a
-  certain function length; they obscure what is being returned.
+  certain function length; they obscure what is being returned. ("Return" is what a function does when it finishes: it hands its result back to whoever called it. A "named return value" is a result variable given a name up front in the function's definition; a "bare `return`" — just the word with nothing after it — silently sends back whatever that named variable currently holds, which can be confusing to read far from where the value was set.)
 - `unparam` — parameters that are always passed the same constant can be
-  removed or replaced with a constant, making the API clearer.
+  removed or replaced with a constant, making the API clearer. (A "parameter" is one of the named inputs a function accepts each time it's called — like a blank on a form that gets filled in differently each time. An "API," short for application programming interface, is the set of functions and their expected inputs/outputs that other code is meant to use to interact with a package.)
 
 **Maintenance and hygiene**
 
@@ -286,7 +298,7 @@ exclusions:
 These presets suppress known false-positive patterns that golangci-lint ships
 with. `generated: lax` means generated files get softer treatment but are not
 completely exempt — the `lax` level still catches security issues in generated
-code.
+code. (A "false positive" is a warning the tool raises even though the code is actually fine — noise you'd rather not see.)
 
 ### Formatters section (v2 feature)
 
@@ -300,7 +312,7 @@ formatters:
 ```
 
 `goimports` is `gofmt` plus automatic import grouping and removal of unused
-imports. Running `make lint` therefore catches formatting problems too, not
+imports. ("Importing" is how one piece of Go code says "I want to use the functions from this other package" — a package being a named, reusable folder of related code, somewhat like the "module" mentioned earlier but referring to how the code itself, not the Makefile, groups things.) Running `make lint` therefore catches formatting problems too, not
 just logic issues — so `make fmt` and `make lint` are complementary, not
 redundant.
 
@@ -333,6 +345,8 @@ redundant.
 | `make pre-commit` | fmt → vet → test-race | Quick gate before `git commit` |
 | `make ci` | lint → test-race → test-coverage → security | Mirrors GitHub Actions |
 
+(A "test," in the row above, is a small piece of code written specifically to check that another piece of code behaves correctly — it runs the real code with known inputs and confirms the output matches what's expected. "Data races" are a specific bug where two goroutines — the independently-running units of work mentioned earlier — read and write the same piece of memory at the same time without coordinating, producing unpredictable results; the `-race` flag turns on a detector for exactly that. "Fuzzing" means automatically generating huge numbers of random or semi-random inputs and feeding them to the code to see if any of them crash it or reveal a bug a human tester wouldn't have thought to try.)
+
 The `fuzz` target (from `Makefile`):
 
 ```makefile
@@ -353,7 +367,7 @@ make fuzz FUZZTIME=5m
 ```
 
 The fuzzer in dr-wav-go is the one that found the OOM: it generated a WAV
-header with a huge `dataSize` field and watched the allocation fail. Those
+header with a huge `dataSize` field and watched the allocation fail. ("OOM" stands for "out of memory" — the program tried to reserve more of the computer's memory than was available, and that reservation attempt, called an "allocation," failed.) Those
 seeds now live in `testdata/fuzz/` and replay on every `make test`.
 
 !!! tip "install-tools"
@@ -380,9 +394,11 @@ examples:
 	done
 ```
 
-`GOWORK=off` disables the workspace for the duration of that shell command.
+**In plain terms:** for each example folder, temporarily turn off the shared workspace, then build it (build = compile it into a runnable program) and vet it, exactly as a stranger downloading just that one folder would experience it.
+
+`GOWORK=off` disables the workspace for the duration of that shell command. (A Go "workspace" is a setup where several modules on your machine are linked together so changes in one are instantly visible to the others, without needing to publish anything — handy for developing them side by side.)
 Each example is a standalone module with a `replace` directive pointing at the
-parent library. With the workspace enabled, Go ignores the `replace` directive
+parent library. (A `replace` directive is a line in a module's own configuration that says "when you need this dependency, use this specific local copy instead of fetching one from the internet.") With the workspace enabled, Go ignores the `replace` directive
 and uses the workspace version instead — which means the example would test
 the workspace copy, not the published-module path. With `GOWORK=off` the
 example resolves exactly the way an end user who cloned only that directory

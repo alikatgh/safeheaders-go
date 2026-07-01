@@ -56,6 +56,10 @@ the original input, so no value is ever copied.
 ## The Token struct
 
 All the information jsmn-go records about one JSON value lives in four fields.
+A "field" here just means one named slot of data bundled together — and the bundle
+itself is called a **struct** (in plain terms: a struct is a labeled container that
+groups several related pieces of data under one name, so you can pass them around
+as a single unit instead of separately).
 From [`jsmn-go/jsmn.go`](src/jsmn-go-jsmn-go.md):
 
 ```go
@@ -68,8 +72,20 @@ type Token struct {
 }
 ```
 
-`Start` and `End` follow the usual Go half-open convention: `json[tok.Start:tok.End]`
+**In plain terms:** this defines a `Token` shape — every token carries five labeled
+values: its `Type` (what kind of JSON thing it is), where it starts and ends in the
+raw text (as "byte offsets" — a byte is the basic unit of data a computer stores
+text in, so an offset is simply "count this many bytes from the start of the
+document"), how many children it has, and which other token contains it.
+
+`Start` and `End` follow the usual Go half-open convention (Go is the programming
+language this project is written in — a "half-open" range includes its start point
+but stops just short of its end point, the same way "pages 7 up to but not
+including 12" would): `json[tok.Start:tok.End]`
 gives you the raw bytes of that value, including any surrounding quotes for strings.
+(Here `json[a:b]` is called "slicing" — in plain terms, it means "read out the
+piece of this data that sits between position `a` and position `b`, without
+copying or modifying the original data.")
 
 The four `TokenType` values match the four structural elements of JSON:
 
@@ -101,9 +117,20 @@ idx  Type       Start  End  Size  ParentIdx
  4   Primitive   23    25    0       0     ← value 30
 ```
 
-No heap node was allocated for the object or any of its values. The whole tree
+**In plain terms:** each row is one token, and you can rebuild the whole nested
+document just by reading the `ParentIdx` column — token 1 (`"name"`) and token 2
+(`"Alice"`) both point back to token 0 (the outer object), so you know they belong
+to it, without any tree of connected objects ever being built in memory.
+
+No heap node was allocated for the object or any of its values. ("The heap" is a
+region of a program's memory set aside for data whose size or lifetime isn't known
+up front, as opposed to "the stack," which is a much cheaper region used for
+short-lived, fixed-size data. "Allocating" a node there means reserving a chunk of
+that memory for a brand-new piece of data — something jsmn-go deliberately avoids
+doing per token.) The whole tree
 is read from a single `[]Token` slice that was filled in one pass over the
-input bytes.
+input bytes. (A "slice" in Go is a resizable, ordered list of values — here, a
+list of `Token` structs sitting next to each other in memory.)
 
 To extract the raw bytes of a token you just slice the original input:
 
@@ -116,11 +143,18 @@ content := json[tokens[2].Start:tokens[2].End] // e.g. `"Alice"`
 unquoted := json[tokens[2].Start+1 : tokens[2].End-1] // e.g. `Alice`
 ```
 
+**In plain terms:** both lines just read a small window of bytes out of the
+original input — the first keeps the quote marks, the second nudges the start
+and end points inward by one byte each to drop them.
+
 ---
 
 ## Creating a Parser and walking tokens
 
-The simplest path: `NewParser` + `Parse`. From `jsmn-go/jsmn.go`:
+The simplest path: `NewParser` + `Parse` — "calling" (or "invoking") a function
+means running it, and a **function** is a named, reusable block of instructions
+that does one job; you can hand it inputs and it hands back ("returns") a result
+when it's done. From `jsmn-go/jsmn.go`:
 
 ```go
 // NewParser creates a new parser with space for numTokens.
@@ -138,6 +172,11 @@ func (p *Parser) Tokens() []Token {
     return p.tokens[:p.toknext]
 }
 ```
+
+**In plain terms:** `NewParser` builds a fresh `Parser` with room for `numTokens`
+tokens already reserved; `Parse` reads the given JSON bytes and fills that space,
+handing back either how many tokens it found or an error; `Tokens` just returns
+the portion of that reserved space that was actually filled in.
 
 A minimal usage pattern:
 
@@ -166,14 +205,30 @@ func main() {
 }
 ```
 
+**In plain terms:** this is a complete, runnable program (a "package main" file
+that Go's tool will "compile" — turn from human-readable source text into a
+program the machine can execute — and then run). The `import` block pulls in
+outside code the program depends on: here, a package for printing text (`fmt`)
+and the jsmn-go package itself, referred to elsewhere in this lesson as a
+"package" or "module," which is just a named, reusable bundle of Go code someone
+else wrote. The program builds a `Parser` with room for 32 tokens, parses a small
+JSON string, and then loops over each token it found, printing its index, type,
+size, parent, and raw bytes.
+
 Running this prints one line per token, making the flat-tree structure visible.
 
 ---
 
 ## Walking the tree by parent index
 
-Because every token records its parent's index, you can filter children of any
-node with a plain loop — no recursion, no stack:
+Because every token records its parent's index (its position, or "index," inside
+the token slice — the first item is index 0, the second is index 1, and so on),
+you can filter children of any
+node with a plain loop — no recursion, no stack. ("Recursion" is when a function
+calls itself to solve a smaller piece of the same problem; a "stack," in this
+sense, is the bookkeeping the computer would normally need to remember where to
+return to at each nested call. Because the parent links already exist, none of
+that bookkeeping is needed here.)
 
 ```go
 // direct children of token at parentIdx
@@ -187,6 +242,11 @@ func directChildren(tokens []jsmngo.Token, parentIdx int) []int {
     return children
 }
 ```
+
+**In plain terms:** this function walks every token in order, and whenever a
+token's `ParentIdx` matches the one you asked about, it adds that token's index to
+a growing list; once it's checked everything, it hands that list back to whoever
+called it.
 
 For a deeply nested document this linear scan can be replaced by a single pass
 that builds an adjacency list — still no extra allocations on the token side.
@@ -203,6 +263,10 @@ that builds an adjacency list — still no extra allocations on the token side.
         fmt.Printf("%s => %s\n", key, value)
     }
     ```
+
+    **In plain terms:** this loop skips through the tokens two at a time — treating
+    each pair as one key and the value right after it — and prints them as
+    `key => value`.
 
     This works because the parser emits tokens in document order.
 
@@ -224,6 +288,13 @@ func StrictConfig() *Config { … }
 func UnlimitedConfig() *Config { … }
 ```
 
+**In plain terms:** these are three ready-made settings profiles you can hand to
+the parser — one with generous limits, one with tight limits for input you don't
+trust, and one with no limits at all. (A "benchmark," mentioned above, is simply a
+timed test that measures how fast or how much memory a piece of code uses — not a
+test of correctness. A "pipeline" is a sequence of processing steps where the
+output of one step feeds into the next.)
+
 Usage:
 
 ```go
@@ -239,7 +310,14 @@ if err != nil {
 }
 ```
 
+**In plain terms:** this calls the safer parsing entry point with the strict
+limits applied, and if anything goes wrong — the input was too big, too complex,
+empty, or just malformed — it stops the program and prints the error.
+
 The three sentinel errors let callers distinguish limit violations from malformed JSON:
+(a "sentinel error" is simply a specific, pre-defined error value the code
+deliberately returns so that calling code — "the caller" — can check exactly which
+problem occurred, rather than just knowing that *something* went wrong.)
 
 ```go
 switch {
@@ -252,10 +330,16 @@ case err != nil:
 }
 ```
 
+**In plain terms:** this checks which sentinel error came back and replies to the
+web request with the matching, specific HTTP status code instead of a generic
+failure.
+
 !!! warning "UnlimitedConfig in production"
     `UnlimitedConfig` exists for benchmarks and for `ParseParallel`'s internal
     fast-path. Passing it to a public HTTP handler means a 2 GB JSON blob will
-    attempt to fill a token slice of that size — or exhaust heap and OOM.
+    attempt to fill a token slice of that size — or exhaust heap and OOM
+    (in plain terms: use up all of the memory the program is allowed to reserve
+    and get shut down by the operating system — "OOM" stands for "out of memory").
     Always prefer `DefaultConfig` or `StrictConfig` on the boundary.
 
 ---
@@ -280,8 +364,19 @@ func (p *Parser) allocToken(tok Token) error {
 }
 ```
 
-`append` doubles capacity when it needs to grow (standard Go amortisation), so
-the total number of allocations is O(log n), not O(n). The `Config.MaxTokens`
+**In plain terms:** whenever the reserved token space runs out, this function
+grows it with `append` (Go's built-in way of adding to the end of a slice,
+reserving more memory automatically if there isn't room) instead of failing;
+it then stores the new token, bumps its parent's child count, and moves the
+"next empty slot" pointer forward by one.
+
+`append` doubles capacity when it needs to grow (standard Go amortisation — in
+plain terms, doubling the size each time means most `append` calls are nearly
+free, and only occasionally does one trigger an expensive reallocation, so the
+average cost per item stays low), so
+the total number of allocations is O(log n), not O(n) (this "Big-O" notation is
+just a shorthand for how the cost of an operation grows as the input grows
+larger — `O(log n)` grows far more slowly than `O(n)` as `n` increases). The `Config.MaxTokens`
 cap in `ParseWithConfig` is enforced *after* `Parse` returns, not inside
 `allocToken` — so the growth is still bounded by the config when you use the
 safe entry point.
@@ -291,7 +386,10 @@ safe entry point.
 ## Try it
 
 !!! note "Try it"
-    From the repo root, run the jsmn-go test suite:
+    From the repo root, run the jsmn-go test suite (a "test" is a small piece of
+    code, written by the developers, whose only job is to check that another piece
+    of code behaves the way it's supposed to — a "test suite" is the whole
+    collection of these checks for a project):
 
     ```bash
     cd jsmn-go && go test ./... -v -count=1
@@ -303,7 +401,13 @@ safe entry point.
     tokenization produce identical token slices for the same input.
 
 !!! note "Try it — race detector"
-    The parallel tokenizer uses goroutines. Verify no data races:
+    The parallel tokenizer uses goroutines (a **goroutine** is Go's lightweight
+    unit of concurrent work — a piece of code that can run at the same time as
+    other pieces, letting the program do several things "in parallel" instead of
+    strictly one after another; this overall style is called **concurrency**).
+    Verify no data races (a "data race" is a bug where two of these concurrently
+    running pieces of code read and write the same piece of memory at the same
+    time without coordinating, producing unpredictable results):
 
     ```bash
     cd jsmn-go && go test ./... -race -count=1
@@ -330,6 +434,11 @@ case '}', ']':
     p.pos++
 ```
 
+**In plain terms:** when the parser hits a closing `}` or `]`, it records the
+current reading position as the end of whichever container is currently open,
+then moves its "which container am I in" tracker up to that container's parent —
+and finally advances one byte forward through the input.
+
 `p.toksuper` is effectively a cursor pointing at the innermost open container.
 Opening a `{` or `[` pushes a new token and updates `toksuper` to point at it.
 Closing `}` or `]` seals that token and pops `toksuper` back to the parent —
@@ -345,6 +454,11 @@ if p.toksuper != -1 {
     return 0, errors.New("unclosed object or array")
 }
 ```
+
+**In plain terms:** if, after reading the whole document, some container was
+never closed, the function returns an error saying so instead of returning a
+result — this is what "the function returns" means throughout this lesson: it
+stops running and hands a value back to whoever called it.
 
 ---
 

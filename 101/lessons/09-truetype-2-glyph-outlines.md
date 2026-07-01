@@ -66,7 +66,12 @@ sum.
 ## Step 1 - the table directory and tableData
 
 Before anything else, `parseSFNT` (from [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md)) reads the
-file header and builds a map of every table's byte range:
+file header and builds a map of every table's byte range. (`parseSFNT` is a
+*function* — a named, reusable chunk of code that performs a task; you *call*
+or *invoke* it by writing its name, which tells the computer to run that chunk
+right now. A *map* here is a lookup structure, like an index at the back of a
+book: you hand it a name and it hands back the matching information — in this
+case, a table's location and size in the file.)
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -92,8 +97,16 @@ func (f *Font) parseSFNT() error {
 }
 ```
 
+**In plain terms:** this code reads the first few bytes of the font file to check
+it's really a TrueType font, counts how many tables the file says it has, then
+walks through that list and records where each table starts and how long it is
+(so later code can jump straight to the right bytes).
+
 Every subsequent lookup goes through `tableData`, which always bounds-checks the
-slice before returning it:
+slice before returning it. (A *slice* in Go is a view onto a run of bytes sitting
+in memory — think of it as a window that shows you items number 5 through 12 of a
+long list, without copying them. "Bounds-checking" means confirming the window
+you're asking for is actually inside the list before you look through it.)
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -110,10 +123,20 @@ func (f *Font) tableData(tag string) ([]byte, bool) {
 }
 ```
 
+**In plain terms:** this code looks up a table by its short name (like `"loca"`
+or `"glyf"`); if the name isn't found, or if the recorded start/end position
+would fall outside the actual file, it hands back "not found" instead of a
+slice — so nothing downstream can be pointed at memory that doesn't belong to
+this file. The second value it returns (`true`/`false`) is a simple yes/no flag
+telling the caller — whoever called this function — whether the lookup
+succeeded.
+
 !!! warning "Why bounds-check every table?"
     Font files are untrusted. A corrupt or adversarial file can store a table
     offset that points outside the file. Without this guard, the next line that
-    slices `f.rawData` panics. The `ok` return lets every caller fail cleanly.
+    slices `f.rawData` panics (in plain terms: the program crashes immediately
+    rather than continuing, because it tried to read memory it has no right to
+    read). The `ok` return lets every caller fail cleanly.
 
 ---
 
@@ -129,7 +152,9 @@ func (f *Font) tableData(tag string) ([]byte, bool) {
 | 3 | Unicode platform, any |
 | 1 | anything else |
 
-Then `glyphIndex` dispatches to the right decoder:
+Then `glyphIndex` dispatches to the right decoder (in plain terms: it looks at
+which format the font uses and hands the work off to the matching piece of
+code below):
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -144,7 +169,20 @@ func (f *Font) glyphIndex(r rune) uint16 {
 }
 ```
 
+**In plain terms:** this function reads a 2-byte number at the very start of the
+cmap data to learn which of the four formats this font uses, then routes the
+character (`r`) to the matching format-specific function below and returns
+whatever glyph ID that function comes back with. (A *byte* is the basic unit
+computers store data in — one small chunk of 8 bits; a *bit* is a single 0-or-1
+switch. Reading "2 bytes" just means reading 16 of those switches at once as one
+number.)
+
 **Format 0** is trivial - just index a 256-byte array with the rune value.
+("Index" here means using a number to jump straight to one entry in a list —
+the same way you'd use a page number to flip straight to a page, rather than
+reading from the start. A *rune* is Go's name for one readable character, like
+`'A'` or `'€'`.)
+
 **Format 4** is the most common for Latin fonts. It stores sorted *segments*:
 each segment covers a range [start, end] and either adds a constant delta or
 indexes into a glyph-ID array. Here is the core loop, condensed from `sfnt.go`:
@@ -179,6 +217,12 @@ func cmapFormat4(d []byte, r rune) uint16 {
 }
 ```
 
+**In plain terms:** the font stores its character coverage as a sorted list of
+ranges ("segments"). This code walks the list looking for the segment that
+covers the character `r`; once found, it either adds a fixed number to get the
+glyph ID directly, or uses the character's position within the segment to look
+up the glyph ID in a small side table.
+
 **Format 12** handles full Unicode (including emoji, CJK extensions) using
 groups of `(startChar, endChar, startGlyphID)` triples:
 
@@ -199,12 +243,18 @@ func cmapFormat12(d []byte, r rune) uint16 {
 }
 ```
 
+**In plain terms:** this scans a list of character ranges; when it finds the
+range containing `r`, it computes the glyph ID as an offset from that range's
+starting glyph ID and returns it.
+
 ---
 
 ## Step 3 - loca and glyf: finding the outline bytes
 
 `parseLoca` (from `sfnt.go`) fills `f.loca[]`, a slice of byte offsets into the
-`glyf` table. There are two sub-formats:
+`glyf` table. (An *offset* is just a distance, in bytes, from the start of some
+data — "offset 40" means "start counting 40 bytes in.") There are two
+sub-formats:
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -225,9 +275,16 @@ func (f *Font) parseLoca() error {
 }
 ```
 
-The head table's `indexToLocFormat` field (stored in `f.indexToLoc`) says which
-sub-format applies. When it is 0 the values are halved to fit in a uint16, so
-the parser multiplies by 2.
+**In plain terms:** this fills in a list of "where does each glyph's data
+start" markers. Depending on which sub-format the font uses, it either reads
+each marker as a small 2-byte number and doubles it, or reads it directly as a
+bigger 4-byte number.
+
+The head table's `indexToLocFormat` field (stored in `f.indexToLoc`, a *field*
+being one named slot of data inside a larger structured record — like one
+labeled box in a filing cabinet drawer) says which sub-format applies. When it
+is 0 the values are halved to fit in a uint16 (a number stored in 2 bytes, so it
+can only count up to 65,535), so the parser multiplies by 2.
 
 With those offsets in hand, `glyphContours` (from `sfnt.go`) slices out the raw
 glyph bytes:
@@ -245,6 +302,12 @@ if numContours < 0 {
 }
 return parseSimpleGlyph(g, int(numContours))
 ```
+
+**In plain terms:** this grabs the exact byte range for one glyph (or returns
+nothing, for an empty glyph like the space character), reads a small number at
+the front to find out how many contours it has, and then either hands off to
+the composite-glyph decoder or the simple-glyph decoder based on whether that
+number is negative.
 
 A negative `numContours` is the TrueType spec's signal for a composite glyph.
 
@@ -267,7 +330,9 @@ The interesting parts are flags and coordinates.
 ### Flags
 
 Each point gets one flag byte. `readGlyphFlags` expands run-length-encoded
-repeats:
+repeats (a compression trick where, instead of writing the same value many
+times in a row, the file writes the value once plus a count of how many more
+times to repeat it):
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -280,6 +345,11 @@ if fl&0x08 != 0 {        // REPEAT_FLAG set
     }
 }
 ```
+
+**In plain terms:** it reads one flag byte and stores it for the current point;
+if that byte's "repeat" bit is set, it then reads one more byte saying how many
+additional points share that exact same flag, and copies it that many times —
+so the file doesn't have to spell out an identical flag byte over and over.
 
 The important bit in each flag byte is bit 0: `1` = on-curve point,
 `0` = off-curve (Bezier control handle).
@@ -305,6 +375,13 @@ for i, fl := range flags {
 }
 ```
 
+**In plain terms:** `v` is a running total (starting at 0) that accumulates
+each point's coordinate. For every point, depending on its flag bits, the code
+either adds a small one-byte adjustment, adds a larger two-byte adjustment, or
+adds nothing at all (meaning this point sits at the same position as the last
+one on this axis) — and stores the running total as that point's absolute
+coordinate.
+
 Three cases: 1-byte delta (with a sign bit), 2-byte delta, or repeat the
 previous value (both flags clear means delta is zero - implicit in the spec).
 
@@ -325,6 +402,11 @@ if !p.onCurve && !nxt.onCurve {
 }
 ```
 
+**In plain terms:** whenever two off-curve points appear back to back, this
+code inserts a new point exactly halfway between them and marks it as
+on-curve, so the shape has the midpoint the format assumes but never actually
+stores.
+
 Without this step the Bezier flattening would treat two control handles as a
 segment, producing garbage output.
 
@@ -334,6 +416,8 @@ segment, producing garbage output.
 
 A composite glyph is a list of `(flags, componentGID, dx, dy, optional-transform)`
 records. `compositeContours` (from `sfnt.go`) loops over them:
+(A *record* here is just one fixed-shape group of related values bundled
+together, the same idea as one row in a table.)
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -348,8 +432,17 @@ for pos+4 <= len(g) {
 }
 ```
 
-`appendComponent` calls `glyphContours` recursively, applies the 2x2 matrix
-plus translation to every point, and appends the transformed contours:
+**In plain terms:** this loop reads one component record at a time — which
+sub-glyph to reuse and how to place it — fetches that sub-glyph's outline (by
+calling itself again indirectly through `appendComponent`), and keeps going
+until the flags say there are no more components to add.
+
+`appendComponent` calls `glyphContours` recursively (in plain terms: the
+function calls itself again, going one level deeper each time, to fetch the
+outline of whatever glyph this component points to — the same way a
+Russian nesting doll opens into another doll of the same kind), applies the
+2x2 matrix plus translation to every point, and appends the transformed
+contours:
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -362,6 +455,12 @@ for _, pt := range ct {
 }
 ```
 
+**In plain terms:** for every point in the reused sub-glyph, this computes a
+new, repositioned and rescaled point using the component's transform (its
+scale/rotation matrix `tf.a, tf.b, tf.c, tf.d` and its offset `tf.dx, tf.dy`) —
+this is how, say, an accented "é" is built by placing an existing "e" outline
+and an existing accent outline at the right spots.
+
 ### The billion-laughs danger
 
 A composite can reference other composites. Without a limit, a font with K
@@ -369,6 +468,9 @@ children per level and 8 levels of nesting triggers K^8 invocations from a
 single top-level glyph request - exponential work from a tiny file.
 
 `glyphBudget` stops it with two counters:
+(A *struct*, defined just below, is a way of grouping several related named
+values together under one type, similar to a labeled form with a few fields to
+fill in.)
 
 ```go
 // stb-truetype-go/sfnt.go
@@ -383,6 +485,11 @@ const (
 )
 ```
 
+**In plain terms:** `glyphBudget` is a small record holding two remaining
+"allowances" — how many more component look-ups are allowed, and how many more
+outline points are allowed — set to fixed starting caps (4096 and about
+1 million).
+
 Every recursive call to `glyphContours` decrements `b.components` first:
 
 ```go
@@ -391,6 +498,12 @@ if b.components--; b.components < 0 {
     return nil, errors.New("truetype: composite glyph component budget exceeded")
 }
 ```
+
+**In plain terms:** each time this function is entered it subtracts one from
+the remaining component allowance; if that pushes the count below zero, it
+immediately returns (in plain terms: the function stops running right here and
+hands control back to whoever called it) with an error instead of continuing
+to decode.
 
 And after decoding a simple glyph the point count is charged:
 
@@ -404,6 +517,11 @@ if b.points < 0 {
 }
 ```
 
+**In plain terms:** after a glyph's points are decoded, their count is
+subtracted from the remaining point allowance; if the running total drops
+below zero, decoding stops with an error rather than letting a file balloon
+memory usage unchecked.
+
 A fresh budget is created per top-level render call in `rasterizeGlyph`:
 
 ```go
@@ -412,9 +530,15 @@ budget := glyphBudget{components: maxGlyphComponents, points: maxGlyphPoints}
 contours, err := f.glyphContours(gid, 0, &budget)
 ```
 
+**In plain terms:** a brand-new budget (full allowance) is created every time
+someone asks to render a glyph, so one request's recursive digging can never
+eat into another request's allowance.
+
 !!! note "Try it"
     Run the TrueType tests (including the security-oriented budget tests) from
-    the repo root:
+    the repo root. (A *test* is a small piece of code that runs part of the
+    program and checks the result matches what's expected — `go test` is the
+    command that finds and runs all such tests in the project.)
 
     ```bash
     cd stb-truetype-go && go test -v -run TestCompositeBudgetAborts ./...
@@ -426,13 +550,20 @@ contours, err := f.glyphContours(gid, 0, &budget)
     panics on the bundled font fixtures.
 
 !!! tip "Also try the race detector"
-    The GlyphCache in [`stb_truetype.go`](src/stb-truetype-go-stb-truetype-go.md) uses a sync.Mutex-guarded LRU. Run:
+    The GlyphCache in [`stb_truetype.go`](src/stb-truetype-go-stb-truetype-go.md) uses a sync.Mutex-guarded LRU. (A `sync.Mutex` is a lock: a mechanism
+    that lets only one part of the program touch a shared piece of data at a
+    time, so two simultaneously running pieces of code — see "goroutine" in an
+    earlier lesson — can't corrupt it by writing at once. An LRU is a cache that
+    throws away its "Least Recently Used" entry when it needs room.) Run:
 
     ```bash
     cd stb-truetype-go && go test -race ./...
     ```
 
-    No data-race reports should appear.
+    No data-race reports should appear. (A data race is when two parts of a
+    program running at the same time read and write the same piece of memory
+    without a lock protecting it, producing unpredictable results; `-race` is a
+    special test mode that watches for this and reports it.)
 
 ---
 
@@ -442,12 +573,17 @@ Once `glyphContours` returns the point lists, `rasterizeGlyph` (in `sfnt.go`)
 takes over:
 
 1. `flattenContour` converts quadratic Bezier arcs to straight-line polygons
-   (10 steps per arc via `flattenQuad`).
+   (10 steps per arc via `flattenQuad`) — in plain terms, it approximates each
+   smooth curve with a short chain of ten straight segments, since straight
+   lines are much simpler to fill in with color than true curves.
 2. `buildEdges` transforms the polygon to supersampled device space (`ssaa = 4`,
-   so 4x supersampling per axis).
+   so 4x supersampling per axis) — meaning it works at 4 times the final
+   resolution in each direction, so edges look smoother once shrunk back down.
 3. `fillCoverage` scan-fills with the nonzero winding rule, accumulating a
-   coverage count per output pixel.
-4. Coverage is scaled to 0-255 and stored in an `image.Gray`.
+   coverage count per output pixel (a pixel being one single dot of the final
+   image).
+4. Coverage is scaled to 0-255 and stored in an `image.Gray` (a simple
+   black-and-white/grayscale image type, where 0 is black and 255 is white).
 
 The rasterization pipeline is the subject of [Lesson 10](10-truetype-3-rasterizing.md).
 

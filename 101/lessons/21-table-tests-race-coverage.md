@@ -78,7 +78,11 @@ wrong" into "always caught in CI".
 ## The test file at a glance
 
 `linenoise-go/linenoise_engine_test.go` is a clean example of all three patterns used
-together. The file starts with two helper functions:
+together (this is one file inside a "package" — in plain terms, a named folder of Go
+source files that are compiled and used together as one unit). The file starts with two
+helper functions (a function is a named, reusable chunk of instructions; you "call" or
+"invoke" it elsewhere to run those instructions, and it can "return" — finish and hand a
+result back to whoever called it):
 
 ```go
 // from linenoise-go/linenoise_engine_test.go
@@ -95,6 +99,14 @@ func newSinkState(t *testing.T) *State {
     return New(cfg)
 }
 ```
+
+**In plain terms:** this helper creates a throwaway output destination for a test to
+write into, using a temporary directory that gets cleaned up automatically, and hands
+back a ready-to-use `State` (a struct — in plain terms, a bundled group of related values
+under one name, here holding all the state a test needs). The `*` in `*State` makes it a
+pointer — in plain terms, not the bundle of values itself but a note saying "the real
+data lives over there in the computer's memory," so that whoever gets the pointer is
+looking at the same shared data, not a separate copy of it.
 
 `t.Helper()` on line one means that if `os.CreateTemp` fails, the test output says
 "FAIL at TestFoo:42" (the caller's line) instead of "FAIL at linenoise_engine_test.go:18"
@@ -119,8 +131,16 @@ func tempInput(t *testing.T, content string) *os.File {
 }
 ```
 
-Notice the pattern: `t.Cleanup` registers a teardown closure. Go runs all registered
-cleanups when the test ends, even if the test panics.
+**In plain terms:** this helper writes the given text to a temporary file, opens that
+file back up for reading, and hands back the open file so a test can feed it in as
+simulated user input.
+
+Notice the pattern: `t.Cleanup` registers a teardown closure (a closure is a small,
+unnamed chunk of instructions — written inline as `func() { ... }` — that "remembers"
+the variables around it; here it's just "the code to run later to clean up"). Go runs all
+registered cleanups when the test ends, even if the test panics (a panic is Go's way of
+immediately aborting the current work because something went unrecoverably wrong,
+unwinding back up through whichever functions called each other to get there).
 
 ---
 
@@ -154,6 +174,13 @@ func TestProcessCharTerminators(t *testing.T) {
 }
 ```
 
+**In plain terms:** the first subtest types "done" then presses Enter, and checks that
+the function correctly reports the finished line back with no error. The second types
+"x" then presses Ctrl-C, and checks that the function correctly reports an interruption.
+(`[]rune("done")` is a slice — in plain terms, a resizable, ordered list of items in
+memory — of individual characters; `err` is Go's normal way of reporting "something went
+wrong" as an ordinary returned value rather than a crash.)
+
 You can run just one subtest from the command line:
 
 ```bash
@@ -167,8 +194,10 @@ The `/` separates the parent name from the subtest name. Partial matching works 
 
 ## Table-driven subtests
 
-When the test logic is identical but the inputs vary, a slice of structs is cleaner than
-repeating `t.Run` calls. `TestHandleEditKeys` is the canonical example from this file:
+When the test logic is identical but the inputs vary, a slice of structs (a struct is a
+bundle of named, differently-typed values grouped under one label — think of it as a row
+with labelled columns) is cleaner than repeating `t.Run` calls. `TestHandleEditKeys` is
+the canonical example from this file:
 
 ```go
 // from linenoise-go/linenoise_engine_test.go
@@ -212,13 +241,23 @@ func TestHandleEditKeys(t *testing.T) {
 }
 ```
 
-Nine scenarios, one loop. Adding a tenth means appending one struct literal — no new
+**In plain terms:** `mk` builds a fresh, identical starting state ("hello world" typed
+in, cursor at the end) before every case, so no case can accidentally see leftovers from
+the one before it. `for _, tt := range tests` (a loop — in plain terms, an instruction
+that repeats once per item in the list, here handing each struct row in turn to the
+variable `tt`) then runs the same steps nine times, once per row: press the key, and check
+that the buffer and cursor position ended up where that row says they should.
+
+Nine scenarios, one loop. Adding a tenth means appending one struct literal (a struct
+literal is just the row of values itself, written inline — the `{"insert printable", 'X',
+"hello worldX", 12}` shape above) — no new
 test function, no duplicated assertion code.
 
 !!! tip "t.Errorf vs t.Fatalf"
     `t.Errorf` marks the test as failed but keeps running, so you see *all* failures in
     one pass. `t.Fatalf` stops the subtest immediately — useful when continuing makes no
-    sense (e.g. the object you are about to inspect is nil).
+    sense (e.g. the object you are about to inspect is nil — Go's term for a pointer
+    that points at nothing at all).
 
 ---
 
@@ -236,7 +275,13 @@ t.Run("ctrl-d on empty buffer is EOF", func(t *testing.T) {
 })
 ```
 
-Always compare errors with `errors.Is`, not `==`. Wrapped errors (e.g.
+**In plain terms:** this checks that pressing Ctrl-D on an empty line of input is
+reported as "end of file" — the normal, expected signal that there is no more input to
+read — rather than as some other kind of error.
+
+Always compare errors with `errors.Is`, not `==`. Wrapped errors (an error can be
+"wrapped" — packaged inside a new, more descriptive error while still carrying the
+original one inside it, e.g.
 `fmt.Errorf("read: %w", io.EOF)`) compare equal with `errors.Is` but not with `==`.
 
 ---
@@ -275,6 +320,13 @@ func TestHistoryPersistence(t *testing.T) {
 }
 ```
 
+**In plain terms:** the test adds two command-history entries ("alpha" and "beta", with a
+repeated "beta" correctly ignored) to a fresh session, saves that history to a temporary
+file, then loads it back into a second, separate session and checks the loaded list
+matches exactly. It then confirms that trying to load a history file that does not exist
+yet quietly succeeds with an empty history rather than reporting an error — the
+expected behaviour the very first time a user runs the program.
+
 The test also exercises the "missing file is a no-op" case — a real edge case that a
 user hitting the feature for the first time will always trigger.
 
@@ -282,11 +334,24 @@ user hitting the feature for the first time will always trigger.
 
 ## Running with the race detector
 
-`go test -race` recompiles the package with race instrumentation and runs every test.
-Any concurrent access to shared memory without proper synchronisation is reported
-immediately with a full goroutine stack trace.
+`go test -race` recompiles the package (compiling is the step where the human-readable
+source text is translated into a program the machine can actually run) with race
+instrumentation and runs every test.
+Any concurrent access to shared memory (concurrent means two or more independent lines of
+work running during the same stretch of time, potentially both touching the same piece of
+data in the computer's memory at once) without proper synchronisation (synchronisation is
+the set of rules/mechanisms that make sure only one of them touches that shared data at a
+time) is reported
+immediately with a full goroutine stack trace. (A goroutine is Go's lightweight unit of
+independent, concurrently-running work — cheaper than an operating-system thread, but the
+same basic idea: a separate line of execution that can run at the same time as others. A
+stack trace is the list of "this function called that function called this function…"
+that was active at the moment of the problem, printed so you can see exactly how the
+program got there.)
 
-The Makefile has a dedicated target (from [`Makefile`](src/makefile.md)):
+The Makefile has a dedicated target (a Makefile is a file of named shortcut commands —
+here `test-race`, `pre-commit`, `ci` — and a "target" is one such named shortcut you can
+run by name) (from [`Makefile`](src/makefile.md)):
 
 ```makefile
 # from Makefile
@@ -296,6 +361,10 @@ test-race:
         (cd $$dir && go test -race -v ./...) || exit 1; \
     done
 ```
+
+**In plain terms:** this shortcut goes into each module's folder in turn and runs its
+tests with the race-detector switched on, stopping the whole thing immediately if any
+module fails.
 
 The pre-commit target also runs it:
 
@@ -316,12 +385,20 @@ ci: lint test-race test-coverage security
 
 The linenoise global state bug ([Lesson 14](14-the-deadlock-bug.md)) was exactly the
 kind of problem the race detector catches: two goroutines calling `AddHistory` and
-`LoadHistory` on a shared slice with no lock. `go test -race` fails immediately on that
+`LoadHistory` on a shared slice with no lock (a lock, also called a mutex, is a simple
+mechanism one goroutine can hold to say "I'm using this data right now — everyone else
+wait your turn," which is exactly the synchronisation mentioned above). `go test -race`
+fails immediately on that
 pattern.
 
 ---
 
 ## Coverage
+
+Coverage is a simple question with a precise answer: of every line of code in the
+program, what percentage did the tests actually run at least once? A number near 100%
+means the tests exercised nearly the whole program; a low number means large parts of the
+code have never been checked by anything.
 
 ```makefile
 # from Makefile
@@ -332,7 +409,12 @@ test-coverage:
     done
 ```
 
+**In plain terms:** for each module, run its tests while recording exactly which lines
+got executed, then print out the overall coverage percentage.
+
 `-covermode=atomic` is required alongside `-race` because it uses atomic operations
+(an atomic operation is one that always completes as a single, uninterruptible step, so
+two goroutines counting at the "same" instant can never corrupt each other's count)
 to count coverage hits safely across goroutines. `-covermode=count` would race.
 
 The CI matrix enforces a 70% gate: if total coverage falls below 70%, the build fails.
@@ -353,7 +435,10 @@ regression when someone deletes tests.
 ## The ANSI escape test — a nice table trick
 
 `TestReadCharEscapeSequences` uses the table to cover many different byte sequences
-in one pass, and sanitises the test name so control bytes do not corrupt terminal output:
+(a byte is the basic unit computers store data in — one small chunk of 8 bits, each bit
+being a single 0-or-1 switch; a keypress like an arrow key is sent as a short sequence of
+these bytes) in one pass, and sanitises the test name so control bytes do not corrupt
+terminal output:
 
 ```go
 // from linenoise-go/linenoise_engine_test.go
@@ -375,6 +460,11 @@ for _, tt := range tests {
     })
 }
 ```
+
+**In plain terms:** each row pairs a raw input (a plain letter, an arrow-key escape
+sequence, or a multi-byte accented character like "é") with the single key value it
+should decode to; the loop renames anything containing the invisible escape byte to the
+readable label "ESC" purely so it prints legibly, then runs one subtest per row.
 
 `strings.ReplaceAll(tt.in, "\x1b", "ESC")` turns the escape byte into a printable
 label. Without that, `go test -v` output would contain raw `ESC` bytes that confuse

@@ -62,15 +62,31 @@ at the budget and the decode is rejected before any giant allocation.
 ## Decode bombs: the image case
 
 An image decode bomb works because image formats store width and height in a
-tiny header. A decoder that trusts them blindly allocates
+tiny header. A decoder (a piece of code that translates a file's raw bytes —
+its "byte" is the smallest unit a computer stores data in, 8 bits, and a
+"bit" is a single 0-or-1 switch — back into a usable picture) that trusts
+them blindly allocates (reserves a chunk of the computer's memory for)
 `width × height × bytes_per_pixel` bytes before it has read more than a
 kilobyte of input.
 
 Go's `image.DecodeConfig` reads *only* the header and returns `image.Config`
-(width, height, colour model) without allocating the pixel buffer. That makes
-it the perfect, cheap pre-check.
+(width, height, colour model) without allocating the pixel buffer (the
+reserved block of memory that will hold the picture's raw pixel data). That
+makes it the perfect, cheap pre-check.
 
 ### The guard: `checkPixelLimit` in stb-image-go/stb_image.go
+
+A quick map before the code: `var MaxImagePixels = 64 << 20` declares a
+package-level variable — a named value shared by every function in this file
+(a "package" is Go's word for a folder of source files that are compiled,
+i.e. translated from human-written text into a runnable program, together as
+one reusable unit). `func checkPixelLimit(data []byte) error { ... }` defines
+a function — a named, reusable block of steps — named `checkPixelLimit` that
+takes one input, a `[]byte` (a "slice": a resizable, ordered list of bytes),
+and gives back ("returns" — the function finishes and hands its result to
+whoever ran/"called" it) a value of type `error`, which in Go is `nil` (a
+special "nothing here" value) when everything is fine, or a description of
+what went wrong when it is not:
 
 ```go
 // MaxImagePixels caps the number of pixels Load will decode, guarding against
@@ -96,6 +112,11 @@ func checkPixelLimit(data []byte) error {
     return nil
 }
 ```
+
+**In plain terms:** this function peeks at just the image's header (skipping
+the expensive part) to read the claimed width and height; if multiplying
+them together gives more pixels than the allowed ceiling, it hands back an
+error describing the problem instead of letting the real decode run.
 
 Two details are worth noting:
 
@@ -124,12 +145,18 @@ func Load(data []byte) (image.Image, error) {
 }
 ```
 
+**In plain terms:** `Load` calls (runs) the guard function first; if the
+guard reports a problem, `Load` immediately hands that error back to whoever
+called it and stops — the expensive real decode never runs.
+
 The guard is always called first. `image.Decode` is only reached if the
 declared dimensions are within budget.
 
 ### Streaming variant: `LoadStream`
 
-When you have an `io.Reader` instead of a byte slice, you cannot rewind. The
+When you have an `io.Reader` (a general-purpose Go interface — a description
+of "anything that can produce a stream of bytes on demand," rather than one
+specific type of data) instead of a byte slice, you cannot rewind. The
 trick is to use `io.TeeReader` to record the bytes that `DecodeConfig` consumes,
 then replay them with `io.MultiReader`:
 
@@ -151,12 +178,22 @@ func LoadStream(r io.Reader) (image.Image, error) {
 }
 ```
 
+**In plain terms:** since a stream of bytes can normally only be read once,
+front to back, this code makes a copy of the header bytes as they go by
+(`io.TeeReader`), checks that saved copy for a dimension bomb, and then
+glues that saved copy back onto the front of the remaining stream
+(`io.MultiReader`) so the real decoder still sees the whole file from the
+start.
+
 `TeeReader` + `MultiReader` is a standard Go idiom for "peek at a reader
 without consuming it". You will see similar patterns in HTTP middleware that
 needs to inspect `r.Body` before passing it on.
 
 !!! note "Try it"
-    Run the stb-image tests, which include a bomb-rejection case:
+    Run the stb-image tests (a "test" here is a small piece of code, kept
+    alongside the real program, whose only job is to run the program on a
+    known input and check the output matches what's expected), which include
+    a bomb-rejection case:
 
     ```bash
     cd stb-image-go && go test -v -run TestLoad ./...
@@ -199,7 +236,14 @@ func readAllLimited(r io.Reader, limit int64) ([]byte, error) {
 }
 ```
 
-The `limit+1` trick is subtle: `io.LimitReader` returns `io.EOF` once the
+**In plain terms:** this function reads everything out of a stream, but puts
+a hard ceiling (`limit+1`) on how much it will pull through; if what actually
+came out is bigger than the intended limit, it throws away the data and
+hands back an error instead of a giant buffer (a block of memory used to
+hold data temporarily while it's being read or processed).
+
+The `limit+1` trick is subtle: `io.LimitReader` returns `io.EOF` (Go's signal
+for "the stream has ended, there is nothing left to read") once the
 limit is reached, so if we passed `limit` we could not distinguish "exactly
 at the limit (fine)" from "one byte over (bad)". Passing `limit+1` lets the
 underlying reader deliver up to one extra byte; if `io.ReadAll` comes back
@@ -238,6 +282,13 @@ for _, f := range r.File {
 }
 ```
 
+**In plain terms:** `for _, f := range r.File { ... }` is a loop — a block
+that repeats once for every entry `f` in the archive's file list, in order.
+Each time round, it works out how much budget is left (`MaxDecompressedSize -
+total`), decompresses that one entry within whatever budget remains, and adds
+the entry's real size onto the running `total` — so the allowance for later
+entries keeps shrinking as earlier ones spend it.
+
 Each iteration passes `MaxDecompressedSize - total` as the limit for that
 entry. Once the running total reaches the cap, `perEntryLimit` becomes zero
 or negative, and the loop rejects the next entry before even opening it.
@@ -264,9 +315,11 @@ var MaxDecompressedSize int64 = 256 << 20
 ```
 
 The doc comment is explicit: this is an aggregate cap, not a per-entry cap, and
-mutating it mid-flight is a data race. If you need a different limit per call
-site, you would need to pass it as a parameter — the global is a convenience
-for the common single-service case.
+mutating it mid-flight is a data race (a bug where two parts of the program
+run at the same time — "concurrently" — and touch the same shared value
+without coordinating, so the result depends on unpredictable timing). If you
+need a different limit per call site, you would need to pass it as a
+parameter — the global is a convenience for the common single-service case.
 
 ### Stream decompression also checks the limit
 
@@ -291,6 +344,12 @@ func DecompressStream(dst io.Writer, src io.Reader) error {
     return nil
 }
 ```
+
+**In plain terms:** this function decompresses a stream and writes the
+result straight out to `dst` (the destination) as it goes, wrapping the
+source in the same "stop at budget+1" limit reader; after the copy finishes
+it checks whether more bytes came through than allowed, and if so reports an
+error even though the copy already happened.
 
 Same `+1` trick, same post-copy check.
 
@@ -345,8 +404,10 @@ And for a 1 000-entry ZIP bomb where each entry decompresses to 300 MiB:
 3. Extraction stops. Total allocation: at most ~256 MiB.
 
 !!! note "Try it — race detector"
-    The image batch loader is concurrent. Verify the pixel-limit check is safe
-    under concurrent load:
+    The image batch loader is concurrent (it runs several pieces of work
+    at overlapping times rather than strictly one after another — each
+    independent unit of that work is called a "goroutine" in Go). Verify the
+    pixel-limit check is safe under concurrent load:
 
     ```bash
     cd stb-image-go && go test -race ./...

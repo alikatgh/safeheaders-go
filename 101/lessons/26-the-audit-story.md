@@ -114,7 +114,8 @@ them.
 ## How the audit was structured
 
 The methodology is described in the audit's closing paragraph
-(docs/audits/2026-06-23-code-review-security-audit.md):
+(docs/audits/2026-06-23-code-review-security-audit.md — a plain text file in the project's
+`docs/audits/` folder, cited here just so you know where the quote below came from):
 
 > *"10 parallel reviewers, each scoped to one module/surface, followed by an
 > independent adversarial verifier that attempted concrete reproduction of
@@ -156,7 +157,16 @@ reproducible within the unit under test. Zero were overturned as wrong.
 Two of the five High findings were the *same bug in two different modules*,
 found within hours of each other.
 
-**H1 — `jsmn-go` parallel parser** (parallel.go lines 51-64, 124-139):
+**H1 — `jsmn-go` parallel parser** (parallel.go lines 51-64, 124-139 — the module name, then
+the file and the line numbers inside it where this code lives):
+
+A **worker**, here, is one of several independent lanes of execution running at the same time
+(in Go these are called goroutines — lightweight tasks the program runs concurrently, i.e.
+seemingly at once, rather than one strictly after another). A **channel** is a pipe those
+workers use to hand results to each other safely; when you create one with `make(chan T, N)`,
+`N` is how many items can sit in the pipe before it's "full." If a worker tries to put one more
+item into a full channel, that line of code simply **blocks** — it waits right there, doing
+nothing else, until some other worker takes an item out and frees up space.
 
 ```go
 // The channel was sized for exactly numJobs results.
@@ -169,6 +179,13 @@ resultsCh := make(chan chunkResult, numJobs)
 // → one send blocks → worker never calls wg.Done() → wg.Wait() hangs forever
 ```
 
+**In plain terms:** the pipe (channel) was built to hold exactly as many results as there were
+jobs. But under cancellation, workers could try to stuff in extra results too — more than the
+pipe could hold. So the last worker's attempt to add its result just sits there forever
+(blocked), which means it never gets to report "I'm done" (`wg.Done()`), which means the code
+waiting for everyone to finish (`wg.Wait()`) waits forever too — the program freezes. This
+frozen-forever state is called a **deadlock**.
+
 **H2 — `stb-image-go` batch loader** (stb_image.go line 109):
 
 ```go
@@ -178,6 +195,10 @@ errs := make(chan error, len(datas))
 // But a canceled context adds up to numWorkers extra sends on top.
 // Same shape: capacity N, worst-case sends N+W → deadlock.
 ```
+
+**In plain terms:** the exact same mistake, in a different module — the pipe for error messages
+was sized for the normal case only, so cancellation could overflow it and freeze the program
+the same way.
 
 The fix in both cases was the same: size the buffer for the true worst case.
 
@@ -189,9 +210,17 @@ resultsCh := make(chan chunkResult, numJobs+numWorkers)
 errs := make(chan error, len(datas)+numWorkers)
 ```
 
+**In plain terms:** make the pipe big enough to hold every possible message, including the
+extra ones sent during cancellation, so nothing ever has to wait around for space that isn't
+coming.
+
 Each fix shipped with a watchdog test that cancels the context mid-parse and
 fails if `wg.Wait()` does not return within two seconds. These tests now live
-as permanent regression guards.
+as permanent regression guards. (A **test**, in programming, is a small piece of code written
+purely to check that another piece of code behaves correctly — here, a "watchdog" test that
+deliberately triggers cancellation while work is in progress and checks the program doesn't
+freeze. A **regression guard** is a test kept around permanently so that if anyone accidentally
+reintroduces the same bug later, the test fails and catches it immediately.)
 
 !!! warning "The pattern that hides this bug"
     The existing tests canceled the context *before* calling the function.
@@ -209,6 +238,16 @@ for the full channel-sizing and cancellation mechanics.
 
 **H3 — `linenoise-go` history API** (linenoise.go line 631):
 
+A **package** is a named, importable bundle of related code (Go's version of a code library
+module). A **singleton** is a single shared object that the whole program reuses instead of
+each part making its own copy. A **slice** is Go's resizable list type — think of it as a
+growable row of boxes holding values in order, each reachable by its position (its **index**,
+i.e. a number saying "the 3rd item"). Internally a slice is a small record (its "header")
+pointing at the actual memory where the items live, which is why two goroutines touching it at
+the same time can corrupt that record. A **mutex** ("mutual exclusion lock") is a gatekeeper
+object: a goroutine must "lock" it before touching shared data and "unlock" it when done, so
+only one goroutine can be inside that guarded section at a time.
+
 ```go
 // A single package-level singleton backs all the "convenience" functions.
 var defaultState = New(DefaultConfig())
@@ -218,7 +257,15 @@ var defaultState = New(DefaultConfig())
 // Two goroutines → race on the history slice header → torn reads / lost writes.
 ```
 
-The race was reproduced immediately with `go test -race`:
+**In plain terms:** every one of these "convenience" functions secretly reads and writes the
+same shared piece of data, and nothing stops two goroutines from doing so at the exact same
+moment — with no lock guarding it, one can read the data mid-write and get a corrupted
+half-updated value (a "torn read"), or one goroutine's write can silently overwrite another's
+(a "lost write"). This is called a **data race**.
+
+The race was reproduced immediately with `go test -race` (`go test` runs the project's tests;
+the `-race` flag turns on Go's built-in race detector, a tool that watches memory accesses
+while the tests run and flags exactly this kind of unsafe simultaneous access):
 
 ```
 WARNING: DATA RACE
@@ -227,6 +274,9 @@ Read at 0x... by goroutine ...:
 Write at 0x... by goroutine ...:
   linenoise-go.(*State).LoadHistory(...)
 ```
+
+**In plain terms:** the race detector caught two different functions touching the same shared
+data at once — one reading it, one writing it — with nothing keeping them from colliding.
 
 The fix added a `sync.Mutex` around every read and write of `State.history`
 and `State.config`, including the navigation reads inside `ReadLine`.
@@ -255,6 +305,13 @@ Three findings fit the "small input, catastrophic output" shape.
 
 **`stb-truetype-go`** (sfnt.go lines 293-317):
 
+**Recursion** means a function (a named, reusable chunk of code that does one job) calls
+itself again to handle a smaller piece of the same problem — like a set of Russian nesting
+dolls, where opening one reveals another just like it. "**Depth**" is how many dolls deep you
+go; "**fan-out**" is how many new sub-problems each doll creates before it recurses again. A
+**struct** (short for "structure") is simply a labeled group of related values bundled together
+under one name, the way a form has named fields like "Name" and "Age."
+
 ```go
 // glyphContours recurses once per composite component.
 // The only guard was a depth cap of 8.
@@ -263,12 +320,24 @@ Three findings fit the "small input, catastrophic output" shape.
 // K=50 → ~2e15 invocations from a ~2-3 KB font file.
 ```
 
+**In plain terms:** the code only limited how *deep* the nesting could go (8 levels), but never
+limited how many children each level could branch into. If each level branches into 50
+children, 8 levels of that is 50 multiplied by itself 8 times — about 2 thousand trillion calls
+— from a font file only a few kilobytes (a **kilobyte**, KB, is roughly a thousand bytes, and a
+**byte** is the basic unit of digital storage, about enough to hold one text character) in size.
+That is the "billion laughs" attack shape: a tiny input that expands into an astronomically
+large amount of work.
+
 The fix threaded a shared budget counter through the recursion:
 
 ```go
 // sfnt.go (after fix): a glyphBudget struct caps total components AND points
 // across the entire composite tree, not just the depth.
 ```
+
+**In plain terms:** instead of only checking "how deep am I," every recursive call now shares
+one running counter of total work done across the *whole* tree of calls, and stops once that
+shared budget runs out — no matter how the depth and fan-out are arranged.
 
 The depth cap was not enough. Fan-out without a total-work budget is the
 billion-laughs shape regardless of depth limit.
@@ -287,12 +356,25 @@ not bound work when fan-out > 1.
 // from a ~990 KB input archive.
 ```
 
+**In plain terms:** a zip file can contain thousands of compressed items ("entries"). The code
+correctly limited how big any *one* entry could expand to when decompressed, but never added up
+the total across *all* entries — so a small file with 10,000 tiny compressed entries could
+still balloon into 2.5 trillion bytes of output overall, potentially exhausting the computer's
+memory (the working storage the program uses while running) or disk space.
+
 The fix tracks a running byte total across entries and fails when the
 cumulative output crosses `MaxDecompressedSize`.
 
 ### The XML stack overflow (M7)
 
 **`tinyxml2-go`** (tinyxml2.go line 195):
+
+Every function call in a running program is tracked on a region of memory called the **stack**
+— a fixed-size scratchpad that grows by one entry each time a function calls another function
+(including a function calling itself, i.e. recursion) and shrinks by one entry when that call
+finishes and **returns** (hands its result back to whoever called it). If recursion goes deep
+enough, it can use up all the space set aside for the stack — a **stack overflow** — which
+crashes the program outright.
 
 ```go
 // parseElement recurses once per nested XML element.
@@ -303,6 +385,12 @@ cumulative output crosses `MaxDecompressedSize`.
 // recover() CANNOT catch this. The process dies.
 ```
 
+**In plain terms:** one entry point into the XML parser (`Parse`) forgot to apply the
+nesting-depth limit that a sibling entry point (`ParseWithConfig`) already had. So a file made
+of thousands of tags nested inside each other could recurse so deeply it exhausted the stack
+and crashed the whole program — and this particular crash cannot be caught or recovered from in
+code (explained just below).
+
 The fix: an absolute `maxNestingDepth = 10000` ceiling was added *inside*
 `parseElement` itself (and `parseElementLimited`), so even `Parse` and
 `UnlimitedConfig` hit a finite backstop that no caller can disable (L5).
@@ -311,7 +399,10 @@ The fix: an absolute `maxNestingDepth = 10000` ceiling was added *inside*
     A Go stack overflow is a runtime fatal error, not a panic. Wrapping
     `Parse` in `recover()` gives you nothing — the process exits with code 2.
     The only defense is an explicit depth limit *before* the recursion runs
-    out of stack space.
+    out of stack space. (`recover()` is Go's mechanism for catching a "panic" —
+    a serious-but-survivable error — and letting the program keep running. A
+    stack overflow is a *fatal* error, one level more severe, and `recover()`
+    simply has no power over it; the program exits immediately.)
 
 See [Lesson 18](18-decode-and-decompression-bombs.md) for the aggregate-cap
 pattern and [Lesson 19](19-recursion-and-billion-laughs.md) for the recursion
@@ -326,6 +417,12 @@ matter precisely because callers trust the library to be right.
 
 **M3 — `jsmn-go` corrupted parent pointers** (parallel.go lines 194-195):
 
+A "**pointer**" in this section's title, and an "index," both refer to the same everyday idea:
+a number that says *where* to look — "go find item #12 in this list" — rather than holding the
+actual value itself. When a big list is split into chunks, processed separately, and then
+stitched back together ("**rebased**" means adjusting a number so it correctly points into the
+new, combined list instead of the small piece it came from).
+
 ```go
 // processChunk rebased Token.Start and Token.End by the chunk offset.
 // It did NOT rebase Token.ParentIdx — an index into the token array.
@@ -336,6 +433,13 @@ matter precisely because callers trust the library to be right.
 // silently broken.
 ```
 
+**In plain terms:** the parser splits its input into chunks and hands each chunk to a separate
+worker. Two of the three position numbers on each token got correctly adjusted to fit the final,
+combined list, but the third — the one recording "which token is my parent" — was left pointing
+at a position from the small chunk it started in, which is the wrong place once everything is
+joined together. The result: most tokens ended up pointing to the wrong parent, silently, with
+no crash or error message.
+
 **M1 — `cgltf-go` negative mesh index accepted** (cgltf.go line 170):
 
 ```go
@@ -345,9 +449,16 @@ matter precisely because callers trust the library to be right.
 // A downstream caller trusting ValidateGLTF would then panic on Meshes[-5].
 ```
 
+**In plain terms:** the validity check only tested whether the index was *too big* (past the
+end of the list), but never tested whether it was negative. So a nonsense position like "item
+number -5" slipped through as "valid," and any code that later trusted that answer and tried to
+actually look up item -5 would crash (a **panic**, in Go, is a sudden runtime error that stops
+normal execution unless something explicitly catches it).
+
 Both were correctness bugs, not crashes in the library itself. But a
 function called `ValidateGLTF` that silently accepts `mesh: -5` is
-misinforming its callers.
+misinforming its callers (the **caller** is simply whatever other piece of code ran/invoked this
+function and is relying on its answer).
 
 ---
 
@@ -357,6 +468,11 @@ The 25 findings cluster into a short list of recurring patterns. Before
 shipping any Go library that processes untrusted input, run through these:
 
 ### Concurrency checklist
+
+(A **worker pool**, mentioned below, is just a fixed group of workers that all pull from the
+same shared queue of jobs, rather than starting a fresh worker per job. "**Concurrency**" is
+the general idea covering all of this section — multiple pieces of work making progress during
+the same stretch of time, rather than strictly one-at-a-time.)
 
 - [ ] **Channel sizing.** For every `make(chan T, N)` in a worker pool: list
   every goroutine that can send on it and every path each goroutine can take.

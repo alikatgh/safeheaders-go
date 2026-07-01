@@ -66,7 +66,7 @@ budget counter (`glyphBudget`), decremented across the whole expansion, stops it
 ### How the recursive parser works
 
 [`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) builds an XML DOM by calling `parseElement` once per
-node. When it reads a child start-tag, it recurses:
+node. (In plain terms: a "function" here is a named, reusable chunk of code that does one job — like `parseElement`, whose job is to read one XML tag and everything inside it. "Calling" a function just means running it. "Building an XML DOM" means constructing, in the computer's memory, a tree-shaped map of the document's tags and their nesting.) When it reads a child start-tag, it recurses (in plain terms: "recursion" means a function calling *itself* to handle a smaller version of the same problem — here, `parseElement` calls `parseElement` again to read the tag nested just inside the current one):
 
 ```go
 // from tinyxml2-go/tinyxml2.go
@@ -81,10 +81,12 @@ func parseElement(dec *xml.Decoder, se xml.StartElement, depth int) (*Node, erro
 }
 ```
 
+**In plain terms:** this code says "before doing anything else, check whether we've nested deeper than `maxNestingDepth`; if so, stop and report an error. Otherwise, when a child tag starts, call `parseElement` again — on that child — one level deeper." Each such nested call waits for its child call to finish before it can finish itself, which is exactly what "recursion" means in practice.
+
 Each call to `parseElement` lives on the goroutine stack until its matching
-`EndElement` is read. With deeply nested XML (`<a><b><c>...`), this grows linearly
+`EndElement` is read. (In plain terms: a "goroutine" is a lightweight, independently-running unit of work inside a Go program — think of it as one worker among possibly many working at once. The "stack" is a reserved region of memory that keeps track of every function call currently in progress for that worker, like a pile of index cards — one card per call, added on top when a call starts and removed when it finishes. "Lives on the stack" means the call's information sits on that pile until it is done.) With deeply nested XML (`<a><b><c>...`), this grows linearly
 with nesting depth. Go starts goroutines with a small stack (a few KB) and grows
-it dynamically — but growth has a ceiling, and past that the runtime terminates
+it dynamically (in plain terms: a "KB", or kilobyte, is a small unit of computer memory — about a thousand bytes, and a "byte" is a basic unit of digital information; "dynamically" here means the stack's size automatically expands as needed) — but growth has a ceiling, and past that the runtime terminates
 the program with no opportunity to recover.
 
 ### The absolute ceiling
@@ -96,11 +98,15 @@ The constant `maxNestingDepth` is the safety valve:
 const maxNestingDepth = 10000
 ```
 
+**In plain terms:** this line defines a fixed number, named `maxNestingDepth`, permanently set to 10000 — the most levels of nesting the parser will ever allow before refusing to go further.
+
 It lives right above `parseElement` and is checked as the very first thing on
-every recursive call. The comment in the source is explicit:
+every recursive call. The comment in the source is explicit (in plain terms: a "comment" is a note written into the source code — the human-readable text a programmer types to explain what the code does; the computer ignores it entirely when running the program):
 
 > Going far past it would overflow the goroutine stack — a fatal error
 > `recover()` cannot catch — so the parser returns an error instead.
+
+(In plain terms: "returns an error" means the function stops and hands back, to whoever called it, a special value that signals "something went wrong" instead of a normal result — the caller is then responsible for noticing and handling it.)
 
 10 000 is far higher than any real XML document needs; it is well below the point
 where Go would crash.
@@ -119,8 +125,10 @@ func safeParseElement(...) (n *Node, err error) {
 }
 ```
 
-`recover()` catches panics — explicit `panic(...)` calls or nil-pointer
-dereferences. A stack overflow is handled by the Go runtime itself, before
+**In plain terms:** this code tries a safety net — "run `parseElement`, and if it panics (crashes with a special kind of error), catch that panic and turn it into an ordinary error instead of letting the program die." The point of the example is that this safety net does *not* actually work for the specific kind of crash a stack overflow causes, which the prose right after explains.
+
+`recover()` catches panics (in plain terms: a "panic" in Go is a sudden, controlled crash — the program stops what it's doing and starts unwinding, unless something catches it) — explicit `panic(...)` calls or nil-pointer
+dereferences (in plain terms: an attempt to use a value that was supposed to point to something in memory but points to nothing at all). A stack overflow is handled by the Go runtime itself, before
 `recover` ever runs. The program is already dead when it would fire.
 
 !!! warning "recover() and stack overflows"
@@ -131,7 +139,7 @@ dereferences. A stack overflow is handled by the Go runtime itself, before
 ### The config-aware variant
 
 `ParseWithConfig` uses `parseElementLimited`, which enforces both the user-visible
-`MaxNestingDepth` from the config AND the hard `maxNestingDepth` ceiling:
+`MaxNestingDepth` from the config AND the hard `maxNestingDepth` ceiling. (In plain terms: a "config" — short for configuration — is a bundle of settings passed into a function to control how it behaves, here bundled into a `struct`, which is just a named grouping of related values, similar to a form with several labeled fields, or "fields," each holding one piece of data.)
 
 ```go
 // from tinyxml2-go/tinyxml2.go
@@ -154,13 +162,15 @@ func parseElementLimited(
 }
 ```
 
+**In plain terms:** this function checks two limits in order — first the fixed, non-negotiable ceiling (`maxNestingDepth`) that applies no matter what; then a second, adjustable ceiling that the caller supplied through `config`. If either is crossed, the function stops and hands back an error instead of continuing.
+
 The two-layer design matters: the soft limit gives callers control; the hard limit
 is the last-resort guarantee even when `UnlimitedConfig` is passed.
 
 ### Iterative search avoids the same problem in traversal
 
 Searching a deep tree with recursion has the same risk. `FindDeep` and
-`FindAllDeep` use an explicit stack (a Go slice) instead of the call stack:
+`FindAllDeep` use an explicit stack (a Go slice) instead of the call stack. (In plain terms: "traversal" just means visiting every node of the tree one by one, in some order, to look for something. A "slice" in Go is a resizable list of values sitting in memory — here it's being used to build the parser's own to-do list of "nodes I still need to check," standing in for the automatic stack the computer would otherwise use for recursive calls.)
 
 ```go
 // from tinyxml2-go/tinyxml2.go
@@ -180,12 +190,14 @@ func (n *Node) FindDeep(name string) *Node {
 }
 ```
 
+**In plain terms:** instead of having the function call itself for each child (which would use up the goroutine's built-in stack), this code keeps its own list — `stack` — of nodes still waiting to be checked. It repeatedly takes the last node off that list, checks whether it's the one being searched for, and if not, adds all of that node's children to the list to check later. This achieves the same "visit every node" result as recursion, but without nesting function calls.
+
 A heap-allocated slice can grow as large as available memory; the goroutine call
-stack cannot. Converting recursion to an explicit stack is the standard pattern
+stack cannot. (In plain terms: the "heap" is the large, flexible pool of memory a program can request from at any time — as opposed to the stack, which is small and reserved automatically for function calls in progress. "Heap-allocated" means this list lives in that large flexible pool, so it can keep growing far past what the stack could ever hold.) Converting recursion to an explicit stack is the standard pattern
 when depth is unbounded.
 
 !!! note "Try it"
-    From the repo root, run the tinyxml2 tests including the nesting limit:
+    From the repo root, run the tinyxml2 tests including the nesting limit. (In plain terms: a "test" here is a small, automated check written by a programmer that runs a piece of code and confirms it behaves as expected — running this command tells the computer "go find the tests whose names match `Nesting` or `DepthCeiling` and run them.")
 
     ```bash
     cd tinyxml2-go && go test -v -run 'Nesting|DepthCeiling' ./...
@@ -206,7 +218,7 @@ A TrueType font stores outlines in a table called `glyf`. Most glyphs (letters,
 numbers) are *simple* — they store contour points directly. But some glyphs are
 *composite*: instead of points, they store a list of (child glyph ID, transform)
 pairs. The rasterizer resolves each reference, applies the transform, and stitches
-the results together.
+the results together. (In plain terms: a "glyph" is the visual shape of one character in a font — the drawing of the letter "A", for instance. "Contour points" are the individual coordinates that trace the outline of that shape, like dots connected to form the letter's edge. A "rasterizer" is the piece of code that turns those outline instructions into an actual grid of pixels/dots you can see on screen. "Resolves each reference" means: for each child glyph ID that's mentioned, the rasterizer goes and looks up what that child glyph actually is.)
 
 This is legitimate and useful: many fonts store accented characters as a base
 letter plus a floating accent mark, reusing the same outline twice.
@@ -223,6 +235,8 @@ Level 2:             K² invocations
 ...
 Level 8:             K⁸ invocations
 ```
+
+**In plain terms:** an "invocation" is just one instance of running (calling) the glyph-resolving code. This diagram shows how the count of required runs multiplies at each level of nesting — 1 at the top, then K, then K times K, and so on — because every child glyph at one level can itself demand K more at the next level.
 
 With K=10, that is 100 000 000 invocations triggered by requesting a single
 character. The font file stays tiny because each glyph definition is short; the
@@ -262,11 +276,13 @@ func (f *Font) glyphContours(gid uint16, depth int, b *glyphBudget) ([][]glyphPo
 }
 ```
 
+**In plain terms:** every time this function runs, it first checks it hasn't nested more than 8 levels deep, then spends one unit from the shared budget (`b.components`) and refuses to continue if the budget has run out. If the glyph turns out to be composite, it recurses into `compositeContours` (which in turn calls `glyphContours` again for each child); otherwise it reads the glyph's own points directly, spends budget from `b.points` for each one, and hands back the finished list of contours to whoever called it. `b` here is a pointer — in plain terms, not a copy of the budget but a shared reference to the one true budget object, so every nested call is spending down the *same* pool, not separate pools.
+
 ### The glyphBudget type
 
 The depth check alone stops linear depth (e.g. a chain 100 levels deep) but does
 not stop exponential fan-out (a tree that is only 8 levels deep but has K=1000
-children at each level). The `glyphBudget` struct is the solution:
+children at each level). The `glyphBudget` struct is the solution (in plain terms: recall from earlier that a "struct" is just a named grouping of related values — here, two running counters bundled together):
 
 ```go
 // from stb-truetype-go/sfnt.go
@@ -280,6 +296,8 @@ const (
     maxGlyphPoints     = 1 << 20 // total contour points per top-level glyph (≈ 1 M)
 )
 ```
+
+**In plain terms:** the first block defines the shape of a "budget" — one number tracking how many glyph invocations are still allowed, and another tracking how many contour points are still allowed. The second block sets the starting amounts: 4096 invocations and about a million (1 << 20, meaning 2 multiplied by itself 20 times) points, per request for one top-level glyph.
 
 The comment on `glyphBudget` is the clearest statement of the threat:
 
@@ -305,6 +323,8 @@ func rasterizeGlyph(f *Font, r rune, size float64) (*image.Gray, GlyphMetrics, e
 }
 ```
 
+**In plain terms:** each time a glyph needs to be rasterized (drawn), a brand-new budget is created, filled to its starting amounts, and then a reference to that one budget (`&budget`, a pointer to it) is handed down into `glyphContours`. Because it's a shared reference rather than a fresh copy, every recursive call along the way — no matter how deep — subtracts from that same single budget.
+
 One pointer, threaded through the entire call tree, ensures every recursive
 invocation decrements the same counters.
 
@@ -314,7 +334,7 @@ invocation decrements the same counters.
     Neither alone is sufficient — use both.
 
 !!! note "Try it"
-    Run the stb-truetype tests with the race detector:
+    Run the stb-truetype tests with the race detector. (In plain terms: a "race detector" is a tool that watches a running program for a "data race" — a bug where two goroutines, the independently-running workers mentioned earlier, read and write the same piece of memory at the same time without coordination, which can corrupt data unpredictably.)
 
     ```bash
     cd stb-truetype-go && go test -race -v ./...

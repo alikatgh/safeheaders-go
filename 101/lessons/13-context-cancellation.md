@@ -97,16 +97,27 @@ No jargon — here's what the ideas in this lesson *actually* mean, and why they
 
 ## The two functions we are reading
 
-This lesson grounds every example in two real files from this repository:
+This lesson grounds every example in two real files from this repository
+(a "function" here is a named, reusable chunk of code that you can run —
+"call" or "invoke" — from elsewhere; it can hand a result back to whoever
+called it, which programmers call "returning"):
 
 | File | Function |
 |------|----------|
 | [`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) | `LoadBatchConcurrent` — decodes a slice of images in parallel |
 | [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) | `ParseBatch` — parses a slice of WAV files in parallel |
 
-Both functions spin up a worker pool, hand out jobs through a channel, and
-accept a `context.Context` from the caller. They solve the cancellation problem
-in slightly different ways, which makes comparing them instructive.
+Both functions spin up a worker pool (in plain terms: they start several
+independent "workers" — lightweight, independently-running tasks Go calls
+goroutines — that each pick up jobs and run at the same time as one another;
+this is what "concurrency" means), hand out jobs through a channel (a
+channel is a safe pipe that one goroutine can put values into and another
+can take values out of, one at a time, so they can pass work and results
+back and forth without stepping on each other), and accept a
+`context.Context` from the caller (the "caller" is whatever code called
+this function — the one waiting for it to finish and hand back a result).
+They solve the cancellation problem in slightly different ways, which makes
+comparing them instructive.
 
 ---
 
@@ -120,9 +131,18 @@ defer cancel() // always release resources
 images, err := stbimagego.LoadBatchConcurrent(ctx, rawImages)
 ```
 
-`cancel` is a function. Calling it immediately signals every goroutine that
-received `ctx` to stop. `defer cancel()` ensures the signal fires even if the
-caller returns early due to an error.
+**In plain terms:** the caller sets up a shared "stop signal" object (`ctx`)
+that will automatically flip to "stopped" after 5 seconds, then hands that
+object into `LoadBatchConcurrent` so every worker it spins up can watch for
+the same signal.
+
+`cancel` is a function. Calling it immediately signals every goroutine (a
+goroutine is one of Go's lightweight, independently-running tasks — many can
+be alive at once, each making progress on its own piece of work) that
+received `ctx` to stop. `defer cancel()` (`defer` schedules a piece of code
+to run automatically right before the current function returns, no matter
+how it exits — here it guarantees `cancel()` gets called eventually) ensures
+the signal fires even if the caller returns early due to an error.
 
 !!! tip "WithTimeout vs WithCancel"
     `context.WithTimeout(parent, d)` is shorthand for `context.WithDeadline(parent, time.Now().Add(d))`.
@@ -166,11 +186,22 @@ go func() {
 }()
 ```
 
+**In plain terms:** this code launches one worker (`go func() { ... }()`
+starts the enclosed code as its own independent goroutine, running
+alongside everything else). Each worker repeats a loop: first it checks
+whether the stop signal has already fired; if not, it waits for either a
+new job to arrive or the stop signal, whichever comes first; if a job
+arrives, it decodes that one image and records the result or the error;
+if the stop signal fires instead, it reports that and stops for good.
+
 Two lines do the critical work:
 
-1. **`if err := ctx.Err(); err != nil`** — this runs *before* the `select`.
-   If the context was already cancelled when we reach the top of the loop, we
-   exit immediately without entering the `select` at all.
+1. **`if err := ctx.Err(); err != nil`** — this runs *before* the `select`
+   (a `select` statement waits — "blocks" — at that line, doing nothing
+   else, until at least one of its listed channels has something ready;
+   "blocking" just means the program pauses right there instead of moving
+   on). If the context was already cancelled when we reach the top of the
+   loop, we exit immediately without entering the `select` at all.
 2. **`case <-ctx.Done():`** inside the `select` — this catches a cancellation
    that arrives *while* the worker is blocked waiting for a job. Both branches
    together give reliable, prompt cancellation.
@@ -228,6 +259,11 @@ go func() {
 }()
 ```
 
+**In plain terms:** this worker's loop only ever checks for the stop signal
+at the moment it is choosing between "wait for a job" and "wait to be
+cancelled" — it never checks *before* that, at the top of the loop, the way
+the image-decoding worker above does.
+
 Notice what is missing: there is no `ctx.Err()` guard before the `select`.
 The `ctx.Done()` case is listed *first* in the `select` block, but that does
 not help — Go does not give priority to any case. Both cases get equal weight
@@ -279,6 +315,12 @@ if len(multiErr) > 0 {
 }
 ```
 
+**In plain terms:** once every worker has finished (`wg.Wait()` blocks —
+waits — right there until all of them are done), the code gathers up every
+error any worker reported, and if the very first one was a cancellation, it
+reports that specifically instead of lumping it in with ordinary decode
+errors.
+
 Key points:
 
 - `errors.Is` unwraps chains. If a worker wrapped `ctx.Err()` with `fmt.Errorf("…: %w", err)`, `errors.Is` still finds `context.Canceled` inside the chain.
@@ -296,6 +338,12 @@ Both functions pre-allocate the error channel with extra capacity:
 errs := make(chan error, len(datas)+numWorkers)
 ```
 
+**In plain terms:** `make(chan error, N)` creates a channel with room to
+hold `N` error values inside it at once before anyone has to read them out
+(this reserved capacity is the channel's "buffer" — a fixed-size holding
+area). Sizing that room generously up front means no worker ever has to
+pause and wait for space to open up before it can report its error.
+
 The comment in the file explains why:
 
 > Buffer the worst case so no worker blocks on send: up to len(datas) decode
@@ -304,10 +352,18 @@ The comment in the file explains why:
 
 This is the exact bug explored in [Lesson 14](14-the-deadlock-bug.md). If the
 buffer is `len(datas)` and all workers also send a cancellation error, those
-sends block. `wg.Wait()` waits for the workers to finish. Deadlock.
+sends block (in plain terms: each worker tries to put its error into the
+channel, finds no room left, and simply sits there frozen, waiting forever
+for space that never opens up). `wg.Wait()` waits for the workers to finish.
+Deadlock (a deadlock is when two or more parts of a program are each stuck
+waiting on the other, so nothing ever moves forward again — the whole
+program just hangs).
 
 !!! note "Try it"
-    Run the stb-image tests with the race detector enabled:
+    Run the stb-image tests (a test is a small piece of code written purely
+    to run your program under controlled conditions and check that it
+    behaves as expected — running the tests below is just running that
+    checking code) with the race detector enabled:
 
     ```bash
     cd /path/to/safeheaders-go/stb-image-go
@@ -397,6 +453,14 @@ func ProcessBatch(ctx context.Context, items []Item) ([]Result, error) {
     return results, nil
 }
 ```
+
+**In plain terms:** this function figures out how many workers to run at
+once (one per available processor core, or fewer if there isn't enough
+work to go around), loads every item's position into the jobs channel,
+then starts all the workers and lets each one pull items, process them,
+and watch for cancellation exactly as shown above. Once every worker has
+finished, it collects whatever errors came in and hands back either the
+results or the first error it finds.
 
 The two numbered comments mark the two places cancellation is checked. Neither
 alone is sufficient. Together they are.

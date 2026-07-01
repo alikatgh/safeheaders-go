@@ -104,9 +104,17 @@ machine that runs those tests on every push so humans do not have to remember.
 
 ## The seven jobs at a glance
 
-The file is [`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md). It defines seven jobs that run on
+The file is [`.github/workflows/go-ci.yaml`](src/github-workflows-go-ci-yaml.md) (in plain terms: a configuration
+file, written in a format called YAML, that tells GitHub's automation
+service — "GitHub Actions" — exactly what commands to run and when; it is
+not itself a program, just a recipe the service follows). It defines seven jobs (a "job" here
+is one self-contained batch of commands, like "run the tests" or "check
+for security problems") that run on
 every push or pull request to `main`, plus a weekly schedule and a
-`workflow_dispatch` so you can trigger fuzzing manually.
+`workflow_dispatch` so you can trigger fuzzing manually (fuzzing means
+bombarding a program with huge numbers of randomly-generated or mutated
+inputs to see if any of them crash it or make it misbehave — a way of
+searching for bugs that a human tester would never think to try).
 
 ```yaml
 # from .github/workflows/go-ci.yaml
@@ -120,6 +128,11 @@ on:
     - cron: '0 9 * * 1'
   workflow_dispatch: # allow manual fuzz/CI runs
 ```
+
+**In plain terms:** this says "run the pipeline automatically whenever code is
+pushed to the `main` branch, whenever someone opens a pull request against
+`main`, every Monday at 9 AM UTC on a timer, and also whenever a person
+manually clicks a button to trigger it."
 
 | Job | Trigger | What it does |
 |-----|---------|--------------|
@@ -136,7 +149,10 @@ on:
 ## The test job: `-race`, coverage gate, and module matrix
 
 The test job is the most instructive because it shows three practices in one
-place.
+place. (A "test" here is a small piece of code, written by a programmer, whose
+only purpose is to run a bit of the real program and check that it produced
+the answer it was supposed to — tests catch mistakes automatically, before a
+human ever notices something is wrong.)
 
 ```yaml
 # from .github/workflows/go-ci.yaml
@@ -159,6 +175,11 @@ jobs:
           - linenoise-go
 ```
 
+**In plain terms:** this list defines a "matrix" — nine separate, independent
+copies of the same job, one per code module (a module is a self-contained
+package of related code, roughly like a folder that holds one piece of the
+overall project), all run in parallel rather than one after another.
+
 `fail-fast: false` means a crash in `miniz-go` does not cancel the
 `linenoise-go` run. You see all failures in one pass, not one per push.
 
@@ -171,10 +192,21 @@ jobs:
         run: go test -v -race -timeout 5m ./...
 ```
 
-`-race` instruments every memory access. Without it, the history-slice race in
-`linenoise-go` (two goroutines writing the same slice) would have passed all
+**In plain terms:** this line runs the automated test suite with an extra
+safety check turned on (`-race`), and gives it at most 5 minutes to finish.
+
+`-race` instruments every memory access (in plain terms: it watches every
+single spot in the program's reserved chunk of working memory — its
+"memory" — that gets read from or written to while the program runs, so it can
+catch two independent, simultaneously-running pieces of the program, called
+goroutines, trying to touch the same piece of data at the same time in an
+unsafe way — this kind of clash is called a "data race"). Without it, the history-slice race in
+`linenoise-go` (two goroutines writing the same slice — a "slice" is Go's
+name for a resizable list of values) would have passed all
 tests silently. See [Lesson 22](15-data-races-and-mutexes.md) for how that bug was found
-and fixed with a `sync.Mutex`.
+and fixed with a `sync.Mutex` (a mutex is a lock: a mechanism that lets only
+one goroutine touch a piece of data at a time, so the others must wait their
+turn instead of colliding).
 
 ### Coverage gate
 
@@ -197,18 +229,33 @@ and fixed with a `sync.Mutex`.
           fi
 ```
 
+**In plain terms:** run the tests while measuring "coverage" — the percentage
+of the program's actual lines that got executed at least once by some test —
+then pull that percentage out of the report, and if it's under 70%, stop the
+whole job and mark it as failed (`exit 1` is the standard way a program tells
+whatever ran it "something went wrong"); otherwise print a success message.
+
 This is deliberate shell arithmetic, not a badge. `go tool cover -func` lists
-per-function coverage; `grep total` picks the summary line; `awk` and `sed`
-strip the `%` sign so `bc` can compare floats. The `exit 1` is what GitHub
+per-function coverage (a "function" is a named, reusable block of code that
+performs one task and can be run — "called" — from elsewhere in the program;
+"per-function" coverage means the percentage is broken down function by
+function); `grep total` picks the summary line; `awk` and `sed`
+strip the `%` sign so `bc` can compare floats (numbers with decimal points).
+The `exit 1` is what GitHub
 turns into a red X.
 
-`-covermode=atomic` matters when tests run goroutines: it uses atomic
-increments so the coverage counters are themselves race-free.
+`-covermode=atomic` matters when tests run goroutines (goroutines are Go's
+lightweight units of independent, simultaneously-running work — a way of
+letting a program do more than one thing at once): it uses atomic
+increments (updates to a shared counter that are guaranteed to happen as one
+uninterruptible step, so two goroutines updating it at once can't corrupt the
+count) so the coverage counters are themselves race-free.
 
 !!! warning "The coverage gate is per module, not per workspace"
     Each of the nine modules must independently clear 70 %. A module with 95 %
     coverage cannot "donate" to one at 65 %. This prevents a large, well-tested
-    module from hiding a module with almost no tests.
+    module from hiding a module with almost no tests. (A "workspace" here just
+    means the whole collection of modules treated as one combined project.)
 
 ---
 
@@ -244,6 +291,14 @@ increments so the coverage counters are themselves race-free.
           govulncheck ./...
 ```
 
+**In plain terms:** two separate scans run on each module. First, gosec reads
+the source code text itself looking for risky patterns and writes its
+findings to a standard report file (SARIF), which then gets uploaded to
+GitHub's dashboard. Second, a tool called `govulncheck` is installed and run;
+it checks the outside code this project depends on (its "dependencies" —
+other people's code that gets pulled in and used, rather than written from
+scratch) for known security vulnerabilities.
+
 ### gosec vs. govulncheck — two different questions
 
 | Tool | Question it answers |
@@ -251,7 +306,8 @@ increments so the coverage counters are themselves race-free.
 | **gosec** | Does this _source code_ contain dangerous patterns? |
 | **govulncheck** | Do my _dependencies_ have CVEs I actually call into? |
 
-gosec never looks at your `go.sum`. govulncheck never looks at your source
+gosec never looks at your `go.sum` (a file that pins down the exact version of
+every outside dependency the project uses). govulncheck never looks at your source
 patterns. You need both.
 
 `-fmt sarif` tells gosec to emit
@@ -277,7 +333,8 @@ Compare with the dangerous alternative:
 uses: securego/gosec@master   # ← never do this
 ```
 
-`@master` resolves to whatever commit the maintainer has pushed most recently.
+`@master` resolves to whatever commit (a saved snapshot of the code at one
+point in time) the maintainer has pushed most recently.
 A compromised maintainer account — or a dependency of the action — could push
 malicious code that runs inside your CI with write access to your repository.
 Pinning to a tag ties you to an audited release. Dependabot will open a PR when
@@ -297,7 +354,7 @@ a new version is available, so you do not miss security updates.
 ## The fuzz job: scheduled, not per-push
 
 Fuzzing is computationally expensive. Running it on every push would consume
-minutes of CI time for the common case (nothing new to find). The pipeline
+minutes of CI time (computer time rented from GitHub to run these jobs) for the common case (nothing new to find). The pipeline
 gates it behind `schedule` and `workflow_dispatch`:
 
 ```yaml
@@ -330,10 +387,20 @@ gates it behind `schedule` and `workflow_dispatch`:
           path: ${{ matrix.module }}/testdata/fuzz/
 ```
 
-`-run='^$'` skips all unit tests so only the fuzz target runs. `-fuzztime=120s`
+**In plain terms:** for each of several chosen entry points (a "fuzz target"
+is the specific function the fuzzer is told to hammer with random input),
+run the fuzzer for 120 seconds; if it manages to crash the program, save the
+exact inputs that caused the crash as a downloadable file so a person can
+look at them afterward.
+
+`-run='^$'` skips all unit tests (a "unit test" is a test that checks one
+small piece of the program in isolation) so only the fuzz target runs. `-fuzztime=120s`
 gives the fuzzer two minutes per target per week. When a crash is found, the
-`if: failure()` step uploads the corpus so you can reproduce it locally — this
-is exactly how the OOM in `dr-wav-go` was caught and reproduced (see
+`if: failure()` step uploads the corpus (a "corpus" is the collection of
+saved input samples the fuzzer generated or found interesting — including the
+one that caused the crash) so you can reproduce it locally — this
+is exactly how the OOM (out-of-memory: the program tried to reserve more
+working memory than was available and crashed) in `dr-wav-go` was caught and reproduced (see
 [Lesson 19](22-fuzzing.md)).
 
 ---
@@ -357,11 +424,16 @@ is exactly how the OOM in `dr-wav-go` was caught and reproduced (see
 
 `matrix.os` crossed with `matrix.module` produces 3 × 3 = 9 build jobs. The
 `runs-on` key accepts the matrix variable directly. This catches Windows-specific
-path separator bugs and macOS-specific syscall differences without any extra
+path separator bugs and macOS-specific syscall differences (a "syscall" is a
+request a program makes to the operating system itself, such as "open this
+file" — different operating systems sometimes handle the same request
+slightly differently) without any extra
 scripting.
 
 `go test -short` in the build job skips long-running tests. The intent is
-compile-correctness, not full coverage (the `test` job already has that on
+compile-correctness (in plain terms: just confirming that the human-written
+source code successfully turns into a runnable program — "compiles" — on
+each operating system, without errors), not full coverage (the `test` job already has that on
 Linux).
 
 ---
@@ -381,6 +453,11 @@ Linux).
         working-directory: ${{ matrix.module }}
         run: golangci-lint run --config ../.golangci.yml --timeout 5m
 ```
+
+**In plain terms:** download and install a specific version of a "linter" — a
+tool that reads source code without running it and flags style problems,
+likely bugs, or bad practices, the way a spell-checker flags typos — then run
+it against every module using one shared rulebook.
 
 The comment explains why the install script itself is pinned to `v2.2.2`: the
 v2 linter has a different `.golangci.yml` schema than v1. Installing v1 and
@@ -403,10 +480,19 @@ permissions:
   security-events: write
 ```
 
-The workflow declares the minimum GitHub token permissions it needs:
+**In plain terms:** this grants the automated pipeline a limited set of
+permissions — it may read the repository's files, post comments on pull
+requests, and write security-scan results, but nothing beyond that.
 
-- `contents: read` — checkout.
-- `pull-requests: write` — the benchmark job posts a PR comment.
+The workflow declares the minimum GitHub token (a token is a piece of secret
+text that proves to GitHub's servers "this request is authorized to act on
+the repository's behalf," standing in for a username and password) permissions it needs:
+
+- `contents: read` — checkout (downloading a copy of the repository's files
+  onto the machine running the job).
+- `pull-requests: write` — the benchmark job posts a PR comment (a
+  "benchmark" is a test that measures how fast or resource-hungry a piece of
+  code is, rather than whether it's correct).
 - `security-events: write` — the SARIF upload writes to Code Scanning.
 
 If a step in the workflow is compromised (e.g., a malicious dependency run
@@ -461,4 +547,5 @@ scopes allow. It cannot push commits, create releases, or modify secrets.
 - **Pin action versions to tags** (`@v2.21.4`, not `@master`) to prevent
   supply-chain attacks from silently replacing the binary your CI runs.
 - **Fuzzing runs weekly, not per-push**, because it is expensive; crash corpora
-  are uploaded as artifacts so failures are reproducible locally.
+  are uploaded as artifacts (files saved by the pipeline that a person can
+  download afterward) so failures are reproducible locally.

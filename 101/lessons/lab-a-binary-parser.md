@@ -96,7 +96,7 @@ fix is three lines; skipping it costs you the production incident.
 
 ## The format you will parse: LP-Chunk
 
-You will build a parser for **LP-Chunk**, a tiny invented binary format:
+You will build a parser for **LP-Chunk**, a tiny invented binary format (binary means the file is stored as raw numbers — a stream of bytes, where a **byte** is a chunk of 8 bits, each bit being a single 0-or-1 switch — rather than as readable text):
 
 ```
 File layout
@@ -112,7 +112,7 @@ Offset  Size  Field
 ───────────────────────────────────────
 ```
 
-Every number is **little-endian**. This is the same layout RIFF/WAV uses: a file-level
+Every number is **little-endian** (a convention for which order the bytes of a multi-byte number are stored in — you don't need to compute this by hand, `encoding/binary` handles it, but the file has to agree on one order or the number reads back wrong). This is the same layout RIFF/WAV uses: a file-level
 header, a count of sub-chunks, then repeating `[tag][length][data]` records. dr-wav-go
 ([`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md)) does exactly this for real WAV files.
 
@@ -120,11 +120,15 @@ header, a count of sub-chunks, then repeating `[tag][length][data]` records. dr-
 
 ## Step 0 — create the module
 
+A "module" here is just Go's name for a self-contained folder of code with its own name and dependency list — think of it as declaring "this folder is one buildable project called `example.com/lpchunk`."
+
 ```bash
 mkdir lpchunk && cd lpchunk
 go mod init example.com/lpchunk
 touch parser.go parser_test.go
 ```
+
+**In plain terms:** make a new folder called `lpchunk`, move into it, tell Go this folder is a project named `example.com/lpchunk`, then create two empty files — one for the parser code, one for its tests (a **test** is a small piece of code that runs your other code and checks the result is what you expect, instead of you checking by hand every time).
 
 ---
 
@@ -167,6 +171,8 @@ type File struct {
 }
 ```
 
+**In plain terms:** a "package" is just a named folder of Go code that other code can borrow from — `package lpchunk` declares that this file belongs to the `lpchunk` package. `import (...)` pulls in four ready-made packages from Go's own toolbox (its **standard library** — code Go ships with so you don't have to write it yourself) so this file can use their pieces. `type Header struct { ... }` defines a "struct" — a labeled bundle of values glued together under one name, the way a form has named boxes for "Name" and "Date"; here `Version` and `ChunkCount` are the two boxes, each called a **field**. `type Chunk struct { ... }` defines another such bundle: `ID` is a fixed-size list of exactly 4 bytes (a list of same-typed values sitting one after another in memory like this is called an **array** when its length is fixed), and `Payload []byte` is a `byte` list whose length can grow or shrink — that flexible kind of list is called a **slice**. `func (c Chunk) IDString() string { return string(c.ID[:]) }` defines a **method** — a function that is attached to a particular type, here `Chunk` — named `IDString`; running it (a function starts running only when something "calls" it, i.e. explicitly asks it to run) converts the raw 4-byte tag into an ordinary readable string and **returns** it, meaning the method stops and hands that string back to whatever code asked for it.
+
 ---
 
 ## Step 2 — read the magic bytes
@@ -206,13 +212,15 @@ func Parse(data []byte) (*File, error) {
 }
 ```
 
+**In plain terms:** `func Parse(data []byte) (*File, error) { ... }` defines the function that does the real work — you "call" (run) it later by writing `Parse(someBytes)`, and it hands back either a filled-in `File` or an error explaining what went wrong. `bytes.NewReader(data)` wraps the raw byte slice in a small helper (`r`) that remembers "how far have we read so far," so each subsequent read continues from where the last one stopped instead of you tracking that position (an **offset**) by hand. `binary.Read(r, binary.LittleEndian, &magic)` asks that helper for the next few bytes, interprets them using the little-endian byte order, and writes the result into `magic`; the `&` means "give me a pointer to this variable" — a pointer is just the location in the computer's memory where a value lives, handed over so the function can fill in that exact spot rather than a copy. Each `if err := ...; err != nil { return nil, ... }` line means: try the step, and if it produced an error, stop immediately and hand that error back to whoever called `Parse` (the **caller**) instead of continuing with bad data.
+
 !!! note "Try it"
     ```bash
     go build ./...
     ```
     Expected outcome: **no compiler errors**. The `_ = hdr` line silences the "declared
     and not used" error while you stub the next step. You should see nothing printed —
-    silence is success.
+    silence is success. (Building here means Go **compiles** the code: it translates the human-readable source text you just wrote into a program the machine can actually execute, and checks along the way that everything is well-formed.)
 
 ---
 
@@ -259,6 +267,8 @@ This is where bounds-checking matters most.
     return &File{Header: hdr, Chunks: chunks}, nil
 ```
 
+**In plain terms:** `make([]Chunk, 0, hdr.ChunkCount)` reserves a chunk of memory (this reserving step is called **allocating**) big enough to hold `hdr.ChunkCount` items, starting empty — a starting size hint so the computer doesn't have to keep re-growing the list as you add to it. The `for i := 0; ...; i++ { ... }` line is a loop: it repeats everything inside the `{ }` once per chunk the header says to expect, with `i` counting 0, 1, 2, … each time round. Inside, it reads the 4-byte tag, then reads the 4-byte `declaredLen` — the file's own claim about how long the payload is. "THE CRITICAL CHECK" is the bounds check the earlier analogy described: `allocLen := int(declaredLen)` starts by believing the file's claim, then `if allocLen > r.Len() { allocLen = r.Len() }` asks the reader helper how many bytes are actually still left (`r.Len()`) and, if the claim is bigger than that, shrinks `allocLen` down to the truth — so the next line, `make([]byte, allocLen)`, never tries to reserve more memory than could possibly exist in the file. `io.ReadFull(r, ch.Payload)` then reads exactly that many bytes into the payload, and `chunks = append(chunks, ch)` adds the finished chunk onto the end of the growing list. When the loop finishes, `return &File{...}, nil` hands back the fully assembled result and a `nil` (meaning "no error").
+
 The three lines around "THE CRITICAL CHECK" are directly modeled on `readDataChunk` in
 `dr-wav-go/dr_wav.go`:
 
@@ -276,10 +286,14 @@ is the ground truth.
 
 !!! warning "What happens without the check"
     If you delete those three lines and a malicious file claims `declaredLen = 0xFFFFFFFF`
-    (about 4 GB), `make([]byte, 4294967295)` panics with `runtime: out of memory` — or,
+    (about 4 GB), `make([]byte, 4294967295)` panics with `runtime: out of memory` — a
+    "panic" is Go's term for the program hitting a fatal error it cannot recover from and
+    crashing right there, in this case because it tried to reserve more memory than the
+    computer has available (an "out of memory," or OOM, condition) — or,
     on a machine with enough swap, it actually allocates 4 GB and stalls the process.
-    This is a real denial-of-service class: the fuzzer found exactly this shape in
-    dr-wav-go before the fix landed.
+    This is a real denial-of-service class (an attack or bug that doesn't steal data but
+    knocks a service offline, here by exhausting its memory): the fuzzer found exactly
+    this shape in dr-wav-go before the fix landed.
 
 ---
 
@@ -311,6 +325,8 @@ func BuildFile(version uint16, chunks []Chunk) []byte {
 }
 ```
 
+**In plain terms:** this is the reverse of `Parse` — instead of reading bytes into typed values, `BuildFile` takes typed values and writes them out as bytes into an in-memory buffer (`bytes.Buffer`, a growable holding area for bytes you're accumulating before using them all at once), in the same magic-then-header-then-chunks order the parser expects. It exists purely so the tests below can manufacture both well-formed and deliberately broken LP-Chunk files without typing out raw byte values by hand.
+
 `binary.Write` to a `bytes.Buffer` cannot fail (fixed-size values, in-memory buffer), so
 ignoring the error here is safe — but only in a test helper. In production parsers,
 always check it. `dr-wav-go/dr_wav.go`'s `Serialize` function uses a tiny `put` closure
@@ -326,11 +342,16 @@ put := func(v any) {
 }
 ```
 
+**In plain terms:** a "closure" is a small, unnamed function created on the spot and stored in a variable (here `put`) — it "closes over," i.e. remembers and can modify, the `werr` variable from the surrounding code even after that surrounding code has moved on. Each time `put` runs, it only attempts the write if no earlier write already failed (`if werr == nil`), so the very first error to occur is captured in `werr` and every later call becomes a harmless no-op — a compact way to check one error at the end instead of after every single write.
+
 ---
 
 ## Step 5 — write the tests
 
-Paste this into `parser_test.go`:
+Paste this into `parser_test.go` (a Go **test** is an ordinary function, named starting
+with `Test`, that Go's test tool runs automatically; it calls your real code with known
+inputs and uses `t.Errorf`/`t.Fatalf` to report when the output doesn't match what's
+expected — replacing the tedium of manually re-checking behavior after every change):
 
 ```go
 package lpchunk_test

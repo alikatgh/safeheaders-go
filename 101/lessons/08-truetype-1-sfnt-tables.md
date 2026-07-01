@@ -92,7 +92,7 @@ No jargon — here's what the ideas in this lesson *actually* mean, and why they
 
 ## The sfnt container format
 
-Every TrueType file starts with a 12-byte header:
+Every TrueType file starts with a 12-byte header (a "byte" is the smallest chunk of data a computer stores — one byte holds a number from 0 to 255; a 12-byte header is just 12 of these chunks in a row, read in a fixed order):
 
 | Bytes | Field | Meaning |
 |-------|-------|---------|
@@ -109,7 +109,7 @@ Then come `numTables` records of 16 bytes each:
 | 8–11 | offset | byte offset from file start |
 | 12–15 | length | byte length of table data |
 
-`parseSFNT` in [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md) reads this structure directly:
+`parseSFNT` (a "function" is a named, reusable block of instructions — you can run it, i.e. "call" it, whenever you need that piece of work done, and it hands back a result) in [`stb-truetype-go/sfnt.go`](src/stb-truetype-go-sfnt-go.md) reads this structure directly:
 
 ```go
 // from stb-truetype-go/sfnt.go
@@ -142,6 +142,25 @@ func (f *Font) parseSFNT() error {
 }
 ```
 
+**In plain terms:** this function reads the 12-byte header, checks the file isn't
+suspiciously short, then figures out how many tables the directory lists (`numTables`)
+and walks through them one by one, recording each table's name, offset (how many bytes
+into the file it starts), and length. Along the way, `error` is Go's built-in way of
+saying "something went wrong" — instead of crashing, a function that hits a problem
+can simply hand back a description of the problem instead of a real result. `return`
+means the function stops running right there and hands its result (or its error) back
+to whatever code asked it to run. `d[4:]` and similar bracket expressions are called
+"indexing" or "slicing" — reaching into a row of bytes and pulling out the ones at
+specific positions, the way you'd point to the 5th letter in a word. `f.tables` is a
+"map", a lookup table that stores values under names (here, each four-letter table tag
+like `"head"` is the name, and the offset/length pair is the value) — think of it as a
+dictionary you can look words up in instantly rather than reading front to back.
+`tableRec` is a "struct", a small bundle that groups a few related pieces of data (here,
+an offset and a length) under one name, the way a form groups "name," "address," and
+"phone" into one card. A "panic" is Go's word for an uncontrolled crash — the program
+stops immediately instead of returning a tidy error, which is exactly what these length
+checks are designed to prevent.
+
 Notice the early `len(d) < 12` check before any indexing, and the `off+16 > len(d)` guard
 inside the loop. These two lines together mean a truncated file returns a clean error rather
 than a panic.
@@ -166,6 +185,15 @@ func (f *Font) tableData(tag string) ([]byte, bool) {
     return f.rawData[start:end], true
 }
 ```
+
+**In plain terms:** this function takes a table's four-letter name (like `"head"`) and
+looks up where that table lives in the file. It first checks the name is actually in
+the map (`ok` is a "boolean" — a value that is only ever true or false, used here to
+mean "was it found?"). Then it computes the start and end byte positions and checks
+they make sense before handing back that stretch of bytes (a "slice" — a view onto a
+portion of a larger sequence of bytes, without copying them) plus a `true` meaning
+"safe to use." If anything looks wrong, it hands back nothing (`nil`, meaning "no
+value here") and `false`, meaning "don't trust this."
 
 Four things are checked in one place:
 
@@ -199,6 +227,14 @@ for _, step := range []func() error{
     }
 }
 ```
+
+**In plain terms:** this builds a short list containing the five sub-parser functions
+themselves (in Go, a function can be passed around like any other piece of data — this
+is a list of "things to run," not their results yet), then goes through the list one
+at a time (`for ... range` — "for each item in this list, do the following") and runs
+(calls) each one. `err` is just the ordinary variable name programmers use for "the
+error that came back, if any"; `err != nil` reads as "did something go wrong?" — if so,
+this loop stops immediately and passes that same error further back up.
 
 ### head — the font's identity card
 
@@ -269,13 +305,26 @@ func (f *Font) parseLoca() error {
 }
 ```
 
+**In plain terms:** this function reads the `loca` table and turns it into a plain
+list of numbers (one offset per glyph, plus one extra at the end). `make([]uint32, n)`
+reserves a block of memory big enough to hold `n` numbers before filling it in — this
+reserving step is what programmers call "allocating" memory, i.e. asking the computer
+to set aside space to hold data. The result, `f.loca`, is what's called an "array" (or
+in Go, a "slice" — a resizable list of same-type values, here unsigned 32-bit numbers)
+that can be looked up by position (`f.loca[i]` means "the value at position `i`," where
+positions start counting from 0 — this position is called an "index"). The two `for`
+loops here just walk through each position filling in one number at a time, in one of
+two possible byte formats.
+
 The short format stores offsets divided by two (to fit in 16 bits), so the parser multiplies
 back. Both formats are length-checked before the loop. Later, `glyphContours` reads
 `f.loca[gid]` and `f.loca[gid+1]` to find the byte range of a glyph inside `glyf`; the
 `+1` entry is what makes this fence-post indexing safe.
 
 !!! note "Try it"
-    Run the full test suite for stb-truetype-go:
+    Run the full test suite for stb-truetype-go (a "test" here is a small program that
+    runs a piece of code and checks the result matches what's expected — a way of proving
+    the code behaves correctly without a human re-checking it by hand each time):
 
     ```bash
     cd /path/to/safeheaders-go
@@ -284,7 +333,9 @@ back. Both formats are length-checked before the loop. Later, `glyphContours` re
 
     Expected outcome: all tests pass, including the table-parsing tests that verify that a
     truncated or zero-byte input returns an error and never panics. You can also run with
-    the race detector to confirm the `Font` struct's concurrent-read safety:
+    the race detector (a checker that watches for two separate tasks running at the same
+    time — see the concurrency note below — stepping on the same piece of data unsafely) to
+    confirm the `Font` struct's concurrent-read safety:
 
     ```bash
     go test -race ./stb-truetype-go/...
@@ -311,9 +362,26 @@ type Font struct {
 }
 ```
 
-All fields are unexported. The struct is immutable after `parseSFNT` returns: nothing modifies
-it at runtime. This is what makes `Font` safe for concurrent use from multiple goroutines —
-the `GlyphCache` takes a read lock on the cache map but never on `Font` itself.
+**In plain terms:** `type Font struct { ... }` defines the shape of a "Font" bundle —
+a struct is just a named group of related pieces of data (here called "fields," like
+`rawData` or `numGlyphs`) that travel together as one unit, the way a form has several
+labeled boxes on one page. This particular struct is the finished product of everything
+`parseSFNT` figured out: the raw bytes, the table directory, the glyph offset list, and
+a handful of small numbers.
+
+All fields are unexported (in Go, a lowercase-starting name like `rawData` means "only
+code inside this same package can see or touch this field directly" — outside code must
+go through the package's own functions; a "package" is simply a named folder of related
+Go source files bundled together). The struct is immutable after `parseSFNT` returns:
+nothing modifies it at runtime (once created, none of its fields are ever changed again
+— it's read-only for the rest of its life). This is what makes `Font` safe for concurrent
+use from multiple goroutines (a "goroutine" is a lightweight independent task that Go can
+run at the same time as other tasks; "concurrent" means several of these tasks may be
+running simultaneously and touching the same data) — the `GlyphCache` takes a read lock
+(a "lock," also called a mutex, is a mechanism that lets only one task at a time make
+changes to shared data, so two goroutines can't corrupt it by writing at the same
+moment) on the cache map but never on `Font` itself, because an object nothing ever
+changes needs no such lock to read safely.
 
 ### Loading a font
 
@@ -330,14 +398,27 @@ func LoadFontFromBytes(data []byte) (*Font, error) {
 }
 ```
 
+**In plain terms:** `LoadFontFromBytes` is the entry point a caller (whatever code
+asked to run this function in the first place) uses to load a font: it makes its own
+fresh copy of the incoming bytes, builds an empty `Font` bundle pointing at that copy,
+then calls `parseSFNT` to fill in the rest. If parsing fails, it hands back `nil` (an
+empty, "no font here" value) plus the error; if it succeeds, it hands back the
+finished `Font` and no error (`nil` in the error slot means "nothing went wrong"). The
+`*Font` in the function's signature means "a pointer to a Font" — instead of copying
+the whole struct every time it's passed around, a pointer is a small note that says
+"the real data lives over there," so multiple parts of the program can share the one
+copy efficiently.
+
 The copy is deliberate: the caller's slice might be a memory-mapped file or a slice into a
 larger buffer. Owning our own copy means `f.rawData` cannot be mutated behind our back after
 load. `tableData` slices into this copy, so every returned `[]byte` is a stable sub-slice of
 `rawData`.
 
 !!! tip "Fuzzing table parsing"
-    The sfnt parsing path is a good fuzzing target because it processes untrusted binary data.
-    Run a short fuzz session:
+    The sfnt parsing path is a good fuzzing target (fuzzing means bombarding a function
+    with huge amounts of random or semi-random input to see whether any input makes it
+    crash — a way of hunting for edge cases no human would think to write by hand) because
+    it processes untrusted binary data. Run a short fuzz session:
 
     ```bash
     go test -fuzz=FuzzParse -fuzztime=30s ./stb-truetype-go/...

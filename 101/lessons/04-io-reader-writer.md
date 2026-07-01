@@ -62,6 +62,8 @@ No jargon — here's what the ideas in this lesson *actually* mean, and why they
 
 ## The two-method contract
 
+An **interface** in Go is a kind of contract: it names one or more actions (called **methods** — think of a method as a function, i.e. a named, reusable chunk of instructions, that happens to belong to a particular kind of value) and says "anything that can perform these actions counts as satisfying this contract," no matter what it actually is underneath. A **byte** is the basic unit computers store data in — roughly one letter or number's worth of raw data — and `[]byte` means "a list of bytes," which Go calls a **slice** (a resizable, ordered sequence of values, similar in spirit to a numbered list you can grow or shrink).
+
 ```go
 // from the Go standard library — shown here for reference
 type Reader interface {
@@ -73,13 +75,13 @@ type Writer interface {
 }
 ```
 
-That's the whole contract. `Read` fills `p` and returns how many bytes it put there, plus any error. `Write` drains `p` and returns how many bytes it consumed. Everything else in the `io` package — `Copy`, `ReadAll`, `LimitReader`, `TeeReader`, `MultiReader` — is built on these two methods.
+**In plain terms:** this defines two contracts. Anything that has a `Read` method — that can fill a `[]byte` handed to it with the next chunk of data and report back how much it filled — counts as an `io.Reader`. Anything with a `Write` method — that can accept a `[]byte` and absorb (consume) it — counts as an `io.Writer`. That's the whole contract. `Read` fills `p` and returns (hands back to whoever called it) how many bytes it put there, plus any error — a special value that signals something went wrong, or a specific "end of data" signal called `io.EOF`. `Write` drains `p` and returns how many bytes it consumed. Everything else in the `io` package (a **package** is a named, reusable bundle of pre-written Go code — here, the built-in "io" bundle that ships with the language, part of what's called the **standard library**, the set of ready-made packages that come with Go itself) — `Copy`, `ReadAll`, `LimitReader`, `TeeReader`, `MultiReader` — is built on these two methods.
 
 ---
 
 ## bytes.Reader and bytes.Buffer — the in-memory bridges
 
-Most functions in safeheaders-go receive raw `[]byte` from the caller (because the caller already loaded or received a blob). They bridge to the streaming world with `bytes.NewReader`:
+Most functions in safeheaders-go receive raw `[]byte` from the **caller** (the piece of code that runs — "calls" or "invokes" — a function, here meaning the caller already loaded or received a blob of bytes). They bridge to the streaming world with `bytes.NewReader`:
 
 From [`miniz-go/miniz.go`](src/miniz-go-miniz-go.md):
 
@@ -90,7 +92,7 @@ func ExtractArchive(data []byte) ([]ZipFile, error) {
 }
 ```
 
-`zip.NewReader` needs an `io.ReaderAt` (a positioned reader). `bytes.NewReader` provides it from a plain `[]byte`. No copy, no temp file.
+**In plain terms:** this function takes a plain `[]byte` (data already sitting in memory) and wraps it so it can be handed to `zip.NewReader`, which expects the streaming-style interface rather than a raw byte list. `zip.NewReader` needs an `io.ReaderAt` (a positioned reader — one that can jump to a specific spot, or **offset**, in the data rather than only reading forward). `bytes.NewReader` provides it from a plain `[]byte`. No copy, no temp file.
 
 The write side uses `bytes.Buffer` as the accumulator:
 
@@ -103,7 +105,7 @@ func CreateArchive(files []FileEntry) ([]byte, error) {
 }
 ```
 
-`bytes.Buffer` satisfies `io.Writer`, so `zip.NewWriter` can write directly into it. When you're done, `buf.Bytes()` hands back the accumulated slice.
+**In plain terms:** `buf` is an empty holding area (a **buffer** — a chunk of memory used to temporarily collect data as it arrives); the zip writer sends its output into that buffer piece by piece, and at the end `buf.Bytes()` hands back everything collected as one plain `[]byte`. `bytes.Buffer` satisfies `io.Writer` (in plain terms: it has a `Write` method, so it counts as one), so `zip.NewWriter` can write directly into it. When you're done, `buf.Bytes()` hands back the accumulated slice.
 
 ---
 
@@ -132,7 +134,7 @@ func CompressStream(dst io.Writer, src io.Reader) error {
 }
 ```
 
-`io.Copy(w, src)` is the key line. It loops internally, reading up to 32 KB from `src` and writing it to the compressor `w`, until `src` returns `io.EOF`. The total memory in flight at any moment is just those 32 KB — not the whole input.
+**In plain terms:** this function reads from whatever `src` is (a file, a network connection, memory — it doesn't care) and writes the compressed result into whatever `dst` is, checking at each step whether something went wrong and, if so, reporting that back immediately instead of continuing. `io.Copy(w, src)` is the key line. It loops internally (repeats the same small step over and over on its own, without the calling code writing the loop itself), reading up to 32 KB from `src` and writing it to the compressor `w`, until `src` returns `io.EOF` (the built-in signal meaning "there is no more data to read"). The total memory in flight at any moment is just those 32 KB — not the whole input.
 
 The caller can pass an `os.File` as `src` and a network connection as `dst`, and the function works unchanged. That's the composition payoff.
 
@@ -140,7 +142,7 @@ The caller can pass an `os.File` as `src` and a network connection as `dst`, and
 
 ## io.LimitReader — the safety fence
 
-A decompression bomb is a compressed file that expands to gigabytes. Without a fence, `io.ReadAll` on the decompressed stream will happily allocate until the process is killed.
+A decompression bomb is a compressed file that expands to gigabytes. Without a fence, `io.ReadAll` on the decompressed stream will happily **allocate** (reserve a chunk of the computer's memory to hold data — every time a program needs space to store something, it has to allocate that space first) until the process is killed.
 
 Here is the helper that protects `DecompressData` and `ExtractArchive` in `miniz-go/miniz.go`:
 
@@ -163,7 +165,7 @@ func readAllLimited(r io.Reader, limit int64) ([]byte, error) {
 }
 ```
 
-The `+1` trick is intentional: `io.LimitReader` stops at exactly `limit+1` bytes. If `io.ReadAll` returns `limit+1` bytes, you know the real stream was larger and you return an error. If it returns `<= limit` bytes, you're within budget.
+**In plain terms:** this function reads everything from `r`, but refuses to read more than `limit+1` bytes no matter how much data is actually available; if it hits that ceiling, it treats the input as too big and hands back an error instead of the data. The `+1` trick is intentional: `io.LimitReader` stops at exactly `limit+1` bytes. If `io.ReadAll` returns `limit+1` bytes, you know the real stream was larger and you return an error. If it returns `<= limit` bytes, you're within budget.
 
 `DecompressStream` uses the same pattern on the fly, without a helper:
 
@@ -191,7 +193,7 @@ func DecompressStream(dst io.Writer, src io.Reader) error {
 The aggregate cap across all ZIP entries is enforced in `ExtractArchive` by tracking `total` and computing a `perEntryLimit = MaxDecompressedSize - total` for each entry — see the full code in `miniz-go/miniz.go`. A multi-entry bomb that stays under the per-entry threshold still hits the aggregate ceiling.
 
 !!! warning "The global cap is a shared variable"
-    `MaxDecompressedSize` is a package-level `var`, readable by all goroutines without a lock. The doc comment in the source says: *"It must be set before any concurrent decompression begins; it is read without synchronization, so mutating it while a decompress is in flight is a data race."* Set it once at startup and leave it alone.
+    `MaxDecompressedSize` is a package-level `var` (a variable declared once at the package level, so every part of the program can see and use the same one, rather than each function having its own private copy), readable by all **goroutines** (Go's lightweight units of work that can run at the same time as each other — this "running multiple things at once" is called **concurrency**) without a **lock** (a mechanism, often called a mutex, that lets only one goroutine touch a piece of shared data at a time, so two of them don't collide). The doc comment in the source says: *"It must be set before any concurrent decompression begins; it is read without synchronization, so mutating it while a decompress is in flight is a data race."* (A **data race** is what happens when two goroutines read and change the same piece of memory at the same time with no coordination — the result becomes unpredictable.) Set it once at startup and leave it alone.
 
 ---
 
@@ -212,7 +214,7 @@ func Unmarshal(data []byte, v interface{}) error {
 }
 ```
 
-The streaming variants take `io.Reader` / `io.Writer`:
+**In plain terms:** this function takes a whole block of JSON text already sitting in memory as `data`, and fills in the value `v` with what it parsed from that text, reporting an error if the text is empty or malformed. The streaming variants take `io.Reader` / `io.Writer`:
 
 ```go
 // from cjson-go/cjson.go
@@ -233,7 +235,7 @@ func MarshalStream(w io.Writer, v interface{}) error {
 }
 ```
 
-`json.NewDecoder` reads from the `io.Reader` incrementally. You can pass it an HTTP response body directly, and the JSON parser reads from the network as it goes — no need to slurp the whole body first.
+**In plain terms:** `UnmarshalStream` reads JSON text directly from a stream (rather than requiring it all in memory first) and fills in `v`; `MarshalStream` does the reverse, writing `v` back out as JSON text directly into a stream. `json.NewDecoder` reads from the `io.Reader` incrementally (a little at a time, as it goes, rather than all at once). You can pass it an HTTP response body directly, and the JSON parser reads from the network as it goes — no need to slurp the whole body first.
 
 !!! warning "UnmarshalStream does not impose a size limit"
     The doc comment in the source is explicit: *"It does not impose a size limit, so for untrusted input callers MUST wrap r in an io.LimitReader (or http.MaxBytesReader) to bound memory."* Always wrap before passing an untrusted reader:
@@ -247,7 +249,7 @@ func MarshalStream(w io.Writer, v interface{}) error {
 
 ## LoadStream — streaming image decode with a header peek
 
-[`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) shows a slightly more involved pattern: it needs to read the image header (to check dimensions) and then re-read the full stream for decoding — but it has only one `io.Reader`, and reading consumes bytes.
+[`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) shows a slightly more involved pattern: it needs to read the image header (to check dimensions) and then re-read the full stream for decoding — but it has only one `io.Reader`, and reading consumes bytes (once you've read a byte from a stream, it's gone from that stream — there's no rewinding without special help, which is the problem this pattern solves).
 
 ```go
 // from stb-image-go/stb_image.go
@@ -273,7 +275,7 @@ func LoadStream(r io.Reader) (image.Image, error) {
 }
 ```
 
-Three `io` helpers work together here:
+**In plain terms:** the function first peeks at just the image's header (a small chunk at the start that describes its width and height) to reject anything absurdly large, while simultaneously saving a copy of those header bytes; then it glues that saved copy back onto the front of the stream so the real decoder can read the file from the very beginning, as if nothing had been peeked at all. Three `io` helpers work together here:
 
 | Helper | Role |
 |--------|------|

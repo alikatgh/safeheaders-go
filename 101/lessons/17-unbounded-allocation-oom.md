@@ -105,7 +105,10 @@ required.
 
 ## The vulnerability: trusting the header
 
-RIFF/WAV binary layout (simplified):
+RIFF/WAV binary layout (simplified). "Binary" here just means the file is a raw sequence
+of bytes (a byte is one small chunk of data, eight on/off switches worth, that a computer
+reads and writes as a unit) meant for a program to interpret, not a text file meant for
+a human to read directly:
 
 ```
 "RIFF" [4-byte total size] "WAVE"
@@ -113,8 +116,16 @@ RIFF/WAV binary layout (simplified):
 "data" [subchunkSize]   <PCM bytes …>
 ```
 
-Both `subchunk1Size` and `subchunkSize` are `uint32` values decoded directly from the
-file. Before the fix, the data-chunk reader looked roughly like:
+**In plain terms:** this is the skeleton of a WAV audio file — a few short text labels
+("RIFF", "fmt ", "data") each followed by a number that announces how many bytes of
+content come next, followed by that content itself.
+
+Both `subchunk1Size` and `subchunkSize` are `uint32` values (in plain terms: an unsigned
+32-bit whole number — "unsigned" meaning it can never be negative, and 32-bit meaning it's
+built from 32 of those on/off switches, so its largest possible value is about 4.29
+billion) decoded directly from the file. Before the fix, the data-chunk reader looked
+roughly like this (a "reader" here is just the piece of code responsible for pulling
+bytes out of the file one step at a time):
 
 ```go
 // BEFORE — do NOT copy this pattern
@@ -123,6 +134,13 @@ binary.Read(r, binary.LittleEndian, &subchunkSize)
 pcmData := make([]byte, subchunkSize) // ← attacker controls this number
 io.ReadFull(r, pcmData)
 ```
+
+**In plain terms:** the code reads the "how many bytes follow" number straight out of the
+file and immediately uses it, unmodified, to reserve that much memory — like taking a
+stranger's word for how big a container needs to be, no matter how absurd the number.
+`make([]byte, subchunkSize)` is Go's instruction to allocate (in plain terms: reserve a
+chunk of the computer's memory of a given size) a new byte slice (a slice is a resizable,
+in-memory list of values — here, a list of raw bytes) exactly `subchunkSize` bytes long.
 
 A file 44 bytes long with `subchunkSize = 0xFFFFFFFF` (≈ 4 GB) causes
 `make([]byte, 4294967295)` — the allocator asks the OS for 4 GB. On most machines the
@@ -140,7 +158,10 @@ io.ReadFull(r, extra)
 
 ## The fix: cap to bytes present
 
-From [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), the current `readDataChunk` function:
+From [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), the current `readDataChunk`
+function (a function is a named, reusable block of code that does one job; calling or
+invoking it means running it, usually by writing its name followed by parentheses; when
+it finishes, it returns — hands its result back to whoever called it):
 
 ```go
 // readDataChunk scans subchunks until it finds the "data" chunk and returns its
@@ -179,6 +200,13 @@ func readDataChunk(r *bytes.Reader) ([]byte, error) {
 }
 ```
 
+**In plain terms:** the function loops through the file's labeled sections one at a time.
+When it finds the section named "data", it now first checks how many bytes are actually
+still left in the file and shrinks its allocation request to that real amount if the
+declared size is bigger — then reserves memory only for that safe amount and reads the
+audio bytes into it. For every other section, it just steps over ("seeks past") that many
+bytes without reserving any memory at all.
+
 The key pair of lines:
 
 ```go
@@ -188,9 +216,12 @@ if allocSize > r.Len() {
 }
 ```
 
-`r.Len()` is `bytes.Reader.Len()` — the count of bytes not yet read. Because the reader
-wraps the original `[]byte` the caller provided, this is a hard physical bound. No matter
-what the header claims, the allocation is at most as large as the remaining input.
+`r.Len()` is `bytes.Reader.Len()` — the count of bytes not yet read. (A "method" — the
+`.Len()` written after `r` — is simply a function that belongs to a particular value, here
+the reader `r`, and acts on it.) Because the reader wraps the original `[]byte` the caller
+provided (the "caller" is whatever code invoked this function — the one waiting for its
+return value), this is a hard physical bound. No matter what the header claims, the
+allocation is at most as large as the remaining input.
 
 ---
 
@@ -209,9 +240,16 @@ if subchunk1Size > 16 {
 }
 ```
 
+**In plain terms:** instead of reserving memory for the extra format bytes and reading
+them in, the code just moves its current reading position forward past them — like
+flipping past pages you don't need to read instead of photocopying them first.
+
 `bytes.Reader.Seek` does not allocate memory for the skipped region. If the seek target
-is past EOF, the subsequent `binary.Read` call on the next chunk returns an error —
-graceful failure, no OOM.
+is past EOF (EOF = "end of file," the point where there is no more data left to read), the
+subsequent `binary.Read` call on the next chunk returns an error — graceful failure, no
+OOM (OOM = "out of memory": the moment the computer refuses or fails a request for memory
+because it doesn't have enough free, usually causing whatever asked for it to be shut
+down).
 
 !!! tip "Prefer Seek over make when discarding bytes"
     Whenever you need to skip N bytes from an untrusted source, `Seek` (or `io.Discard`
@@ -240,9 +278,17 @@ func Serialize(wav *WAV) ([]byte, error) {
 }
 ```
 
-Without this guard, `uint32(len(wav.Data))` silently truncates for payloads above 4 GB,
-writing a RIFF size field that points to the wrong amount of data. Any player or downstream
-parser would misread the file. The guard turns silent corruption into an explicit error.
+**In plain terms:** before writing a WAV file out, this function checks whether the audio
+data is too big to ever have its size correctly recorded in the file's 32-bit size field;
+if it is, it refuses to write the file and reports an error instead of producing a broken
+one. (`Serialize` here means "turn an in-memory representation of the WAV data into the
+actual sequence of bytes that gets saved to disk.")
+
+Without this guard, `uint32(len(wav.Data))` silently truncates (in plain terms: the number
+gets cut down to fit, losing its high-order information, with no warning) for payloads
+above 4 GB, writing a RIFF size field that points to the wrong amount of data. Any player or
+downstream parser would misread the file. The guard turns silent corruption into an
+explicit error.
 
 !!! warning "Silent integer truncation is a data-corruption bug"
     In Go, `uint32(x)` for a large `int` does NOT panic — it wraps. Always guard
@@ -253,9 +299,12 @@ parser would misread the file. The guard turns silent corruption into an explici
 
 ## How fuzzing found this
 
-The `go test -fuzz` harness generates random byte sequences and feeds them to the parser
-as if they were valid WAV files. A sequence with a plausible RIFF/WAVE/fmt header but a
-`subchunkSize` of `0xFFFFFFFF` in the data chunk would:
+The `go test -fuzz` harness (a "harness" is just a scaffold of surrounding test code that
+drives the thing being tested; "fuzzing" means automatically generating huge numbers of
+random or semi-random inputs to see if any of them crash the program) generates random byte
+sequences and feeds them to the parser as if they were valid WAV files. A sequence with a
+plausible RIFF/WAVE/fmt header but a `subchunkSize` of `0xFFFFFFFF` in the data chunk
+would:
 
 1. Pass all structural checks (it looks like a valid header).
 2. Trigger `make([]byte, 4294967295)` — OOM, process killed.
@@ -267,7 +316,8 @@ allocation — because once one crash is fixed, the engine keeps mutating the in
 finds the next reachable crash.
 
 !!! note "Try it"
-    Run the fuzz target to verify the guard holds. From the repo root:
+    Run the fuzz target (the specific function the fuzzer drives with generated inputs)
+    to verify the guard holds. From the repo root:
 
     ```bash
     cd dr-wav-go
@@ -308,14 +358,19 @@ buf := make([]byte, allocSize)
 ```
 
 Where `available` is derived from something the attacker cannot control: `r.Len()`,
-`len(input) - offset`, or a hard-coded maximum capacity.
+`len(input) - offset` (an "offset" is a position counted in bytes from the start of some
+data — "byte 16" rather than a name), or a hard-coded maximum capacity (a number written
+directly into the source code rather than computed or read from input).
 
 !!! note "This is not Go-specific"
     The same bug appears in C, Rust, Python, and every other language that has binary
-    parsers. Go's advantage is that `make` panics for negative sizes and the allocator
-    will return an error for truly enormous allocations rather than silently succeeding
-    like some C `malloc` implementations — but a panicking process is still a denial of
-    service.
+    parsers. Go's advantage is that `make` panics (in plain terms: the program stops what
+    it's doing right there and unwinds with an error, rather than continuing on with bad
+    data) for negative sizes and the allocator will return an error for truly enormous
+    allocations rather than silently succeeding like some C `malloc` implementations — but
+    a panicking process is still a denial of service (a "denial of service," often
+    shortened DoS, is any attack whose goal is simply to make a system stop working or
+    become unavailable, rather than to steal data).
 
 ---
 
@@ -324,7 +379,9 @@ Where `available` is derived from something the attacker cannot control: `r.Len(
 - **Never pass an untrusted integer directly to `make`.** Cap it first against the bytes
   you actually have (`r.Len()`, `len(input)-offset`, or a hard limit).
 - **Seek instead of allocate when skipping.** `bytes.Reader.Seek` and `io.Discard` skip
-  bytes without touching the heap.
+  bytes without touching the heap (the heap is the pool of memory a program reserves
+  chunks from at runtime, as opposed to memory that's part of the program's fixed,
+  automatically-managed local workspace).
 - **Serialization has the mirror risk.** A 32-bit size field cannot represent payloads
   larger than ~4 GB; guard the conversion explicitly or you get silent data corruption.
 - **Fuzzing surfaces this class of bug reliably.** Size-field OOM crashes are found in

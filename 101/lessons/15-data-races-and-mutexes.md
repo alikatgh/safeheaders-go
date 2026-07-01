@@ -58,9 +58,20 @@ lets one goroutine hold the data at a time; the other waits at `Lock()`.
 ## The real bug: H3 in `linenoise-go`
 
 `linenoise-go` is a CLI line-editor (a Go port of
-[antirez/linenoise](https://github.com/antirez/linenoise)). It exposes two
-tiers of API: a full `*State` object for programs that manage their own
-instance, and a set of package-level convenience functions for simple scripts:
+[antirez/linenoise](https://github.com/antirez/linenoise)). "CLI" means a
+command-line program — one you type commands into rather than click buttons
+in. It exposes two tiers of API (an "API," short for application programming
+interface, is just the set of functions other code is meant to call): a full
+`*State` object — a **struct** is a bundle of related pieces of data grouped
+under one name, the way a contact card bundles a name, phone number, and
+address into one record; `*State` is a pointer to such a bundle, i.e. a note
+saying "the real data lives over here" rather than the data itself — for
+programs that manage their own instance, and a set of **package-level**
+convenience functions for simple scripts. A "package" is Go's word for a
+folder of related source code that other code can pull in as a unit
+(analogous to a chapter of a book you can reference by name); "package-level"
+means these functions live at the top of that unit, not tied to one specific
+`*State` instance:
 
 ```go
 // from linenoise-go/linenoise.go
@@ -72,15 +83,36 @@ func LoadHistory(filename string) error { return defaultState.LoadHistory(filena
 func ClearHistory()                  { defaultState.ClearHistory() }
 ```
 
-Every call goes through the same singleton `defaultState`. If two goroutines
-call `AddHistory` and `LoadHistory` concurrently, they both read and write
-`defaultState.history` — a plain `[]string` — at the same time.
+**In plain terms:** this creates one shared `*State` bundle called
+`defaultState`, and each of the four functions below it is a shortcut that
+quietly operates on that same shared bundle instead of one you created
+yourself.
+
+Every call goes through the same **singleton** `defaultState` — "singleton"
+means there is exactly one of these in the whole running program, not one per
+caller. If two **goroutines** call `AddHistory` and `LoadHistory`
+concurrently, they both read and write `defaultState.history` — a plain
+`[]string` — at the same time. A goroutine is Go's lightweight version of a
+thread: a separate, independently-running strand of the program that can
+execute at the same time as other strands, all sharing the same memory.
+"Concurrently" means these strands are running during overlapping stretches
+of time, so their steps can interleave unpredictably. `[]string` is a
+**slice** — a resizable list of values (here, text strings) — the square
+brackets mean "a list of," and slices are Go's everyday stand-in for what
+other languages call arrays, except a slice can grow.
 
 ### What goes wrong
 
-`history` is a slice. In Go, a slice header is three words: pointer, length,
-capacity. If goroutine A is in the middle of `append` (which may allocate a new
-backing array and update all three words) while goroutine B is reading the
+`history` is a slice. In Go, a slice header is three words (a "word" here
+just means one fixed-size chunk of memory the machine reads as a unit): a
+**pointer** (the address of where the actual list data sits in memory — like
+a shelf number telling you where to look rather than being the books
+themselves), a length (how many items are currently in use), and a capacity
+(how much room is reserved before the list must be moved to a bigger spot).
+If goroutine A is in the middle of `append` (Go's way of adding an item to a
+slice, which may **allocate** — reserve a fresh chunk of the computer's
+memory for — a new backing array, i.e. the actual block of memory holding the
+list's items, and update all three words) while goroutine B is reading the
 slice, B can see a torn header: a new pointer with the old length, or the old
 pointer with the new length. Either can produce a read past the end of the
 array — undefined behavior.
@@ -98,7 +130,10 @@ Lines 523/528/563 in the pre-fix file were `LoadHistory` clearing the slice and
 
 ## The fix: `sync.Mutex` on every history access
 
-The `State` struct now carries a mutex:
+The `State` struct now carries a mutex — a `sync.Mutex` is Go's built-in
+lock: an object that lets only one goroutine at a time hold it, so whoever
+holds it can safely read or write shared data while everyone else waits their
+turn:
 
 ```go
 // from linenoise-go/linenoise.go
@@ -113,7 +148,14 @@ type State struct {
 }
 ```
 
-Every method that touches `history` locks before reading or writing:
+**In plain terms:** this declares the `State` bundle's shape — the named
+slots (called **fields**) it has room for: a lock named `mu`, a pointer to
+its settings (`config`), and its list of history strings (`history`).
+
+Every **method** that touches `history` locks before reading or writing. A
+method is just a function that is attached to a particular struct — written
+as `func (s *State) AddHistory(...)` — so it can be run as `s.AddHistory(...)`
+and automatically gets access to that specific `s` bundle's fields:
 
 ```go
 // from linenoise-go/linenoise.go
@@ -135,6 +177,17 @@ func (s *State) AddHistory(line string) {
     }
 }
 ```
+
+**In plain terms:** `s.mu.Lock()` claims the lock — if another goroutine
+already holds it, this line simply **blocks**: the goroutine pauses right
+there and does nothing else until the lock becomes free. `defer
+s.mu.Unlock()` schedules the "release the lock" step to run automatically
+right before this function **returns** (finishes and hands control back to
+whoever called it), no matter which of the `return` points below is taken —
+`defer` is Go's way of saying "do this cleanup on the way out, wherever the
+way out turns out to be." Between the lock and the deferred unlock, the
+function safely checks whether the new line duplicates the last one, then
+appends it and trims the list if it has grown past the configured maximum.
 
 `LoadHistory` is similarly guarded:
 
@@ -203,8 +256,12 @@ user is pressing the up-arrow key.
 
 Code review could notice the missing lock in `AddHistory`, but it is easy to
 miss the navigation methods buried deeper in the file. The race detector finds
-*all* of them automatically, because it instruments every memory access at
-runtime.
+*all* of them automatically, because it **instruments** every memory access
+at runtime — "instruments" means it quietly inserts extra checking code
+around every read and write so it can watch each one happen while the program
+runs. "Runtime" is simply the period while the program is actually executing
+(as opposed to "compile time," the earlier step where the human-written
+source text is translated into a program the machine can run).
 
 !!! warning "The race detector requires real concurrency to fire"
     `-race` only catches races that *actually execute* during the test run. A
@@ -213,8 +270,11 @@ runtime.
     "Try it" box below.
 
 !!! note "The race detector has a runtime cost"
-    Binaries compiled with `-race` run 2–20× slower and use more memory. Use
-    it in CI and development, not in production builds. In this repo the
+    Binaries — ready-to-run program files, **compiled** (built from
+    human-written source text into a program the machine can run) — with
+    `-race` run 2–20× slower and use more memory. Use it in **CI** (short for continuous integration:
+    an automated system that builds and tests the project every time code
+    changes) and development, not in production builds. In this repo the
     [`go-ci.yaml`](src/github-workflows-go-ci-yaml.md) workflow runs `go test -race` as a step inside its `test` job.
 
 ---
@@ -222,7 +282,10 @@ runtime.
 ## Writing a test that proves the race is gone
 
 A race test has to actually run two goroutines against the shared state
-simultaneously. The audit's fix commit (`01620eb`) added exactly this:
+simultaneously. A **test**, in programming, is a small piece of code written
+specifically to run part of the program and check that it behaves as
+expected — here, the test's job is to try to trigger the race. The audit's
+fix commit (`01620eb`) added exactly this:
 
 ```go
 // Illustrative — based on the fix described in the audit report.
@@ -239,6 +302,14 @@ func TestAddHistoryRace(t *testing.T) {
     wg.Wait()
 }
 ```
+
+**In plain terms:** this starts 50 goroutines at once, each adding its own
+line to the shared history, then waits for all 50 to finish before the test
+ends (`sync.WaitGroup` is a simple counter built for exactly this: each
+goroutine counts itself in with `Add`, counts itself done with `Done`, and
+`Wait` blocks the main test until the count reaches zero). Fifty goroutines
+all calling `AddHistory` on the same shared `s` at once is precisely the kind
+of concurrent access that would expose the race if the lock were missing.
 
 Run it without `-race` and it will likely pass. Run it *with* `-race` and the
 pre-fix code would print a `DATA RACE` report immediately. After the fix, both
@@ -274,6 +345,11 @@ The deadlock bugs (H1 in `jsmn-go`, H2 in `stb-image-go`, covered in
 |-----|---------|---------|
 | Deadlock (H1, H2) | Program hangs forever | Watchdog test / timeout |
 | Data race (H3) | Corrupted data or crash — non-deterministic | `-race` detector |
+
+(A "watchdog test" is one that runs the program with a timer attached and
+fails it if the program doesn't finish in time — the way you'd notice
+something froze if it usually replies in a second but has gone quiet for a
+minute.)
 
 Deadlocks are usually reproducible given the right input. Races can be silent
 for months and then corrupt production data under load.

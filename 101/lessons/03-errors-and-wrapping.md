@@ -74,7 +74,7 @@ the original cause.
 A *sentinel* is an error value that lives in the package's public API surface.
 Callers never need to read its text; they compare with `==` (or `errors.Is`).
 
-Both `jsmn-go` and `tinyxml2-go` declare their sentinels the same way.
+Both `jsmn-go` and `tinyxml2-go` (packages — think of a package as a named, reusable folder of related code that other code can borrow from) declare their sentinels the same way.
 From [`jsmn-go/config.go`](src/jsmn-go-config-go.md):
 
 ```go
@@ -91,7 +91,7 @@ var (
 )
 ```
 
-`errors.New` allocates a unique value; two separate calls with the same string
+`errors.New` allocates (reserves a small chunk of the computer's memory for) a unique value; two separate calls with the same string
 produce two *different* errors. That uniqueness is what makes sentinel comparison
 reliable — there is no accidental collision.
 
@@ -100,7 +100,7 @@ reliable — there is no accidental collision.
 
 ### How the guard code uses them
 
-From `jsmn-go/config.go`, `validateInput`:
+From `jsmn-go/config.go`, `validateInput` (a function — a named, reusable piece of code you can run/"call" by writing its name — that checks whether some input is acceptable):
 
 ```go
 func (c *Config) validateInput(data []byte) error {
@@ -114,7 +114,9 @@ func (c *Config) validateInput(data []byte) error {
 }
 ```
 
-`nil` is the idiomatic "no error" value. The function returns a sentinel directly —
+**In plain terms:** this function looks at the incoming data (`[]byte` means "a list of raw bytes," where a byte is the basic unit of data a computer stores things in) and hands back one of three results: "input is empty," "input is too large," or nothing-wrong-at-all — and it stops running the instant it returns, sending that result back to whoever asked it to check.
+
+`nil` is the idiomatic "no error" value — Go's way of saying "nothing went wrong." The function returns a sentinel directly —
 no wrapping — because this is the *defining* site of that error. Adding a wrapper
 here would make `errors.Is` harder, not easier (though `%w` still works; see below).
 
@@ -131,6 +133,8 @@ if err != nil {
     log.Printf("parse failed: %v", err)
 }
 ```
+
+**In plain terms:** this code calls (runs) `ParseWithConfig`, and once it returns, checks whether the error it handed back matches the "input too large" sentinel; if so it tells the caller (over the web, via HTTP) "payload too large" instead of treating it as a mysterious server failure, and stops right there.
 
 `errors.Is(err, target)` returns `true` if `err == target` **or** if any error in
 the chain wraps `target`. That makes it safe even when the error has been wrapped
@@ -164,6 +168,8 @@ if string(riff[:]) != "RIFF" {
 }
 ```
 
+**In plain terms:** `[4]byte` reserves a fixed-size slot for exactly 4 raw bytes (think of a byte as one small unit of stored data); the code reads 4 bytes from the file and, if that read itself failed, wraps the underlying error with a note saying where it happened. If the read succeeded but those 4 bytes don't spell "RIFF" (the expected file signature), it returns a brand-new error instead, since there's no earlier failure to preserve.
+
 Two patterns side-by-side:
 
 | Line | Pattern | When to use |
@@ -173,7 +179,7 @@ Two patterns side-by-side:
 
 ### Wrapping propagates all the way up
 
-`readDataChunk` (still in `dr-wav-go/dr_wav.go`) is a private helper that wraps
+`readDataChunk` (still in `dr-wav-go/dr_wav.go`) is a private helper — a function that only code inside this same package is allowed to call (run) — that wraps
 each of its own read errors:
 
 ```go
@@ -193,6 +199,8 @@ if err != nil {
 }
 ```
 
+**In plain terms:** `Parse` runs `readDataChunk` and, if it comes back with an error, simply hands that same error further back up unchanged — no extra note added, because `readDataChunk` already wrote its own.
+
 !!! tip "Double-wrapping is not wrong, just noisy"
     Wrapping the same error twice (`fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", err))`)
     produces a longer message but doesn't break `errors.Is`. Prefer to wrap once at
@@ -200,7 +208,7 @@ if err != nil {
 
 ### Wrapping in ParseBatch: adding the index
 
-`ParseBatch` in `dr-wav-go/dr_wav.go` processes multiple WAV files concurrently.
+`ParseBatch` in `dr-wav-go/dr_wav.go` processes multiple WAV files concurrently (several files are being worked on at overlapping times rather than strictly one after another — a detail this lesson doesn't need beyond knowing the files are numbered by an index, i.e. their position in the list, starting at 0).
 When one fails it wraps the error with the index so the caller knows *which* file:
 
 ```go
@@ -209,6 +217,8 @@ if res.err != nil {
     return nil, fmt.Errorf("failed to parse WAV at index %d: %w", res.index, res.err)
 }
 ```
+
+**In plain terms:** if any one file in the batch failed, this builds a new error that says "file number `res.index` failed" while still keeping the original underlying error reachable inside it.
 
 This is the canonical use of `%w`: the outer message is human-readable context;
 the wrapped `res.err` carries the machine-testable cause.
@@ -229,6 +239,8 @@ if err != nil {
     return nil, fmt.Errorf("parse XML token: %w", err)  // preserve decoder error
 }
 ```
+
+**In plain terms:** this asks the decoder for the next piece of the XML document; if the file ran out ("EOF" = end of file) before it should have, that's reported as a fresh error, but any other failure gets wrapped so its original cause stays inspectable.
 
 **Decision rule:**
 
@@ -259,12 +271,14 @@ if wav.Header.BitsPerSample != 8 && wav.Header.BitsPerSample != 16 &&
 }
 ```
 
+**In plain terms:** this checks the audio file's header (the small block of metadata at the start describing the file) against the values Go accepts, and if either check fails, builds a one-off descriptive error naming exactly what was wrong.
+
 These are *not* sentinels (each call produces a unique value) and not wrapped
 (no `%w`). They are purely informational: the caller logs the message and moves
 on. There is no need for `errors.Is` or `errors.As` here.
 
 If `ValidateWAV` had instead returned a custom `*ValidationError{Field, Got}`
-struct, a caller would extract it with `errors.As`:
+struct (a struct is a custom bundle of named fields — like a small form with labeled boxes — grouped together under one type name), a caller would extract it with `errors.As`:
 
 ```go
 // hypothetical — not in the repo, just illustrating errors.As
@@ -274,6 +288,8 @@ if errors.As(err, &ve) {
 }
 ```
 
+**In plain terms:** if the error chain contains a `*ValidationError`, `errors.As` pulls that specific struct out so the code can read its named fields (`Field`, `Got`) directly, instead of only seeing a printed message.
+
 The rule: reach for a sentinel when "did X happen?" is enough; reach for a
 custom error type when the caller needs the *values* inside the error.
 
@@ -282,7 +298,7 @@ custom error type when the caller needs the *values* inside the error.
 ## The depth-ceiling pattern in tinyxml2-go
 
 `parseElementLimited` in `tinyxml2-go/tinyxml2.go` shows error-return as a
-safety mechanism that replaces what would otherwise be a fatal stack overflow:
+safety mechanism that replaces what would otherwise be a fatal stack overflow (this function calls itself to handle XML elements nested inside elements — a technique called recursion — and each nested call uses a bit more of a reserved memory region called the stack; too much nesting exhausts that region and crashes the program):
 
 ```go
 // tinyxml2-go/tinyxml2.go  — parseElementLimited
@@ -296,6 +312,8 @@ if config.MaxNestingDepth > 0 && depth > config.MaxNestingDepth {
 }
 ```
 
+**In plain terms:** as the parser descends into more and more nested XML elements, `depth` counts how deep it has gone; past a hard-coded ceiling of 10000 it always refuses to continue, and if the caller configured a stricter, lower ceiling it refuses at that point too — both by returning an error instead of continuing to descend.
+
 Two levels of guard:
 
 1. **Absolute hard ceiling** (`maxNestingDepth = 10000`) — returned as a formatted
@@ -306,13 +324,13 @@ Two levels of guard:
    (e.g. reject the request with 422 rather than 500).
 
 The comment in the source explains *why* a return-error is necessary here rather
-than `recover()`: a goroutine stack overflow is a `runtime` fatal — it bypasses
+than `recover()` (a Go mechanism that can catch certain crashes and let the program keep running): a goroutine (a lightweight, independently-running piece of code — Go's unit of concurrency) stack overflow is a `runtime` fatal — it bypasses
 `recover`. Returning an error is the only safe option.
 
 ---
 
 !!! note "Try it"
-    Run the sentinel-error tests for jsmn-go to see both `ErrInputTooLarge` and
+    Run the sentinel-error tests (small, automated programs that check the real code behaves as expected, so you don't have to check by hand) for jsmn-go to see both `ErrInputTooLarge` and
     `ErrEmptyInput` fire:
 
     ```bash
@@ -332,7 +350,7 @@ than `recover()`: a goroutine stack overflow is a `runtime` fatal — it bypasse
 ---
 
 !!! note "Try it — wrapping round-trip"
-    Check that `%w` preserves the standard-library cause through the dr-wav chain:
+    Check that `%w` preserves the standard-library (the collection of ready-made packages that ship with Go itself, like `errors`, `fmt`, and `io` below) cause through the dr-wav chain:
 
     ```bash
     cd dr-wav-go && go test -v -run TestParse ./...
@@ -359,6 +377,8 @@ than `recover()`: a goroutine stack overflow is a `runtime` fatal — it bypasse
         fmt.Println("is ErrUnexpectedEOF?", errors.Is(err, io.ErrUnexpectedEOF))
     }
     ```
+
+    **In plain terms:** `package main` declares this file as its own runnable program; the `import` block pulls in other packages' code so it can be used here (including the `dr-wav-go` package this whole lesson is about); `func main` is the program's starting point, which calls `Parse` on deliberately-broken input and prints whether the resulting error chain still contains the standard-library's `io.EOF` or `io.ErrUnexpectedEOF` deep inside it.
 
     Expected output shows the human-readable chain and that `errors.Is` can find
     the standard-library sentinel even through the `fmt.Errorf` wrappers.

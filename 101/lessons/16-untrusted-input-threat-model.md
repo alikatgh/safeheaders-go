@@ -109,7 +109,11 @@ compiled into your binary or come from hardware you exclusively control.
 
 SafeHeaders-Go exists precisely in the first category: all nine modules parse
 formats that routinely arrive from untrusted sources — JSON, XML, WAV, ZIP,
-PNG/JPEG, TTF, glTF.
+PNG/JPEG, TTF, glTF. (A "module" here is one self-contained piece of the
+project — a folder of related source code, usually built around one file
+format — and "parse"/"parser" means the code that reads raw bytes and makes
+sense of their structure, the way you'd decode a sentence written in a
+private shorthand.)
 
 ---
 
@@ -118,7 +122,12 @@ PNG/JPEG, TTF, glTF.
 ### 1. OOM — out-of-memory
 
 A malformed header declares a huge size; the parser blindly allocates that
-many bytes; the process runs out of memory or is killed by the OS.
+many bytes (in plain terms: "allocate" means the program reserves a chunk of
+the computer's memory to hold data — like claiming a table at a restaurant
+before you know how many guests will show up); the process runs out of
+memory or is killed by the OS (the operating system — the software, like
+Windows or macOS or Linux, that manages the machine's memory and can kill a
+program that asks for too much of it).
 
 **Example from dr-wav-go** (from [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md)):
 
@@ -137,10 +146,21 @@ func readDataChunk(r *bytes.Reader) ([]byte, error) {
         pcmData := make([]byte, allocSize)
 ```
 
+**In plain terms:** this code (a "function" — named `readDataChunk` here —
+is simply a named, reusable block of instructions; "calling" or "invoking"
+it just means running it) reads through a WAV audio file looking for the
+chunk that holds the actual sound data. Before it reserves memory for that
+data, it checks how many bytes are actually left in the file (`r.Len()`) and
+shrinks the request to fit, so a lying header can't make it grab an
+impossible amount of memory. (A "byte" is one small unit of digital data —
+roughly enough to store one letter of text; files and memory are measured in
+byte counts.)
+
 The WAV format stores the data chunk's size as a 32-bit field — an attacker
 can set that to `0xFFFFFFFF` (4 GiB) in a 100-byte file. Without the cap,
 `make([]byte, 4GiB)` would crash most processes. With the cap, the allocator
-only allocates as many bytes as are actually left in the reader.
+only allocates as many bytes as are actually left in the reader (a "reader"
+here is just an object that hands out the file's bytes a piece at a time).
 
 Similarly, the `fmt` sub-chunk has an extra-bytes field. The original code
 allocated a `[]byte` of that size; the fixed version uses `r.Seek` instead —
@@ -156,6 +176,15 @@ if subchunk1Size > 16 {
 }
 ```
 
+**In plain terms:** instead of reserving memory to hold bytes it doesn't
+actually need, this code just moves a "read position" marker forward past
+them (`Seek` — like skipping ahead in an audiobook without downloading the
+skipped part) — so an attacker-controlled size can't force a memory
+reservation at all. Note also `return nil, fmt.Errorf(...)`: a function
+"returns" by finishing its work and handing a result back to whoever called
+it — here it hands back "no chunk, plus an error describing what went
+wrong."
+
 **Pattern:** never call `make([]byte, n)` where `n` comes from untrusted input
 without bounding `n` against the bytes actually present.
 
@@ -164,7 +193,9 @@ without bounding `n` against the bytes actually present.
 ### 2. CPU exhaustion
 
 A crafted input forces the parser into a very long (or infinite) loop. Memory
-stays flat; your goroutine pegs a CPU core and never finishes.
+stays flat; your goroutine (in plain terms: a lightweight, independently-
+running unit of work inside the program — think of it as one worker among
+possibly many working at once) pegs a CPU core and never finishes.
 
 **Example from jsmn-go** — token-count limit (from [`jsmn-go/config.go`](src/jsmn-go-config-go.md)):
 
@@ -178,6 +209,12 @@ func StrictConfig() *Config {
     }
 }
 ```
+
+**In plain terms:** `StrictConfig` is a function that returns (hands back) a
+ready-made bundle of safety settings — here, a limit on how many bytes of
+input to accept and how many "tokens" to allow. A tokenizer is the part of a
+parser that chops raw text into small meaningful pieces ("tokens") — for
+JSON, things like `{`, `"name"`, `:`, `42`, `}` each count as one token.
 
 JSON like `[[[[[...10 million nesting levels...]]]]]` is tiny on disk but
 causes the tokenizer to emit millions of tokens. `StrictConfig` caps both the
@@ -195,6 +232,13 @@ func ParseWithConfig(data []byte, config *Config) (*XMLDocument, error) {
     root, err := parseElementLimited(dec, v, config, 1, &nodeCount)
 ```
 
+**In plain terms:** parsing one XML tag calls a function that, for every
+tag nested inside it, calls that same function again on the nested tag —
+this "a function calling itself" pattern is called recursion. Nested tags
+inside nested tags inside nested tags produce deep recursion. This code
+threads a counter (`nodeCount`) and the current nesting depth through every
+call so it can refuse to go further once either limit is hit.
+
 **Pattern:** for any loop or recursion driven by input data, bound the
 iteration count before you start, not after you notice it's too slow.
 
@@ -202,9 +246,16 @@ iteration count before you start, not after you notice it's too slow.
 
 ### 3. Stack overflow
 
-A deeply recursive parser hits Go's goroutine stack limit and the runtime
-terminates the whole program with a fatal exception — one that `recover()`
-cannot catch. This is sometimes called a "billion laughs" attack when an
+A deeply recursive parser hits Go's goroutine stack limit (in plain terms:
+the "stack" is a fixed-size scratchpad of memory the program uses to keep
+track of which function called which — every nested call takes a bit more
+of that space, and Go caps how big it can grow per goroutine) and the
+runtime (the background system that manages running Go programs — starting
+goroutines, cleaning up memory, and so on) terminates the whole program
+with a fatal exception — one that `recover()` cannot catch (`recover()` is
+Go's normal tool for catching a crash inside one goroutine so the rest of
+the program survives; a stack overflow is severe enough that even this
+safety net fails). This is sometimes called a "billion laughs" attack when an
 entity references entities that reference entities.
 
 **Example from tinyxml2-go** — hard depth ceiling (from `tinyxml2-go/tinyxml2.go`):
@@ -219,6 +270,12 @@ func parseElement(dec *xml.Decoder, se xml.StartElement, depth int) (*Node, erro
         return nil, fmt.Errorf("XML nesting exceeds maximum depth %d", maxNestingDepth)
     }
 ```
+
+**In plain terms:** every time `parseElement` calls itself for a nested XML
+tag, it passes in `depth` one higher than before. If that number ever
+climbs above 10,000, the function refuses to go deeper and hands back an
+error instead of recursing again — capping how deep the "function calling
+itself" chain can go, no matter how deeply nested the attacker's XML is.
 
 This constant is enforced at every level of recursion — even in the
 `Parse` function that has no config object — so there is no path an attacker
@@ -250,6 +307,15 @@ func (f *Font) glyphContours(gid uint16, depth int, b *glyphBudget) ([][]glyphPo
     }
 ```
 
+**In plain terms:** `glyphBudget` here is a "struct" — a small custom data
+shape that bundles a few related values together under one name (like a
+form with labeled boxes: one box called `components`, one called `points`).
+Each named box inside a struct is called a "field." This particular struct
+travels along with every recursive call and gets decremented (`b.components--`)
+each time, so the code can refuse to continue once either the component
+count or the point count runs out — even if the depth alone hasn't hit its
+limit yet.
+
 A TrueType "composite" glyph is composed of other glyphs, which may be
 composed of yet more glyphs. A malicious font can make a glyph tree with K
 children at each level over 8 levels — K^8 recursive calls from a tiny file.
@@ -260,9 +326,14 @@ glyph tree's shape.
 !!! warning "Stack overflows are fatal"
     In Go, a stack overflow produces a `runtime: goroutine stack exceeds ...`
     message and kills the entire process — not just the goroutine. A `recover()`
-    in a `defer` does **not** help. The only defence is to never let the stack
-    get that deep in the first place. That is why the depth check in
-    `parseElement` uses a `const`, not a config value that could be set to 0.
+    in a `defer` does **not** help — `defer` is a Go feature that schedules a
+    bit of cleanup code to run automatically when a function finishes, and
+    `recover()` is normally called inside one to catch a crash before it takes
+    down more than the current goroutine. The only defence is to never let the
+    stack get that deep in the first place. That is why the depth check in
+    `parseElement` uses a `const` (a fixed value baked in when the program is
+    built, which nothing at runtime can change), not a config value that could
+    be set to 0.
 
 ---
 
@@ -280,6 +351,13 @@ when decoded. The attacker does no work; your CPU and memory do all of it.
 // entries, not per entry. The default is 256 MiB. Set it to 0 to disable.
 var MaxDecompressedSize int64 = 256 << 20
 ```
+
+**In plain terms:** ZIP files store their contents squeezed smaller
+("compressed"); unpacking them ("decompressing") restores the full size,
+which can be far bigger than the compressed file itself. This setting is a
+running total — a ceiling on how many bytes may come out of *all* the files
+inside one archive combined, not a separate allowance for each individual
+file.
 
 The critical detail: the cap is on the **aggregate** output across all ZIP
 entries, not per entry. A naive per-entry cap can be bypassed with 1000
@@ -311,6 +389,12 @@ func checkPixelLimit(data []byte) error {
 }
 ```
 
+**In plain terms:** before actually decoding an image's full pixel data,
+this code peeks at just the header to read the claimed width and height,
+multiplies them, and refuses to continue if that number of pixels is
+unreasonably large — the same "check the label before opening the box"
+idea as the WAV example earlier, applied to images instead of audio.
+
 `image.DecodeConfig` reads only the header — it is cheap. If the declared
 dimensions exceed the pixel cap, `Load` returns an error before calling
 `image.Decode`, which is the expensive (and potentially enormous) operation.
@@ -340,6 +424,13 @@ defer cancel()
 images, err := stbimagego.LoadBatchConcurrent(ctx, imageData)
 ```
 
+**In plain terms:** a "context" in Go is a small object you pass into a
+long-running operation to say "give up after this much time, or if I tell
+you to." Here it's set to 30 seconds; "blocking" means a piece of code has
+stopped and is just waiting — for example, waiting for a slow decode to
+finish — and doing nothing else until it's unblocked. This line arranges
+for the operation to be forcibly stopped rather than block forever.
+
 A context timeout is the ultimate safety net: even if a bug lets a parser run
 longer than its budgets intend, the context kills it.
 
@@ -361,11 +452,21 @@ amplification risk that is already fixed:
 errs := make(chan error, len(datas)+numWorkers)
 ```
 
+**In plain terms:** a "channel" is a pipe that goroutines use to hand
+values (like error messages) to each other safely. This one is "buffered" —
+sized to hold a certain number of messages waiting in the pipe before
+anyone has to read them out — big enough here to hold every possible error
+message any worker could ever try to send, so no worker ever gets stuck
+waiting for space in the pipe.
+
 If you made the channel only `len(datas)` deep, a cancellation event (one send
 per worker) could block goroutines that are trying to send — and `wg.Wait()`
-would hang forever. This is the same deadlock shape described in
-[Lesson 11](11-goroutines-channels-select.md); the fix is always to make the
-channel deep enough for every possible send, not just the expected ones.
+would hang forever (a "deadlock": everything is stuck waiting on everything
+else, permanently, with nothing able to move — like a four-way stop where
+every car is waiting for another to go first). This is the same deadlock shape
+described in [Lesson 11](11-goroutines-channels-select.md); the fix is always
+to make the channel deep enough for every possible send, not just the expected
+ones.
 
 ---
 
@@ -376,26 +477,41 @@ From SECURITY.md:
 > SafeHeaders-Go has **zero external dependencies** (pure stdlib). This
 > minimizes supply chain attack surface.
 
+(A "dependency" is someone else's pre-written code that a project relies on
+instead of writing that logic itself — installed as a "package." The
+"stdlib," short for standard library, is the large set of ready-made
+packages that ship with Go itself, so using only it means relying on
+nobody's code but Go's own.)
+
 Every external dependency is a potential vector: a compromised package, a
-malicious update, an indirect transitive dependency. By staying pure stdlib,
-SafeHeaders-Go eliminates that entire class of risk. The trade-off is that
-every parsing behaviour must be written from scratch — which is exactly what
-these nine modules are.
+malicious update, an indirect transitive dependency (one you didn't choose
+directly — it came along because a package you *did* choose depends on it
+in turn). By staying pure stdlib, SafeHeaders-Go eliminates that entire class
+of risk. The trade-off is that every parsing behaviour must be written from
+scratch — which is exactly what these nine modules are.
 
 ---
 
 !!! note "Try it"
     Verify that the OOM guard in dr-wav-go fires when the data chunk header
-    claims more bytes than are actually present. The fuzz corpus already
-    contains a seed that exercises this path:
+    claims more bytes than are actually present. (A "test" here is a small
+    piece of code, separate from the program itself, written specifically to
+    check that some behaviour works as expected — `go test` is the command
+    that runs all such checks and reports pass/fail.) The fuzz corpus already
+    contains a seed that exercises this path — "fuzzing" means automatically
+    generating huge numbers of random or semi-random inputs to try to break
+    the code, and the "corpus" is the growing collection of inputs it has
+    tried so far, some of which are saved as starting "seeds":
 
     ```bash
     cd dr-wav-go
     go test -run TestParse -v ./...
     ```
 
-    Expected outcome: all tests pass. No panics, no OOM. Then try the fuzzer
-    for 10 seconds to confirm the guard holds against fresh mutations:
+    Expected outcome: all tests pass. No panics (a "panic" is Go's term for a
+    program crashing abruptly instead of returning a normal error), no OOM.
+    Then try the fuzzer for 10 seconds to confirm the guard holds against
+    fresh mutations:
 
     ```bash
     go test -fuzz=FuzzParse -fuzztime=10s ./...

@@ -62,7 +62,9 @@ order.
 ## The skeleton: four moving parts
 
 Every worker pool in this repo follows the same four-part shape. Here it is
-written out abstractly before we look at the real code:
+written out abstractly before we look at the real code (this is pseudocode —
+a simplified sketch meant to show the shape of the pattern, not a real,
+runnable file):
 
 ```go
 // 1. Channels — sized so senders never block.
@@ -102,14 +104,16 @@ for r := range resultCh {
 }
 ```
 
+**In plain terms:** a "channel" (`chan`) is a pipe that one part of the program can drop values into and another part can pull values out of, safely, even when many goroutines are doing this at the same time — it is Go's built-in way of passing work and results between independently-running pieces of code. A "goroutine" is a lightweight, independently-running piece of a program — Go can run thousands of them at once, and the `go` keyword in front of a function call is what starts one. This skeleton creates two channels (one for incoming jobs, one for outgoing results), starts a fixed number of worker goroutines that each loop "pull a job, do the work, drop the result," starts a separate "feeder" goroutine that hands out the jobs, and starts one more goroutine whose only task is to wait for every worker to finish and then seal the results channel shut (`close`) so the part collecting results below knows there is nothing more coming. `sync.WaitGroup` (met in full below) is the counter used to track how many workers are still running.
+
 Each number above maps to a concrete code location you can read right now.
 
 ---
 
 ## Seeing it in dr-wav-go: ParseBatch
 
-[`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) contains `ParseBatch`, which decodes multiple WAV files
-concurrently. It is a clean, self-contained example of all four parts.
+[`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) is a file inside this project — a chunk of source code with its own name, grouped with related code into what Go calls a "package" (a folder of `.go` files that work together and can be reused by other code via `import`). It contains `ParseBatch`, a function — a named, reusable block of code that you can "call" (run) by writing its name, optionally handing it some inputs, and it optionally hands back ("returns") a result to whoever called it. `ParseBatch` decodes multiple WAV files
+concurrently (concurrently means several of these tasks are in progress over the same stretch of time, rather than strictly one after another). It is a clean, self-contained example of all four parts.
 
 ### Part 1 — the channels
 
@@ -122,9 +126,11 @@ dataChan := make(chan struct {
 resultChan := make(chan result, len(dataList))
 ```
 
+**In plain terms:** this creates two channels. `struct { data []byte; index int }` is a "struct" — a small custom bundle that groups several named pieces of data together (here: some raw file bytes, plus the position that file had in the original list). "Fields" is the term for those named pieces inside a struct (`data` and `index` are fields). `[]byte` is a "slice" of "bytes" — a byte is one small unit of computer memory (think: one letter of raw data), and a slice is a resizable, ordered list of them, here holding the file's contents. `len(dataList)` reads the number of items currently in `dataList` and uses that number to size the channel's buffer — how many items it can hold before anyone has to wait to add more.
+
 Both channels are buffered to `len(dataList)`. That size matters: if
 `resultChan` were unbuffered, a worker would block trying to send a result while
-the main goroutine was still sending jobs — instant deadlock. Buffering to the
+the main goroutine was still sending jobs — instant deadlock. (To "block" means the line of code simply waits — that goroutine pauses right there and does nothing else — until some condition is satisfied, in this case until there is room to place the result on the channel.) A "deadlock" is when two or more goroutines are each stuck waiting on the other, so nothing ever moves forward again. Buffering to the
 number of jobs guarantees every worker can always send without waiting.
 
 ### Part 2 — the workers
@@ -157,10 +163,12 @@ for i := 0; i < numWorkers; i++ {
 }
 ```
 
+**In plain terms:** `runtime.NumCPU()` asks the machine how many processor cores it has, and the code uses that number as how many worker goroutines to start (capped so it never starts more workers than there are files). Each worker runs an endless loop that uses `select` — a Go construct that waits on several channels at once and proceeds with whichever one has something ready first. Here a worker either notices the shared context has been cancelled (`ctx.Done()`) and stops, or it receives the next job off `dataChan`, runs `Parse` on it, and sends the outcome to `resultChan`. `ok` reports whether the channel is still open — once the feeder closes `dataChan`, further receives report `ok == false` and the worker returns (a function "returning" means it finishes running and hands control, and optionally a value, back to whatever invoked it).
+
 The `runtime.NumCPU()` cap keeps you from spawning 10,000 goroutines for
 10,000 files; goroutine creation is cheap but not free. The `select` on
 `ctx.Done()` means the caller can cancel mid-batch and all workers exit
-promptly — no goroutine leaks.
+promptly — no goroutine leaks. (A "context", `ctx`, is a small object Go code passes around to signal things like "please stop now" or "time's up" to every piece of work that's in flight. A "leak" here means a goroutine that never gets cleaned up and just sits there forever, quietly wasting memory.)
 
 ### Part 3 — the feeder goroutine
 
@@ -182,14 +190,16 @@ go func() {
 }()
 ```
 
+**In plain terms:** the feeder walks through every item in `dataList` and tries to place each one, tagged with its original position `i`, onto `dataChan`. Each attempt is itself a `select`: either the send onto `dataChan` succeeds, or `ctx.Done()` fires first (someone cancelled), in which case the feeder closes the channel and stops early.
+
 The feeder runs in its own goroutine. This is essential: if the feeder ran
-inline (before starting workers), it would fill `dataChan` and then block if
+inline (before starting workers) — meaning as an ordinary, directly-run part of the same sequence of steps, rather than kicked off separately with `go` — it would fill `dataChan` and then block if
 there were more items than buffer slots, with no workers yet reading. Putting
 the feeder in a goroutine lets it run concurrently with the workers that are
 already pulling from the channel.
 
 Closing `dataChan` at the end is the shutdown signal: workers see `ok == false`
-on the next receive and return, decrementing the WaitGroup.
+on the next receive and return, decrementing the WaitGroup (lowering its internal count of "still running" goroutines by one).
 
 ### Part 4 — the closer and collection
 
@@ -209,9 +219,11 @@ for res := range resultChan {
 }
 ```
 
+**In plain terms:** `wg.Wait()` blocks (pauses) that goroutine until every worker has called `wg.Done()` — i.e., until the count `sync.WaitGroup` is tracking drops to zero — and only then closes `resultChan`. Meanwhile, `make([]*WAV, len(dataList))` "allocates" a slice — reserves a chunk of the computer's memory — sized to hold one result per input file, pre-filled with empty placeholders, and the loop below fills in each slot.
+
 `wg.Wait()` in a goroutine is the pattern for "close `resultChan` only after
 every worker has finished". Without it you would close `resultChan` while
-workers might still be sending — a panic. The `for res := range resultChan`
+workers might still be sending — a panic (Go's term for a crash: the program stops abruptly because something went wrong that it doesn't know how to recover from). The `for res := range resultChan`
 loop drains everything and exits when the channel is closed.
 
 The line `results[res.index] = res.wav` is how you recover input order even
@@ -223,7 +235,7 @@ worker B finishes file 2; the index routes each result to the right slot.
 ## The same pattern in cgltf-go: ParseBatch
 
 [`cgltf-go/cgltf.go`](src/cgltf-go-cgltf-go.md) contains an identical four-part structure for 3D model
-files. Compare the result struct:
+files (glTF is a common file format for 3D models). Compare the result struct:
 
 ```go
 // from cgltf-go/cgltf.go
@@ -252,7 +264,7 @@ for res := range resultChan {
 
 The pattern is identical to `dr-wav-go`. Once you read one, you have read them
 all. This is intentional: a predictable, repeatable pattern is easier to audit
-and test than creative one-offs.
+and test — verify with automated code that checks the real behavior is correct — than creative one-offs.
 
 ---
 
@@ -273,7 +285,7 @@ jobCh    := make(chan job,            len(files))
 resultCh := make(chan compressedFile, len(files))
 ```
 
-`compressedFile` carries the pre-compressed bytes, CRC, uncompressed size, and
+`compressedFile` carries the pre-compressed bytes, CRC (a small checksum number used to detect if data got corrupted), uncompressed size, and
 the original `index`:
 
 ```go
@@ -314,6 +326,8 @@ w, err := zw.CreateRaw(fh)
 w.Write(r.compressed)
 ```
 
+**In plain terms:** this opens a "raw" entry in the ZIP file being built and writes the already-compressed bytes straight in, unchanged — skipping the normal step where the ZIP library would compress the data itself.
+
 !!! warning "The double-compression bug"
     An earlier version wrote the pre-deflated `compressed` bytes via a normal
     `zip.Create` entry (method = Deflate). The ZIP library then *deflated them
@@ -339,7 +353,7 @@ w.Write(r.compressed)
 
 The `ParseBatch` functions sidestep this by buffering `resultChan` to
 `len(dataList)` — one slot per input — so every worker can always send
-without waiting, regardless of how ctx cancellation plays out.
+without waiting, regardless of how ctx cancellation plays out (ctx cancellation = the context signaling "stop now," as covered above).
 
 ---
 
@@ -377,12 +391,14 @@ the context.
 ---
 
 !!! note "Try it"
-    Run the dr-wav-go tests with the race detector enabled:
+    Run the dr-wav-go tests (a test is a small piece of code written to automatically check that another piece of code behaves correctly) with the race detector enabled:
 
     ```bash
     cd /path/to/safeheaders-go
     go test -race ./dr-wav-go/...
     ```
+
+    **In plain terms:** `go test` compiles (turns the human-written source text into a program the machine can run) and runs the tests in the `dr-wav-go` package, and `-race` turns on Go's "race detector" — a tool that watches for two goroutines touching the same piece of memory at the same time in an unsafe way.
 
     Expected outcome: all tests pass with no data race reports. The race
     detector instruments every channel send/receive and memory access across

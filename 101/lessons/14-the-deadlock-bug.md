@@ -62,8 +62,9 @@ result per job, plus one cancel-ack per worker), but the channel buffers only
 
 ## The bug in [`jsmn-go/parallel.go`](src/jsmn-go-parallel-go.md)
 
-`parseParallelWithConfig` tokenises a large JSON input by splitting it into chunks
-and fanning out to `numWorkers` goroutines. Each goroutine pulls jobs from `jobCh`
+`parseParallelWithConfig` is a function (in plain terms: a named, reusable piece of code that you run — "call" — by giving it inputs, and which can hand a result back to whoever called it, a step called "returning") that tokenises a large JSON input by splitting it into chunks
+and fanning out to `numWorkers` goroutines (workers that all run at the same time as each other, rather than one after another — this is what "concurrency" means). Each goroutine pulls jobs from `jobCh`
+(a "channel" — think of it as that mail slot from the analogy above: one goroutine can push a value in, and another goroutine can pick it up, and it is how goroutines hand data to each other safely)
 and sends results to `resultsCh`.
 
 ### How the channel was sized (the broken version)
@@ -75,12 +76,15 @@ describes what the original code looked like:
 resultsCh := make(chan chunkResult, numJobs)   // ← original, broken
 ```
 
+**In plain terms:** this line creates (in Go, `make` is how you construct certain built-in things like channels) a channel named `resultsCh` that carries values of type `chunkResult`, with an inbox tray big enough for `numJobs` envelopes before any sender has to wait.
+
 `numJobs` is the number of chunks. The thinking was: one result per chunk, so
 buffer `numJobs`. Reasonable at first glance.
 
 ### Why that reasoning is wrong
 
-Look at `chunkWorker` in `jsmn-go/parallel.go`. Each worker runs a `select` loop:
+Look at `chunkWorker` in `jsmn-go/parallel.go`. Each worker runs a `select` loop
+(a `select` block waits on several channels at once and runs whichever one has something ready first; a "loop" is just a block of code that repeats — here, forever, via `for {}` — until something inside it decides to stop):
 
 ```go
 // from jsmn-go/parallel.go
@@ -111,6 +115,8 @@ func chunkWorker(
 }
 ```
 
+**In plain terms:** this defines the code each worker goroutine runs. It sits in a loop watching two things at once: "has the job been canceled?" (`ctx.Done()`) and "is there a new job waiting?" (`jobCh`). If canceled, it tries to send a cancel message into `resultsCh` and then returns (stops running and hands control back). Otherwise it takes a job, does the work (`processChunk`), and sends the result — and if that work hit an error, it returns too. `return` here is the point where the function finishes and hands things back to whoever started this goroutine.
+
 A worker can send to `resultsCh` in **two places**:
 
 1. When it finishes a job — that is the "job send".
@@ -133,13 +139,21 @@ Scenario (numWorkers = 4, numJobs = 4):
   ─────────────────────────────────────────── DEADLOCK
 ```
 
+**In plain terms:** all four mail-slot trays are already full of job results. When cancellation fires, every worker tries to drop one more envelope (its cancel message) into the same full tray — and simply waits there forever, since nothing is emptying the tray yet. Because that worker is stuck waiting (this is what "blocks" means: the line simply waits, the worker pauses there and does nothing else, until something changes), it never gets to the line that would mark it "done" on the tally board.
+
 `wg.Wait()` is the only thing guarding the `close(resultsCh)` call that would
 let `mergeChunkResults` start draining. Nobody is draining, so the send blocks.
 Nobody can unblock the send because draining hasn't started. Classic deadlock.
 
 !!! warning "recover() cannot help here"
     A deadlocked `wg.Wait()` is not a panic — it is a goroutine blocked on a
-    mutex/semaphore. `recover()` only catches panics. The process simply hangs.
+    mutex/semaphore (a mutex is a lock that lets only one goroutine touch a
+    shared piece of data at a time; a semaphore is a similar traffic-control
+    device that limits how many goroutines may proceed at once). `recover()`
+    (a built-in mechanism for catching a program crash, called a "panic", so
+    the program can keep running instead of stopping dead) only catches
+    panics — a hang isn't a crash, so there is nothing for it to catch. The
+    process simply hangs.
 
 ---
 
@@ -155,6 +169,11 @@ The current code in `jsmn-go/parallel.go` (line 55) reads:
 // An under-sized buffer here deadlocks wg.Wait on mid-parse cancellation.
 resultsCh := make(chan chunkResult, numJobs+numWorkers)
 ```
+
+**In plain terms:** the only change is the number in the parentheses — the
+inbox tray is now big enough to hold every possible envelope (both kinds,
+from every worker) at once, so no worker ever has to stand there waiting for
+space.
 
 Worst-case sends = `numJobs` (one per chunk) + `numWorkers` (one cancel result
 per goroutine). Size the buffer to that ceiling and every send is guaranteed to
@@ -183,6 +202,10 @@ The fixed code in `stb-image-go/stb_image.go` (line 109) mirrors the jsmn fix:
 errs := make(chan error, len(datas)+numWorkers)
 ```
 
+**In plain terms:** same fix, different channel — `errs` now has enough
+tray space for every possible decode-failure message plus every possible
+cancel message, so no worker can get stuck sending.
+
 The pattern:
 
 | Module | Channel | Old size | Correct size |
@@ -199,7 +222,10 @@ in one execution path, the channel buffer must accommodate K sends per worker.**
 
 A deadlock does not produce an error — the test just hangs. Standard test
 timeouts catch this, but they are slow (the default `go test` timeout is ten
-minutes). A faster approach is a watchdog: cancel a context mid-parse and assert
+minutes). ("Test" here means a small piece of code written to automatically
+check that another piece of code behaves correctly — you run it with the
+`go test` command, and it reports pass or fail without a human needing to
+watch.) A faster approach is a watchdog: cancel a context mid-parse and assert
 the call returns within a short deadline.
 
 The repo's tests follow this pattern (the real watchdog tests are
@@ -229,11 +255,21 @@ case <-time.After(5 * time.Second):
 }
 ```
 
+**In plain terms:** this test starts the real parsing work on one goroutine
+while a second goroutine cancels it partway through, then waits at most 5
+seconds for the first goroutine to finish (signaled by closing the `done`
+channel). If 5 seconds pass with no signal, the test declares failure
+(`t.Fatal`) instead of hanging for the full ten-minute default — that is the
+"watchdog": it barks quickly instead of waiting forever.
+
 Before the buffer fix, this test deadlocked on iteration 1 with `NumCPU=11`.
 After the fix, it returns promptly every time.
 
 !!! note "Try it"
-    Run the parallel parser tests with the race detector:
+    Run the parallel parser tests with the race detector (a tool built into Go
+    that watches a running program for two goroutines touching the same piece
+    of memory at the same time without a lock protecting it — a "data race" —
+    and reports it even if the program happens not to crash):
 
     ```bash
     cd jsmn-go && go test -race -count=1 -run TestParse ./...
@@ -250,8 +286,12 @@ After the fix, it returns promptly every time.
 It is worth being precise about these two numbers because the bug hinges on them
 being different.
 
-- `numWorkers = runtime.NumCPU()` — the number of goroutines in the pool.
-- `numJobs = len(jobs)` — the number of work items.
+- `numWorkers = runtime.NumCPU()` — the number of goroutines in the pool
+  (`runtime.NumCPU()` asks the computer how many processor cores it has, so
+  the pool creates one worker goroutine per core).
+- `numJobs = len(jobs)` — the number of work items (`len(...)` is how Go asks
+  "how many items are in this collection?" — here, `jobs` is a slice, which is
+  a resizable, ordered list of values, and `len(jobs)` counts how many are in it).
 
 `buildChunkJobs` caps `numJobs` at `numWorkers` (you cannot have more chunks than
 workers), so on the parallel path `numJobs == numWorkers`. In that case the worst
@@ -270,8 +310,11 @@ This bug was found by the 10-agent Opus security audit documented in
 `docs/audits/2026-06-23-code-review-security-audit.md`. It was classified as
 **High** severity (finding H1 for `jsmn-go`, H2 for `stb-image-go`) because:
 
-- The trigger is any caller using `context.WithTimeout` or `context.WithCancel`,
-  which is idiomatic Go for HTTP handlers and CLI tools.
+- The trigger is any caller (the code that runs — "calls" — this function,
+  waiting for it to return a result) using `context.WithTimeout` or
+  `context.WithCancel`, which is idiomatic Go for HTTP handlers (code that
+  responds to incoming web requests) and CLI tools (programs you run from a
+  command line by typing commands, rather than clicking icons).
 - The effect is permanent: the goroutines never exit, the call never returns,
   and the leaked goroutines keep the input slice alive.
 - The existing cancellation tests happened to cancel *before* the call entered

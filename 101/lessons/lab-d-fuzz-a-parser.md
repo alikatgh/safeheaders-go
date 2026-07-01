@@ -89,7 +89,10 @@ any hand-written test — the fuzzer found them in minutes.
 
 ## The real `FuzzParse` — what it does and why
 
-Open `dr-wav-go/dr_wav_fuzz_test.go`. Here is the complete function:
+Open `dr-wav-go/dr_wav_fuzz_test.go`. Here is the complete function (in plain
+terms: a named, reusable chunk of code — you can "call" or "run" it by name,
+and it may hand back a result to whoever ran it, which is what "return"
+means below):
 
 ```go
 // from dr-wav-go/dr_wav_fuzz_test.go
@@ -123,6 +126,32 @@ func FuzzParse(f *testing.F) {
 }
 ```
 
+**In plain terms:** this function builds one well-formed audio file in memory
+(the `valid` bytes), then registers it and four other tricky byte sequences
+as starting examples for the fuzzer with `f.Add(...)`. The `f.Fuzz(...)` part
+defines what happens on every mutated attempt: try to read (`Parse`) the
+bytes, and if that succeeds, run every other function on the result too,
+checking that none of them crash the program.
+
+A few words worth pinning down before you go further: a **function** here is
+a named, reusable piece of code — like `FuzzParse` itself, or `Parse`,
+`ValidateWAV`, `GetDuration` — that you can "call" (run) by writing its name
+followed by parentheses, optionally handing it some input values. When a
+function finishes its work and hands a result back to whoever called it,
+that's called "returning" a value. A **struct** (short for "structure"), like
+`WAV` or `WAVHeader` below, is a bundle of related named values grouped under
+one name — think of it as a labeled form with several blank fields to fill
+in; each labeled slot inside it (`AudioFormat`, `NumChannels`, and so on) is
+called a **field**. The square-bracket notation `[]byte{1, 2, 3, 4}` builds a
+**slice** — an ordered, resizable list — of **bytes** (a byte is one small
+unit of computer memory, able to hold a number from 0 to 255; raw files and
+network data are usually described as a stream of bytes). `package drwavgo`
+at the top of a file says which **package** (a named grouping of related Go
+code, roughly like a folder of code that can be reused elsewhere) the file's
+contents belong to, and `import "testing"` pulls in code that someone else
+already wrote and packaged up so this file can use it, without copying it in
+by hand.
+
 ### Why five seeds?
 
 | Seed | Purpose |
@@ -138,9 +167,17 @@ fuzzer from having to discover that branch through random mutation.
 
 ### What the fuzz body checks
 
-The `f.Fuzz` callback calls **every public method** on a successfully-parsed
-WAV. The invariant is simple: *if `Parse` returns nil error, nothing else may
-panic*. The fuzzer reports a crash if any call panics, not just `Parse` itself.
+The `f.Fuzz` callback (a function you hand to something else, to be run later
+— here, run once per mutated input, rather than run directly by you) calls
+**every public method** on a successfully-parsed WAV. A **method** is just a
+function that is attached to a particular struct — you call it "on" a value,
+like `wav.GetDuration()`, rather than passing the value in as a separate
+argument. The invariant is simple: *if `Parse` returns nil error, nothing else may
+panic*. "Nil" is Go's word for "nothing here" — an empty, absent value; a
+function that "returns nil error" is reporting that nothing went wrong. A
+**panic** is Go's term for the program hitting a fatal, unrecoverable problem
+mid-run and aborting instead of continuing normally — the opposite of a
+graceful error message. The fuzzer reports a crash if any call panics, not just `Parse` itself.
 
 This is the same pattern used across the codebase — call every accessor so a
 latent divide-by-zero or nil-deref in a downstream function gets caught too.
@@ -151,7 +188,12 @@ latent divide-by-zero or nil-deref in a downstream function gets caught too.
 
 The fuzzer discovered that a WAV whose `data` subchunk header claims a huge
 size (e.g. 4 GB) caused `Parse` to call `make([]byte, 4294967295)` and crash
-the process with out-of-memory.
+the process with out-of-memory. `make([]byte, N)` is Go's way of asking the
+computer to reserve (in plain terms: "allocate," meaning set aside and hand
+you) a chunk of its memory big enough to hold `N` bytes in a row; if `N` is
+absurdly large — here, over four billion — the computer can run out of spare
+memory trying to satisfy the request, which is what "out-of-memory" (OOM)
+means: the program asked for more space than the machine had free to give.
 
 The fix in [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md) caps the allocation to the bytes actually
 remaining in the reader:
@@ -167,6 +209,13 @@ if string(subchunkID[:]) == "data" {
     ...
 }
 ```
+
+**In plain terms:** before reserving memory for the audio data, this code
+checks the size the file claims to need (`allocSize`) against `r.Len()` —
+how many bytes are actually still available to read. If the file's claimed
+size is bigger than what's really there, it shrinks the request down to what
+actually exists, so the program never tries to grab more memory than the
+machine can safely hand over.
 
 The principle: **never allocate based on an untrusted integer from the input**.
 Always bound it against something you already know is safe — here, the bytes
@@ -219,9 +268,13 @@ flags.
     ok      drwavgo    0.012s
     ```
 
-    When there is no `-fuzz` flag, `go test` runs `FuzzParse` once for each
+    When there is no `-fuzz` flag (a flag is an optional switch you add after
+    a command to change how it behaves — like a checkbox typed on the command
+    line), `go test` runs `FuzzParse` once for each
     seed in `testdata/fuzz/FuzzParse/` plus the seeds registered with `f.Add`.
-    This is how committed seeds become regression tests.
+    This is how committed seeds become regression tests (a regression test is
+    simply a check that re-runs a case which broke once before, to make sure
+    the same bug never comes back unnoticed).
 
 ### Step 2 — run the fuzzer for a short burst
 

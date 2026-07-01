@@ -89,7 +89,15 @@ denial-of-service bugs happen in production.
 ## The Config struct
 
 Both `jsmn-go` and `tinyxml2-go` follow the same pattern. Here is the JSON
-tokenizer's version, from [`jsmn-go/config.go`](src/jsmn-go-config-go.md):
+tokenizer's version, from [`jsmn-go/config.go`](src/jsmn-go-config-go.md) (a
+"package" here just means a named, reusable folder of Go source files — think
+of it as one labelled toolbox that other code can borrow from; a "module" is
+the whole project the packages live in). The `Config struct` you're about to
+read is a labeled bundle of related values — like a form with named blanks —
+grouped together under one name so code can pass them around as a single unit
+instead of as separate loose variables; each named blank inside it (like
+`MaxInputSize` below) is called a "field," and `int` just means that field's
+blank only ever holds a whole number:
 
 ```go
 // Config holds parsing configuration and limits.
@@ -112,6 +120,13 @@ type Config struct {
 }
 ```
 
+**In plain terms:** this is just a labeled form with four numeric blanks —
+the maximum input size in bytes (a "byte" is one unit of stored data, roughly
+one character of text; kilo/mega-byte prefixes mean a thousand/million of
+those), the maximum number of tokens allowed, how much space to set aside
+up front for tokens, and the size threshold above which the parser splits the
+work across multiple workers running at the same time.
+
 And the XML parser's version, from [`tinyxml2-go/config.go`](src/tinyxml2-go-config-go.md):
 
 ```go
@@ -122,13 +137,23 @@ type Config struct {
 }
 ```
 
-Notice the shape is the same — a plain struct, all exported fields, all `int`.
-No interface magic, no build tags. A caller can read the field names and
+Notice the shape is the same — a plain struct, all exported fields (in Go,
+capitalizing a field's name, as every field here is, is what makes it visible
+and usable to code outside this package — an "exported" field, as opposed to
+one only this package's own code could see), all `int`.
+No interface magic (an "interface" is a way of saying "anything that can do
+these actions qualifies," without pinning down exactly what it is — not needed
+here), no build tags (special markers that would compile different versions
+of the code for different situations). A caller (the code elsewhere that runs
+these functions) can read the field names and
 understand the contract without looking at documentation.
 
 `MaxNestingDepth` is the field that prevents **billion-laughs / stack-exhaustion
-attacks**: deeply nested XML causes the parser to recurse. Without a ceiling the
-runtime panics with a stack overflow that `recover` cannot catch (see
+attacks**: deeply nested XML causes the parser to recurse — that is, to call
+itself again on each inner layer it finds, layer after layer. Without a ceiling the
+runtime panics (crashes with an error partway through, instead of finishing normally) with a stack overflow (it runs out of the reserved space set aside for tracking
+all those nested calls) that `recover` (a Go mechanism for catching a panic
+before it takes down the whole program) cannot catch (see
 [Lesson 15](19-recursion-and-billion-laughs.md)). The tinyxml2-go parser enforces a hard
 ceiling of `10 000` regardless of this field — Config just sets the
 caller-visible soft limit.
@@ -137,7 +162,10 @@ caller-visible soft limit.
 
 ## Three preset constructors
 
-Each module ships three constructor functions. From `jsmn-go/config.go`:
+Each module ships three constructor functions — a "function" is a named,
+reusable block of instructions (like a recipe you can run whenever you need
+its result); a "constructor" is simply a function whose job is to build and
+hand back a ready-to-use value of some type, here a `*Config`. From `jsmn-go/config.go`:
 
 ```go
 func DefaultConfig() *Config {
@@ -168,6 +196,14 @@ func UnlimitedConfig() *Config {
 }
 ```
 
+**In plain terms:** each of these three functions fills out one of those
+labeled forms with a different set of numbers and hands the filled-out form
+back — "return" (also called "invoke" or "call" when you run a function to
+get that result) means the function finishes its work and passes its result
+back to whichever piece of code asked for it. `DefaultConfig` hands back
+generous everyday numbers, `StrictConfig` hands back tight, cautious numbers,
+and `UnlimitedConfig` hands back all zeros, meaning "no limit at all."
+
 The same trio appears in `tinyxml2-go/config.go` with matching field names and
 comments. Consistent naming across modules matters: once a developer learns this
 pattern in `jsmn-go`, they can navigate `tinyxml2-go` without reading a new
@@ -183,7 +219,11 @@ README.
 
 ## Validate: catching bad Config at construction time
 
-`Config.Validate()` runs before any parsing work. From `jsmn-go/config.go`:
+`Config.Validate()` runs before any parsing work. The `(c *Config)` right
+before the function name below makes this a "method" — a function that is
+attached to a particular struct, so it can reach into that struct's own
+fields (here, checking `c`'s fields directly) instead of being handed them
+separately. From `jsmn-go/config.go`:
 
 ```go
 func (c *Config) Validate() error {
@@ -202,6 +242,12 @@ func (c *Config) Validate() error {
     return nil
 }
 ```
+
+**In plain terms:** this method walks through each numeric field in the
+Config form and, if any of them is a negative number (which makes no sense
+for a size limit), it hands back a description of what's wrong instead of
+letting the program continue. If every field looks sane, it hands back
+`nil` — Go's way of saying "nothing went wrong."
 
 `tinyxml2-go/config.go` mirrors this for its three fields. The rule is: a `0`
 means "unlimited" (the caller opted out intentionally), but a negative number
@@ -227,6 +273,13 @@ func (c *Config) validateInput(data []byte) error {
 }
 ```
 
+**In plain terms:** `data []byte` means the input handed to this method is a
+"slice" — an ordered, resizable list — of raw bytes, i.e. the actual file
+content to be checked. `len(data)` counts how many bytes are in it. The
+method rejects an empty input outright, then rejects an input bigger than
+the configured ceiling — unless that ceiling is `0`, which (as the next
+paragraph explains) means "no limit."
+
 `tinyxml2-go/config.go` is identical in structure:
 
 ```go
@@ -249,7 +302,11 @@ entirely. This avoids a footgun where `0` accidentally means "reject everything"
 
 ## Sentinel errors
 
-Both modules declare their errors as package-level variables. From
+Both modules declare their errors as package-level variables — named values
+created once, up front, that any function in the package can refer to,
+rather than being built fresh each time they're needed. "Sentinel" here just
+means each one acts as a recognizable marker for one specific failure
+reason. From
 `jsmn-go/config.go`:
 
 ```go
@@ -259,6 +316,12 @@ var (
     ErrEmptyInput    = errors.New("empty input")
 )
 ```
+
+**In plain terms:** `errors.New(...)` builds one reusable error value
+carrying that text message. Because each of these three is created once and
+given its own name, other code (as shown just below) can check "is this the
+exact same error I'm thinking of?" instead of having to read and compare the
+message text.
 
 From `tinyxml2-go/config.go`:
 
@@ -282,12 +345,23 @@ if errors.Is(err, jsmngo.ErrInputTooLarge) {
 }
 ```
 
+**In plain terms:** this runs `ParseWithConfig` (in plain terms, "runs" here
+means the same thing as "calls" or "invokes" — you ask a function to do its
+work right now) and gets back two results — the parsed tokens and, possibly,
+an error. `errors.Is` then asks "is this specific error the same one as
+`ErrInputTooLarge`?" so the code can react precisely — here, telling the
+caller (via a web response) that the payload was too large.
+
 This lets you write tests that pin the exact error path, not just "an error
-occurred".
+occurred" (a "test" is a small piece of code written purely to check that
+another piece of code behaves correctly, run automatically rather than by a
+person clicking around).
 
 !!! warning "Token count checked after parsing"
     In `jsmn-go`, `MaxTokens` is enforced *after* `Parse` runs — the tokenizer
-    does its work and then the count is compared. This means the allocator still
+    does its work and then the count is compared. This means the allocator (the
+    part of the program that reserves chunks of the computer's memory to hold
+    data) still
     touches memory up to `MaxTokens`. If you need a hard pre-parse cap, set
     `MaxInputSize` tightly; the token count is a second line of defense against
     inputs that are small in bytes but generate many tokens (e.g. `[1,2,3,...,999999]`).
@@ -296,7 +370,9 @@ occurred".
 
 ## The ParseWithConfig entry point
 
-`ParseWithConfig` is the public function that wires everything together. From
+`ParseWithConfig` is the public function (one whose capitalized name, like the
+exported fields earlier, makes it callable from outside this package) that
+wires everything together. From
 `jsmn-go/config.go` (condensed):
 
 ```go
@@ -327,10 +403,24 @@ func ParseWithConfig(ctx context.Context, data []byte, config *Config) ([]Token,
 }
 ```
 
+**In plain terms:** `nil` is Go's word for "no value here / empty" — so
+`if config == nil` means "if the caller didn't supply a Config at all," in
+which case a sensible default is used instead of leaving it empty. `ctx
+context.Context` (shortened to `ctx`) is a standard Go value used to signal
+"stop early" — for example if the caller gave up waiting or a timer ran out
+— and the `select { case <-ctx.Done(): ... }` block is this function's way of
+checking "has someone asked me to stop?" before doing more work. If
+`shouldUseParallel` says the input is big enough to be worth it, the work is
+split across multiple workers running at the same time (see the concurrency
+lesson); otherwise it runs step by step in the current worker alone (the
+"serial path").
+
 The call order is always: validate Config → validate input → check context →
 do work. This sequence ensures that any limit violation is caught before a
 single byte of the input is processed, and that context cancellation is
-respected before any goroutines are launched.
+respected before any goroutines (Go's lightweight units of concurrent work —
+think of them as independent workers that can run at the same time as one
+another) are launched.
 
 !!! note "Try it"
     Run the config-related tests for both modules:
@@ -359,13 +449,15 @@ respected before any goroutines are launched.
 ## Why not just use constants?
 
 You might wonder: why a struct and constructors instead of package-level `const`
-values? Three reasons:
+values (fixed values written directly into the source code that can never
+change while the program runs)? Three reasons:
 
-1. **Per-call tuning.** A single binary may parse trusted internal data with
+1. **Per-call tuning.** A single binary (the finished, runnable program produced once the source code is compiled — turned from human-written text into instructions the machine can run) may parse trusted internal data with
    `DefaultConfig` and untrusted user uploads with `StrictConfig` — in the same
-   process, on the same code path.
+   running program (a "process"), on the same code path (the same sequence of function calls the program takes to do that work).
 2. **Testability.** A test can construct a `Config{MaxInputSize: 100}` and verify
-   limit enforcement on tiny inputs without manufacturing a 10 MB fixture.
+   limit enforcement on tiny inputs without manufacturing a 10 MB fixture (a
+   pre-made sample piece of test data set up ahead of time).
 3. **Future extensibility.** Adding a new field (say, `MaxAttributeCount`) is a
    backwards-compatible change — existing callers using `DefaultConfig()` get the
    new field's default automatically.

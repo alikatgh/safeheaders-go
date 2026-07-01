@@ -55,7 +55,7 @@ is the highlighted `data` size — cap it before any `make([]byte, n)`.
 
 ## The RIFF/WAV byte layout
 
-A canonical 44-byte WAV header looks like this:
+A canonical 44-byte WAV header looks like this. (A **byte** is the basic unit computers store data in — think of it as one small slot that holds one number from 0 to 255; a text character, or a small piece of a bigger number, typically fits in one byte.)
 
 ```
 Offset  Size  Field
@@ -77,14 +77,16 @@ Offset  Size  Field
 ```
 
 After the mandatory header, any number of extra subchunks may appear before
-`data`. The parser must scan forward until it finds the `"data"` tag.
+`data`. The parser must scan forward until it finds the `"data"` tag. ("The parser" is the piece of code whose job is to read the raw bytes and make sense of their layout — the thing that walks through this table field by field.)
 
 ---
 
 ## Reading fixed fields with `encoding/binary`
 
+`encoding/binary` is a **package** — a bundle of ready-made code that someone else wrote, which you can pull into your own program instead of writing that logic yourself. (You bring a package in with an `import` line at the top of a file; more on that below.)
+
 From [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), the `WAVHeader` struct maps directly onto the fixed
-fields in the `fmt ` subchunk:
+fields in the `fmt ` subchunk. (A **struct** is a labeled bundle of values that belong together — like a form with named blanks. Each named blank inside it, such as `AudioFormat` or `NumChannels` below, is called a **field**.)
 
 ```go
 // from dr-wav-go/dr_wav.go
@@ -98,7 +100,9 @@ type WAVHeader struct {
 }
 ```
 
-`Parse` wraps the input slice in a `bytes.Reader` and reads each field in order:
+**In plain terms:** this defines a form named `WAVHeader` with six labeled blanks. `uint16` and `uint32` just say how big a number can fit in that blank (16 bits or 32 bits — a **bit** is a single yes/no, 0-or-1 switch, and 8 bits make one byte, so `uint16` is 2 bytes and `uint32` is 4 bytes). Nothing runs here; this only describes the shape of the form so the rest of the code can fill it in.
+
+`Parse` wraps the input slice in a `bytes.Reader` and reads each field in order. (`Parse` is a **function** — a named, reusable piece of code that does one job when you run it; running a function is called **calling** or **invoking** it. A **slice** is Go's flexible view onto a sequence of bytes — think of it as a window over a stretch of a longer list, one you can resize or reposition without copying the underlying data. `bytes.Reader` is a small helper object that remembers "where you've read up to" in that slice, so each read continues from where the last one left off instead of starting over.)
 
 ```go
 // from dr-wav-go/dr_wav.go
@@ -120,9 +124,11 @@ binary.Read(r, binary.LittleEndian, &header.SampleRate)
 // … and so on for ByteRate, BlockAlign, BitsPerSample
 ```
 
+**In plain terms:** each line asks the reader for the next few bytes off the file, converts them from little-endian order into an ordinary number, and stores that number into one named blank of the `header` form (`&header.AudioFormat` means "put the result into this specific field" — the `&` says "here is where in memory that field lives, write directly there"). The reader automatically remembers how far it has gotten, so the next call picks up right after the last one stopped.
+
 Each `binary.Read` call consumes exactly the number of bytes that the target
 type requires. There is no manual offset arithmetic — `bytes.Reader` tracks the
-position internally.
+position internally. (An **offset** is just a distance, in bytes, from the start of the data — "byte number 40" rather than "the 40th item in a list." "Manual offset arithmetic" would mean the programmer has to calculate and track that distance by hand; here the reader does it for you.)
 
 !!! note "Why not read the whole struct at once?"
     `binary.Read` *can* decode a whole struct in one call if every field is a
@@ -149,9 +155,11 @@ if subchunk1Size > 16 {
 }
 ```
 
+**In plain terms:** if the file says its `fmt ` section is bigger than the normal 16 bytes, jump the reading position forward past the extra bytes without ever copying them into memory. If that jump fails (for example, it would land past the end of the file), the function **returns** an error instead of the parsed data — meaning it immediately stops and hands that error back to whatever code called it, rather than continuing.
+
 `Seek` with `io.SeekCurrent` moves the internal cursor by `n` bytes without
-reading or allocating. If the seek lands past EOF, the *next* read operation
-returns an error — a clean, safe failure rather than an OOM crash.
+reading or allocating. (**Allocating** means asking the computer to reserve a chunk of memory — its working space — for something; the risk in this lesson is reserving far more than the machine actually has.) If the seek lands past EOF, the *next* read operation
+returns an error — a clean, safe failure rather than an OOM crash. (**EOF** = "end of file," the point where there is no more data left to read. **OOM** = "out of memory" — the computer tried to reserve more working space than it has available, which crashes the program.)
 
 ---
 
@@ -187,6 +195,8 @@ func readDataChunk(r *bytes.Reader) ([]byte, error) {
 }
 ```
 
+**In plain terms:** this function repeats ("loops") the same steps over and over: read a 4-byte tag, read a 4-byte size, and check whether the tag is `"data"`. If it's not, jump past that subchunk and go around again. If it is `"data"`, first shrink the claimed size down to what's actually left in the file (the cap discussed below), then reserve exactly that much memory (`make([]byte, allocSize)` — this is the **allocation** step), fill it by reading that many bytes, and hand the result back to whoever called this function.
+
 The critical line is the cap:
 
 ```go
@@ -197,7 +207,7 @@ if allocSize > r.Len() {
 
 `r.Len()` returns the number of bytes *actually remaining* in the reader. A
 file claiming a 4 GB data chunk but containing only 100 bytes will allocate
-100 bytes, not 4 GB. This is the fix for the fuzz-discovered OOM bug (see
+100 bytes, not 4 GB. This is the fix for the fuzz-discovered OOM bug (**fuzzing** is an automated testing technique that bombards code with huge numbers of randomly mutated, often malformed inputs to try to trigger crashes — a **test** here is a small piece of code, separate from the main program, whose only job is to check that other code behaves correctly) (see
 [Lesson 17](17-unbounded-allocation-oom.md) for how `go test -fuzz` found it).
 
 !!! warning "Size fields are always untrusted"
@@ -210,7 +220,7 @@ file claiming a 4 GB data chunk but containing only 100 bytes will allocate
 
 ## Division-by-zero guards in derived calculations
 
-After parse, `GetSampleCount` computes how many samples are in the data:
+After parse, `GetSampleCount` computes how many samples are in the data. (The `(w *WAV)` before the function name makes this a **method** — a function that is attached to a particular kind of struct, here `WAV`, and is called as `someWav.GetSampleCount()` rather than standing alone.)
 
 ```go
 // from dr-wav-go/dr_wav.go
@@ -223,10 +233,12 @@ func (w *WAV) GetSampleCount() int {
 }
 ```
 
+**In plain terms:** work out how many bytes make up one audio sample; if that comes out to zero, or if there are zero channels, just report a count of 0 instead of doing a division that would blow up the program. Otherwise, divide the total data length by the sample size and by the channel count to get the sample count.
+
 `Parse` does not reject a zero-channel header — that is left to `ValidateWAV`.
 So `GetSampleCount` must guard the division independently. The same guard
 applies to `bytesPerSample`: if `BitsPerSample` is 0, dividing by 8 gives 0,
-and dividing by that would panic.
+and dividing by that would panic. (A **panic** is Go's term for the program hitting an error so severe it stops running immediately, right there — dividing any number by zero is one of the classic ways to trigger one.)
 
 ---
 
@@ -246,6 +258,8 @@ func Serialize(wav *WAV) ([]byte, error) {
     // … write fields …
 }
 ```
+
+**In plain terms:** before doing any real work, check whether the audio data is too big to fit in a WAV file's size fields; if it is, immediately hand back an error and nothing else (the `nil` means "no bytes to give back"), rather than pressing on and writing a broken file.
 
 The check happens before any allocation. Failing fast with a clear error is
 preferable to writing a truncated file that silently corrupts audio data.
@@ -280,7 +294,7 @@ This separation keeps `Parse` focused on structure (does the byte layout make
 sense?) and `ValidateWAV` focused on semantics (do the values make sense?). A
 library that silently rejects odd-but-parseable headers surprises callers; one
 that parses everything and surfaces validation as a separate step is more
-composable.
+composable. (A **library** — also called a **package** — is a bundle of code someone wrote and shared so other programs can reuse it instead of rewriting the same logic. A **caller** is whatever other piece of code runs, i.e. calls, a given function; here it means whoever uses this WAV library.)
 
 ---
 
@@ -309,12 +323,22 @@ composable.
 ---
 
 !!! tip "Reading deeper"
-    `ParseBatch` in `dr-wav-go/dr_wav.go` uses a worker pool (one goroutine per
-    CPU) to parse multiple WAV files concurrently. The channel buffer sizes
-    match `len(dataList)` exactly so no goroutine blocks on a send —
+    `ParseBatch` in `dr-wav-go/dr_wav.go` uses a worker pool (one **goroutine**
+    per CPU — a goroutine is a lightweight, independently-running slice of a
+    program that Go can run at the same time as others, which is how a
+    program does several things **concurrently**, i.e. with multiple parts
+    genuinely making progress simultaneously instead of one strictly after
+    another) to parse multiple WAV files concurrently. The **channel** buffer
+    sizes (a channel is a pipe that goroutines use to hand values to each
+    other safely) match `len(dataList)` exactly so no goroutine **blocks** on
+    a send (to "block" means the line of code simply waits right there,
+    doing nothing else, until some condition is met — here, until there is
+    room in the channel to accept the value) —
     compare this with the deadlock bug in `jsmn-go` described in
     [Lesson 14](14-the-deadlock-bug.md), where a buffer that was one slot too
-    small caused `wg.Wait` to hang forever.
+    small caused `wg.Wait` to hang forever. (A **deadlock** is when one or
+    more of these waiting points can never be satisfied, so the program
+    freezes permanently instead of just pausing briefly.)
 
 ---
 

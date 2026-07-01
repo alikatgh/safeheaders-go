@@ -108,7 +108,7 @@ sends can happen in the worst case.
 
 Before building your own pool, look at the comment in
 `jsmn-go/parallel.go` (lines 51-55) that documents the real deadlock
-the team hit:
+the team hit (a deadlock is a situation where two or more parts of a program are each waiting on the other to move first, so nothing ever proceeds and the program simply freezes):
 
 ```go
 // Buffer for the worst case so no worker can block on send (and thus never
@@ -117,6 +117,8 @@ the team hit:
 // An under-sized buffer here deadlocks wg.Wait on mid-parse cancellation.
 resultsCh := make(chan chunkResult, numJobs+numWorkers)
 ```
+
+**In plain terms:** this line reserves a mail-slot-like "channel" (a pipe goroutines use to pass values to each other) sized to hold `numJobs+numWorkers` items at once, so nobody sending a result ever gets stuck waiting for space.
 
 The same pattern — for the same reason — appears in
 `stb-image-go/stb_image.go` (lines 106-109):
@@ -127,6 +129,8 @@ The same pattern — for the same reason — appears in
 // deadlocks wg.Wait when cancellation coincides with decode failures.
 errs := make(chan error, len(datas)+numWorkers)
 ```
+
+**In plain terms:** same idea as above, sized so every worker can report an error or a cancellation without ever getting stuck.
 
 The rule is:
 
@@ -142,10 +146,14 @@ buffer = numJobs + numWorkers
 That's the formula you will use in this lab.
 
 !!! warning "The silent failure mode"
-    An under-sized `resultsCh` does not panic. The program just hangs at
+    An under-sized `resultsCh` does not panic (in plain terms: the program
+    doesn't crash with a visible error). The program just hangs at
     `wg.Wait()` forever, with no error message. This is why the jsmn-go team
-    added a watchdog test that cancels mid-parse and asserts the function
-    returns promptly — the deadlock was invisible without it.
+    added a watchdog test (a small piece of code written specifically to check
+    that another piece of code behaves correctly) that cancels mid-parse and
+    asserts the function returns promptly (in plain terms: it checks that the
+    function finishes and hands its result back quickly, rather than hanging)
+    — the deadlock was invisible without it.
 
 ---
 
@@ -157,6 +165,11 @@ Create a new directory outside the workspace so you can iterate freely:
 mkdir -p /tmp/pool-lab && cd /tmp/pool-lab
 go mod init pool-lab
 ```
+
+**In plain terms:** the first line makes a new folder and moves into it; the
+second line turns that folder into a Go "package" — a named, importable unit
+of code (a package is just a folder of Go source files that other code can
+pull in with an `import` statement) — and names it `pool-lab`.
 
 Create `pool.go`:
 
@@ -252,12 +265,59 @@ func identity(s string) (string, error) {
 }
 ```
 
+**In plain terms:** this file defines a "struct" called `Result` — a bundle of
+labeled values (here, an index number, a text value, and an error) grouped
+under one name, the way a form has labeled boxes (each labeled box is called
+a "field"). It also defines a function named `Process` — a named, reusable
+block of instructions that takes inputs (here `ctx`, `items`, and `fn`) and
+returns (hands back to whoever ran it) a list of `Result`s and an error.
+`items []string` means "a slice of strings" — a slice is a resizable list of
+values sitting in memory; `[]string` is the type "list of text values."
+`fn func(string) (string, error)` means `fn` is itself a function that the
+caller (the code that runs `Process`) hands in as an input, to be run once
+per item.
+
+Inside `Process`: `make(chan int, len(items))` creates a channel — a pipe
+that goroutines use to send values to each other safely — sized to hold
+`len(items)` values without anyone waiting. A goroutine is a lightweight,
+independently-running stream of instructions; Go can run many of them at once,
+and this pattern of running many goroutines side by side to get work done
+faster is called concurrency. The line `jobs <- i` sends the number `i` into
+that channel; `close(jobs)` marks the channel as "no more values coming,"
+which lets a receiver detect when it's empty. `go func() { ... }()` is how you
+start a new goroutine — the code inside the curly braces begins running
+independently, at the same time as everything after it.
+
+`var wg sync.WaitGroup` sets up a "departure board" object (explained above in
+plain English) that the coordinator uses to know when every goroutine has
+finished. `wg.Add(1)` marks one more goroutine to wait for; `defer wg.Done()`
+schedules "mark this one goroutine as finished" to run automatically right
+before that goroutine exits, however it exits. `wg.Wait()` is where the
+coordinator blocks — meaning that line simply waits, doing nothing else,
+until the counter of unfinished goroutines drops back to zero.
+
+The `select { case ...: ... }` block lets a goroutine wait on two channels at
+once — it proceeds with whichever one produces a value first: either a new
+job arriving on `jobs`, or the `ctx.Done()` signal firing because the context
+was cancelled. `ctx.Err()` asks the context "has cancellation already
+happened?" and hands back an error if so. `out <- Result{...}` sends a
+finished `Result` value into the `out` channel so the coordinator can collect
+it later; `for r := range out` loops over every value that arrives on `out`
+until it is closed. This whole block is the "BUG (intentional)" this lab
+exists to find and fix: `out` is sized only for `len(items)` sends, but as the
+comments show, a cancelling worker can also send — so in the worst case there
+are more sends than the channel has room for, and a worker gets stuck forever
+trying to send, which means it never reaches `wg.Done()`.
+
 !!! note "Try it (happy path, should pass)"
     ```bash
     cd /tmp/pool-lab
     go test -v -run TestHappyPath ./...
     ```
-    You need a test file first — create it in Step 2.
+    You need a test file first — create it in Step 2. (A test is a small piece
+    of code written specifically to check that another piece of code behaves
+    correctly; `go test` finds and runs all the tests in a package and reports
+    which passed or failed.)
 
 ---
 
@@ -326,6 +386,18 @@ func TestErrPropagation(t *testing.T) {
 	}
 }
 ```
+
+**In plain terms:** each `func TestXxx(t *testing.T) { ... }` is one
+independent test; `t.Fatalf` records a failure with a message and stops that
+test immediately, while `t.Fatal` does the same without the message
+formatting. `t.Parallel()` tells Go's testing tool it's safe to run this test
+at the same time as other tests, rather than one after another.
+`TestCancelDeadlock` builds a context that automatically cancels itself after
+a timeout (a fixed amount of time to wait before giving up) using
+`context.WithTimeout`, starts `Process` running in its own goroutine, and then
+races two things in a `select`: either that goroutine finishes and signals
+`done`, or 2 real seconds pass. If the 2-second branch wins, the test declares
+a likely deadlock — proof that `Process` never returned.
 
 Run the happy path:
 
@@ -403,9 +475,14 @@ PASS
 
 ## Step 4 — prove there is no data race
 
+A data race is a bug where two goroutines read and write the same piece of
+memory at the same time with no coordination, so the result depends on
+unpredictable timing — one of the hardest categories of bug to spot by eye.
 The pool writes `results` from multiple goroutines — the only shared mutable
-state is the `out` channel, which Go's channel implementation protects
-internally. But let the race detector confirm it:
+state (memory that more than one goroutine can change) is the `out` channel,
+which Go's channel implementation protects internally. But let the race
+detector (a tool built into Go that watches a running program and flags
+exactly this kind of unsafe simultaneous access) confirm it:
 
 !!! note "Try it"
     ```bash

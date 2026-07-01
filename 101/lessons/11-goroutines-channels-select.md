@@ -108,9 +108,11 @@ loop, you can read all of it.
 go fmt.Println("hello from a goroutine")
 ```
 
-`go` before any function call spins it into the background. The caller keeps running
-immediately. If `main` returns first, the goroutine is silently killed, so production
-code always synchronises with `sync.WaitGroup` or channels.
+**In plain terms:** this line starts a tiny background task that prints a message, and does not make the rest of the program wait for it to finish.
+
+`go` before any function call (a named, reusable chunk of instructions you can run — "call" or "invoke" a function means "run it") spins it into the background. The caller (the code that started it running) keeps running
+immediately. If `main` returns first — that is, if the program's entry-point function finishes and hands control back before the background task is done — the goroutine (a lightweight, independently-running task; Go's version of a "worker" that costs almost nothing to start, as opposed to a full operating-system thread) is silently killed, so production
+code always synchronises with `sync.WaitGroup` (a counter object that lets one part of the program wait until a group of background tasks has finished) or channels (typed pipes that let two goroutines pass values safely between them).
 
 ```go
 var wg sync.WaitGroup
@@ -121,6 +123,8 @@ go func() {
 }()
 wg.Wait() // block until the goroutine calls Done()
 ```
+
+**In plain terms:** `wg.Add(1)` says "I'm about to start one background task," the goroutine runs and calls `Done()` when it finishes (`defer` means "run this line automatically right before the surrounding function exits, no matter how it exits"), and `wg.Wait()` makes the main program pause — "block" means the line simply waits there and does nothing else — until that task reports it is done.
 
 ---
 
@@ -138,6 +142,8 @@ go func() {
 v := <-ch // blocks until sender sends
 fmt.Println(v) // 42
 ```
+
+**In plain terms:** `make(chan int)` creates a pipe that can carry whole numbers between goroutines. The background task tries to send the number 42 through it, but that send simply waits until something on the other end is ready to receive; the main code's `v := <-ch` line does that receiving, and both sides unblock together the instant they meet.
 
 Sender and receiver must both be ready at the same moment — a rendezvous.
 Use this when timing matters: if one side isn't there yet, you want to wait,
@@ -170,8 +176,10 @@ for v := range ch { // drains until closed
 }
 ```
 
-`range` on a channel drains it and exits the loop when the channel is closed.
-Sending to a closed channel panics, so only the producer should call `close`.
+**In plain terms:** the code drops five numbers into the pipe, then closes it to mean "nothing more is coming." The `for v := range ch` loop pulls values out one at a time and stops automatically once the pipe is both empty and closed — no explicit "are we done?" check needed.
+
+`range` (a loop keyword that steps through every item in something, one at a time) on a channel drains it and exits the loop when the channel is closed.
+Sending to a closed channel panics (the program hits an unrecoverable error and stops, unless something explicitly catches it), so only the producer should call `close`.
 
 ---
 
@@ -186,8 +194,10 @@ case <-ctx.Done():
 }
 ```
 
+**In plain terms:** `select` waits on two pipes at once. If a message arrives on `inbox` first, it gets processed; if instead the cancellation signal `ctx.Done()` fires first, the function returns (finishes and hands its result — here, an error — back to whoever called it) immediately. Whichever pipe has something ready first wins.
+
 If both channels are ready simultaneously, Go picks one uniformly at random.
-That randomness is a feature: it prevents starvation.
+That randomness is a feature: it prevents starvation (a situation where one task never gets its turn because something else is always chosen ahead of it).
 
 !!! warning "Priority matters sometimes"
     If you need a strict priority check (e.g. "always honour cancellation
@@ -223,6 +233,8 @@ if len(datas) < numWorkers {
 }
 ```
 
+**In plain terms:** figure out how many CPU cores the machine has, then cap the number of workers at however many images there actually are (a slice — an ordered, resizable list of values, here `datas` — holds those images; `len(datas)` counts how many items are in it).
+
 No point spawning more workers than there are images.
 
 ### Step 2 — pre-fill a buffered jobs channel, then close it
@@ -234,6 +246,8 @@ for i := 0; i < len(datas); i++ {
 }
 close(jobs)            // signal: no more work will arrive
 ```
+
+**In plain terms:** create a buffered pipe big enough to hold one number per image, drop in each image's position number (its "index" — its position, counting from 0, in the list) rather than the image data itself, then close the pipe to announce that all the work has been posted.
 
 Closing immediately after filling is the classic "fan-out" pattern. Workers
 read indices from `jobs`; when the channel is drained and closed, `range jobs`
@@ -248,11 +262,13 @@ read indices from `jobs`; when the channel is drained and closed, `range jobs`
 errs := make(chan error, len(datas)+numWorkers)
 ```
 
+**In plain terms:** make one more buffered pipe, this time for errors, sized large enough to hold a failure message from every single image PLUS a cancellation message from every worker — the worst case where everything goes wrong at once.
+
 This comment is the most important line in the file. If the buffer were only
-`len(datas)`, a cancelled context could cause every worker to *also* try to
+`len(datas)`, a cancelled context (Go's built-in mechanism for signalling "stop now" — a deadline or a cancel — across goroutines) could cause every worker to *also* try to
 send `ctx.Err()` on the same channel. With N workers all trying to send and
 nobody reading yet, the `N`th send blocks. The goroutine is stuck. `wg.Wait`
-waits for it. Deadlock. The fix is to reserve space for both failure kinds.
+waits for it. Deadlock (every remaining goroutine is permanently stuck waiting on something that will never happen, so the program hangs forever). The fix is to reserve space for both failure kinds.
 
 !!! note "This was a real bug"
     The original buffer was `len(datas)`. A cancellation during a full-error
@@ -296,6 +312,8 @@ for i := 0; i < numWorkers; i++ {
 }
 ```
 
+**In plain terms:** launch `numWorkers` background tasks. Each one loops forever until it decides to stop: first it checks whether cancellation has already happened; then it waits on `select` for either a job index to pull from `jobs`, or a cancellation signal. If it gets a job, it loads that image and records either the result or an error; if `jobs` is closed and empty, or cancellation fires, it exits the loop and reports it is done.
+
 Key observations:
 
 1. **`defer wg.Done()`** — fires however the goroutine exits (normal,
@@ -307,7 +325,9 @@ Key observations:
    cancellation is honoured immediately.
 3. **`ok` sentinel** — `case idx, ok := <-jobs` detects a closed channel.
    When `ok` is false the worker returns cleanly.
-4. **Write to `results[idx]`** — no mutex needed because each goroutine owns
+4. **Write to `results[idx]`** — no mutex (a lock that lets only one goroutine touch a
+   shared piece of data at a time, preventing two workers from corrupting it by writing
+   at once) needed because each goroutine owns
    a distinct index; they never write the same slot.
 
 ### Step 5 — drain, then collect errors

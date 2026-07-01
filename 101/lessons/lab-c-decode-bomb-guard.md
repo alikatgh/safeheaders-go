@@ -91,15 +91,18 @@ your server's memory.
 
 ## The image pixel guard (`stb-image-go`)
 
-[`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) exports a single tunable:
+[`stb-image-go/stb_image.go`](src/stb-image-go-stb-image-go.md) exports a single tunable (in plain terms: this file is one "package" — a bundled unit of code that other code can pull in and reuse — and it makes one setting adjustable from outside):
 
 ```go
 // from stb-image-go/stb_image.go
 var MaxImagePixels = 64 << 20   // 64 megapixels (e.g. 8192 × 8192)
 ```
 
+**In plain terms:** this line creates a named setting, `MaxImagePixels`, and gives it a starting value of about 64 million. Because it's declared with `var` at the package level (outside of any function), any code in the package can read or change it later — it isn't locked away inside one piece of code.
+
 The internal helper `checkPixelLimit` reads only the image header — a cheap call
-that does not allocate pixel memory — and rejects anything too large:
+(in plain terms: "call" a function just means "run" it, and "cheap" here means it takes very little time or memory)
+that does not allocate pixel memory (in plain terms: "allocate" means reserve a chunk of the computer's memory to hold something — here, it means the check does *not* reserve any memory for the actual picture) — and rejects anything too large:
 
 ```go
 // from stb-image-go/stb_image.go
@@ -120,6 +123,8 @@ func checkPixelLimit(data []byte) error {
 }
 ```
 
+**In plain terms:** this is a function — a named, reusable block of instructions (in plain terms: think of it as a small recipe you can run by name whenever you need it). `checkPixelLimit` takes the raw file bytes (in plain terms: a "byte" is one small unit of digital data — files and memory are made of many bytes strung together; `[]byte` means "a list of bytes"), peeks only at the header to find the width and height, multiplies them, and compares that to the limit. If the picture would be too big, it hands back (in plain terms: "return" means the function finishes and passes a result back to whoever ran it — the "caller") an error describing why; otherwise it returns `nil`, meaning "no error, all clear."
+
 `Load` calls this before ever touching `image.Decode`:
 
 ```go
@@ -136,7 +141,9 @@ func Load(data []byte) (image.Image, error) {
 }
 ```
 
-`LoadStream` does the same for an `io.Reader` by using `io.TeeReader` to peek
+**In plain terms:** `Load` is the function callers actually use. It first invokes (in plain terms: "invoke" is just another word for "call" — run the function) `checkPixelLimit`; if that comes back with an error, `Load` immediately hands that error back to whoever called it and stops — it never reaches the expensive `image.Decode` line that would actually reserve memory for every pixel.
+
+`LoadStream` does the same for an `io.Reader` (in plain terms: a value representing "a stream of bytes coming from somewhere" — a file, a network connection, anything you can read data out of piece by piece, rather than all the data already sitting in memory) by using `io.TeeReader` to peek
 at the header bytes without consuming them:
 
 ```go
@@ -168,7 +175,7 @@ var MaxDecompressedSize int64 = 256 << 20   // 256 MiB aggregate
 ```
 
 The helper `readAllLimited` wraps `io.LimitReader` and then checks whether the
-limit was actually hit:
+limit was actually hit (in plain terms: "wraps" means it takes an existing tool and adds a bit of extra behavior around it, without changing the original):
 
 ```go
 // from miniz-go/miniz.go
@@ -189,6 +196,8 @@ func readAllLimited(r io.Reader, limit int64) ([]byte, error) {
 }
 ```
 
+**In plain terms:** this function reads a stream of bytes but refuses to read more than `limit + 1` of them, using `io.LimitReader` as a safety valve. It then checks: did the amount actually read come out bigger than the allowed `limit`? If so, that is the tell-tale sign of a decode bomb, and the function returns an error instead of the data.
+
 !!! warning "The +1 trick"
     `io.LimitReader(r, limit)` reads *up to* `limit` bytes without error.
     Without the `+1` you cannot tell whether the stream ended exactly at the
@@ -196,7 +205,7 @@ func readAllLimited(r io.Reader, limit int64) ([]byte, error) {
     you can test `len(data) > limit` to distinguish the two cases.
 
 `ExtractArchive` applies the budget *across all entries*, not per entry. A ZIP
-bomb with 1000 small entries is still caught:
+bomb with 1000 small entries is still caught (the code below loops over each file in the archive one at a time, running the same steps for each — this repeating-steps pattern is called a "loop"):
 
 ```go
 // from miniz-go/miniz.go
@@ -220,6 +229,8 @@ for _, f := range r.File {
 }
 ```
 
+**In plain terms:** before opening each file inside the archive, the code checks how much of the total budget is left (`MaxDecompressedSize - total`); if nothing is left, it stops and errors out immediately. Otherwise it reads that one file (capped at whatever remains) and adds its size to the running `total`, so the very next entry in the loop sees a smaller remaining allowance. That running tally is what stops many small "innocent-looking" entries from adding up to a bomb.
+
 ---
 
 ## Lab: write your own guard and test it
@@ -232,9 +243,9 @@ guards, then add a test that proves:
 
 ### Step 1 — create the test file
 
-Create `stb-image-go/guard_lab_test.go` with the content below. The test file
+Create `stb-image-go/guard_lab_test.go` with the content below. A "test" here is simply a small piece of code, written for the machine rather than a person, whose only job is to run some other code and check that the result is what you expected — instead of you checking by hand every time. The test file
 uses the `_test` package suffix so it can set `MaxImagePixels` without affecting
-other tests that run in parallel.
+other tests that run in parallel (in plain terms: "in parallel" means several tests running at the same time rather than one after another — so a change one test makes to a shared setting could interfere with another test running alongside it).
 
 ```go
 // stb-image-go/guard_lab_test.go  (new file — your lab work)
@@ -304,6 +315,8 @@ func TestNormalImagePasses(t *testing.T) {
     t.Logf("correctly accepted: %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
 }
 ```
+
+**In plain terms:** `encodePNG` is a helper function that builds a small fake picture of a given width and height, entirely in memory, and turns it into real PNG file bytes — so the tests below have something realistic to feed into `Load` without needing an actual image file on disk. `TestDecodeBombRejected` then temporarily lowers `MaxImagePixels` to a tiny number, builds an oversized picture, and checks that `Load` refuses it (`defer` here means "run this cleanup line automatically once the surrounding function is about to finish," which is how the original limit gets restored no matter what happens in between). `TestNormalImagePasses` does the same setup but with a picture that is exactly at the limit, and checks that `Load` accepts it instead.
 
 !!! note "Try it"
     Run the two new tests from the `stb-image-go` directory:

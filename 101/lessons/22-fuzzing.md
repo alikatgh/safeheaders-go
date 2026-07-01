@@ -101,15 +101,15 @@ audio data backed by 4 bytes of actual bytes.
 
 Go 1.18 added native fuzzing. The rules are simple:
 
-- The function must be named `FuzzXxx` and live in a `_test.go` file.
-- Its first argument is `*testing.F`, not `*testing.T`.
-- You call `f.Add(...)` to register seed values (one call per seed).
+- The function must be named `FuzzXxx` and live in a `_test.go` file (in Go, any file whose name ends in `_test.go` is a special file that holds tests instead of program logic — the compiler, the tool that turns human-written source text into a runnable program, treats it differently from regular code).
+- Its first argument is `*testing.F`, not `*testing.T`. (A function's "arguments" are the values you hand it to work with when you run it. `*testing.F` and `*testing.T` are two different kinds of helper objects Go's testing tools pass in — `F` is for fuzz tests, `T` is for ordinary ones.)
+- You call `f.Add(...)` to register seed values (one call per seed). ("Calling" a function just means running it, right here, with specific values plugged in.)
 - You call `f.Fuzz(func(t *testing.T, data []byte) { ... })` with your test
-  body.
+  body. (`func(...) { ... }` is Go's way of writing a small nameless function on the spot, right where it's needed, instead of defining it elsewhere and giving it a name. `[]byte` means "a stretchy list of bytes" — a byte is one small chunk of computer memory, usually enough to hold one letter or a small number.)
 
 During `go test` (no flags) the engine replays every file in
-`testdata/fuzz/FuzzXxx/` as a unit test. During `go test -fuzz=FuzzXxx` it
-runs indefinitely, mutating inputs and looking for panics.
+`testdata/fuzz/FuzzXxx/` as a unit test (a unit test is a small, automated check that runs a specific piece of code and confirms it behaves as expected — it's the programmer's version of double-checking your work). During `go test -fuzz=FuzzXxx` it
+runs indefinitely, mutating inputs and looking for panics (a "panic" is Go's term for the program hitting a fatal error it can't recover from at that moment — the running program stops what it's doing and unwinds, often crashing unless something is watching for it).
 
 ```bash
 # Run the fuzzer for 30 seconds against FuzzParse:
@@ -118,6 +118,8 @@ go test -fuzz=FuzzParse -fuzztime=30s ./dr-wav-go/
 # Replay only the known crash seeds (runs in CI like a normal test):
 go test ./dr-wav-go/
 ```
+
+**In plain terms:** the first command tells Go to hammer the `FuzzParse` function with randomly-mutated input for 30 seconds, hunting for crashes. The second command just replays the inputs that have already been saved as known trouble-makers, as a quick sanity check.
 
 ---
 
@@ -163,37 +165,41 @@ func FuzzParse(f *testing.F) {
 }
 ```
 
+**In plain terms:** this code hands the fuzzer five starting examples (one valid WAV file, an empty one, a truncated one, a blank 44-byte one, and one with zero audio channels), then tells it: for every random variation you try, parse the bytes, and if that succeeds, run every other function that reads the result — none of them should ever crash.
+
 Three things worth noticing:
 
 **1. Early-exit on parse failure.** The body returns immediately if `Parse`
-returns an error. The fuzzer is allowed to generate garbage — the important
+returns an error (in plain terms: as soon as the function reaches this `return`, it stops running right there and hands control back to whoever called it — nothing after it in the function runs for this attempt). The fuzzer is allowed to generate garbage — the important
 invariant is not "all bytes must parse" but "if parsing succeeds, no accessor
-may panic."
+may panic." (An "accessor" is just a small function whose only job is to read and hand back one piece of information from a larger bundle of data — here, things like "how many samples does this WAV have?")
 
 **2. Seeds cover interesting edge cases.** The last `f.Add` builds a WAV whose
-`NumChannels` is 0 (the default zero value). A hand-written test suite probably
+`NumChannels` is 0 (the default zero value — in Go, a variable that's never explicitly set starts out at a predictable "empty" value, `0` for numbers). A hand-written test suite probably
 never constructs that, but it is a one-mutation step away from valid input.
 
 **3. Every accessor is exercised.** Not just `Parse` — also `ValidateWAV`,
 `GetDuration`, `GetSampleCount`, `ExtractChannels`, and `Serialize`. Any of
-those could have a hidden divide-by-zero or nil-deref on edge-case headers.
+those could have a hidden divide-by-zero or nil-deref on edge-case headers. ("Nil" is Go's word for "no value here" — a nil-deref is trying to read details out of something that turned out to be empty, which crashes the program.)
 
 ---
 
 ## Bug 1 — the OOM crash
 
 The WAV format stores the size of each data chunk as a `uint32` field inside
-the file. Before the fix, the code did:
+the file (a `uint32` is a number stored in a fixed-size 4-byte slot that can only hold non-negative whole numbers — it cannot represent anything larger than about 4.3 billion, and it cannot go negative). Before the fix, the code did:
 
 ```go
 // BEFORE (unsafe — trusts untrusted input)
 pcmData := make([]byte, subchunkSize)  // subchunkSize comes from the file
 ```
 
+**In plain terms:** `make([]byte, subchunkSize)` tells the program "reserve a chunk of memory big enough to hold `subchunkSize` bytes" (this reserving is called allocating memory) — and it does this using a number read straight from the file, with no sanity check on how large that number is.
+
 The fuzzer produced a header where `subchunkSize` was 4,294,967,295
 (`0xFFFFFFFF`, the maximum `uint32`) while only 4 bytes of actual data followed
-it. The `make` call tried to allocate 4 GB on the heap and the process was
-killed by the OOM killer.
+it. The `make` call tried to allocate 4 GB on the heap (the "heap" is the large pool of memory a running program can request chunks from) and the process was
+killed by the OOM killer (OOM = "out of memory" — when a program tries to grab more memory than the computer can give it, the operating system forcibly kills it rather than let it keep trying).
 
 The fix is in [`dr-wav-go/dr_wav.go`](src/dr-wav-go-dr-wav-go.md), inside `readDataChunk`:
 
@@ -206,7 +212,9 @@ if allocSize > r.Len() {
 pcmData := make([]byte, allocSize)
 ```
 
-`r.Len()` returns how many bytes are left in the `bytes.Reader`. By capping the
+**In plain terms:** before reserving memory, the fixed code first checks how many bytes are actually left to read, and if the file's claimed size is bigger than that, it uses the smaller, real number instead — so a lying header can no longer trigger a multi-gigabyte reservation.
+
+`r.Len()` returns how many bytes are left in the `bytes.Reader` (a "Reader" here is a small helper object that hands out bytes from the file one piece at a time and keeps track of how much is left — the function "returns" a value, meaning it finishes its work and hands that value back to whoever asked). By capping the
 allocation to what is actually present, the function can never allocate more
 than the input itself, no matter what the header claims.
 
@@ -219,7 +227,7 @@ than the input itself, no matter what the header claims.
 
 ## Bug 2 — the divide-by-zero crash
 
-After parsing succeeds, the caller can ask for the sample count:
+After parsing succeeds, the caller can ask for the sample count (the "caller" is whatever code runs — calls — this function; here it means the fuzz test itself, invoking `GetSampleCount` on the parsed result):
 
 ```go
 // from dr-wav-go/dr_wav.go
@@ -231,6 +239,8 @@ func (w *WAV) GetSampleCount() int {
     return len(w.Data) / bytesPerSample / int(w.Header.NumChannels)
 }
 ```
+
+**In plain terms:** this function calculates how many audio samples are in the file by dividing the total data length by the size of one sample. Before it does that division, it checks whether either number it's about to divide by is zero — dividing by zero is not just "wrong," it makes the program crash outright, so the check simply hands back `0` instead of ever attempting it.
 
 The current code guards `NumChannels == 0` and `BitsPerSample == 0` with an
 early return. Before this guard existed, `GetSampleCount` divided by
@@ -252,7 +262,7 @@ validate those fields); `GetSampleCount` then divided by zero.
 
 !!! warning "Accessors can panic even on "successful" parses"
     `Parse` returning `nil` error does not mean the parsed struct is safe to
-    use. Fields derived from untrusted binary data may be zero, negative, or
+    use. (A "struct" is Go's way of bundling several related pieces of data — here, all the WAV header details — into one named package; each named piece inside it, like `NumChannels`, is called a "field.") Fields derived from untrusted binary data may be zero, negative, or
     otherwise surprising. Every accessor that does arithmetic on header fields
     must guard those fields explicitly.
 
@@ -272,8 +282,8 @@ dr-wav-go/
 ```
 
 From that point on, running `go test ./dr-wav-go/` (no `-fuzz` flag, as in
-normal CI) automatically replays every file in that directory. If the bug
-comes back — for example, someone removes the `NumChannels == 0` guard — the
+normal CI — "CI" stands for Continuous Integration, the automated system that runs a project's tests every time someone proposes a change, before that change is allowed in) automatically replays every file in that directory. If the bug
+comes back — for example, someone removes the `NumChannels == 0` guard (a "guard" is just a check, like the `if` condition above, placed before risky code to stop it from running when conditions are unsafe) — the
 test fails immediately, on every run.
 
 This is why fuzz-found seeds belong in the repository alongside the fix, not in
@@ -317,8 +327,8 @@ found `GetSampleCount` crashing not by breaking the parser, but by feeding a
 header that the parser accepted and that exposed a missing guard further down
 the call chain.
 
-The same pattern applies across every module in this workspace. A good fuzz
-corpus seeds from a real (valid) file, then exercises every public function
+The same pattern applies across every module in this workspace (a "module" here is one self-contained chunk of the codebase — like `dr-wav-go`, the WAV-file part — that can be built and tested on its own). A good fuzz
+corpus (the "corpus" is simply the whole collection of seed and crash files a fuzzer has accumulated for a given function) seeds from a real (valid) file, then exercises every public function
 that consumes the parsed result.
 
 ---

@@ -90,8 +90,15 @@ audit — use the stdlib for the grammar, write Go for everything else.
 
 ## cjson-go: JSON with an array-size brake
 
-[`cjson-go/cjson.go`](src/cjson-go-cjson-go.md) is a thin layer over `encoding/json`.
-The interesting addition is `UnmarshalArrayParallel`.
+[`cjson-go/cjson.go`](src/cjson-go-cjson-go.md) is a thin layer over `encoding/json` (a
+"package" is a bundle of pre-written code that solves one problem — here, reading and
+writing JSON text — that you can pull into your own program instead of writing that logic
+yourself; `encoding/json` ships as part of Go's own "standard library," the large set of
+trustworthy, built-in packages every Go program can use for free).
+The interesting addition is `UnmarshalArrayParallel` — a "function" is a named, reusable
+chunk of instructions; you "call" (or "invoke") a function by writing its name to make the
+computer run those instructions right now, optionally handing it some input and later
+getting a result back.
 
 ### The cap
 
@@ -113,7 +120,17 @@ func UnmarshalArrayParallel(data []byte) ([]map[string]interface{}, error) {
 }
 ```
 
-The first `json.Unmarshal` into `[]json.RawMessage` is cheap: it records offsets, it does
+**In plain terms:** this function takes in raw JSON text (`data`, a sequence of bytes — a
+byte is the basic unit computers store information in, roughly one character's worth) and
+tries to read it as a list of items. `[]byte` means "a list of bytes," and a "list" here is
+what programmers call a "slice" — a resizable, ordered collection of values, similar to a
+numbered row of boxes. It first checks whether the list is longer than the allowed maximum
+and, if so, hands back ("returns" — the function stops running and gives its result back to
+whoever called it) an error instead of proceeding.
+
+The first `json.Unmarshal` into `[]json.RawMessage` is cheap: it records offsets (an offset
+is just "how far into the data this piece starts," a position counted in bytes from the
+beginning), it does
 **not** decode each element. The cap fires before any per-item work begins. Adjust
 `MaxArrayItems` to 0 to disable it — but only do that if you control the input.
 
@@ -152,9 +169,24 @@ wg.Wait()
 close(errs)
 ```
 
+**In plain terms:** rather than decoding every array element one after another, this code
+splits the work across several "workers" that run at the same time (this is called
+"concurrency" — the ability to have multiple pieces of work in flight together, each one a
+"goroutine," which is Go's lightweight name for an independent, concurrently-running unit of
+work). It creates one job per array item, lets `numWorkers` goroutines pick jobs off a shared
+queue (a "channel" — a typed pipe that one goroutine can send values into and another can
+receive them from, safely, even when many goroutines use it at once), and waits for all of
+them to finish before moving on.
+
 Each worker picks an index off `jobs`, decodes one element, and writes to its own slot in
-`results` (no lock needed — slots never overlap). The `errs` channel is buffered to
-`numWorkers` so a failing worker can always send without blocking.
+`results` (no lock needed — slots never overlap; a "lock," also called a "mutex," is a tool
+that lets only one goroutine touch a shared piece of data at a time, preventing two workers
+from corrupting it by writing simultaneously — it isn't needed here because each worker only
+ever writes to its own reserved slot). The `errs` channel is buffered to
+`numWorkers` so a failing worker can always send without blocking (a channel operation
+"blocks" when it simply waits — the goroutine pauses right there and does nothing else until
+someone is ready to receive what it sent; "buffered" means the channel can hold a few values
+before anyone receives them, so the sender doesn't have to wait every time).
 
 ### Stream path: the caller must set the limit
 
@@ -171,6 +203,12 @@ func UnmarshalStream(r io.Reader, v interface{}) error {
     return nil
 }
 ```
+
+**In plain terms:** instead of handing this function a complete chunk of bytes already sitting
+in memory, you hand it an `io.Reader` — a stand-in for "something that produces bytes over
+time," like a network connection still receiving data. The function reads from it piece by
+piece and decodes it into `v` (an "interface" like `interface{}` is Go's way of saying "a
+value of any type"; here it means "whatever variable you pass in to receive the result").
 
 The comment is load-bearing. Streaming hides the total size, so the library cannot
 safely enforce a cap itself. You wrap the reader:
@@ -210,9 +248,16 @@ func Parse(data []byte) (*GLTF, error) {
 }
 ```
 
+**In plain terms:** this function reads the raw file bytes, turns them into a `GLTF` value —
+a "struct," Go's word for a bundle of related named pieces of data grouped under one type,
+similar to a form with labeled fields (a "field" is one of those named slots, like
+`Asset.Version` here) — and hands that struct back if the bytes were valid JSON and the
+required version field was present.
+
 `Parse` only checks that the JSON is well-formed and that the mandatory `asset.version`
 field is present. Integer indices scattered throughout the file — scene index, node
-indices, mesh indices — are not checked here.
+indices, mesh indices — are not checked here (an "index" is a number giving the position of
+an item in a list, counting from zero — so index `2` means "the third item").
 
 ### ValidateGLTF: cross-reference checks
 
@@ -248,6 +293,11 @@ func ValidateGLTF(gltf *GLTF) error {
 }
 ```
 
+**In plain terms:** this function walks through the parsed struct and checks that every index
+it contains actually points at something that exists — for example, that a scene's node
+number is not bigger than the list of nodes actually has entries for. If any reference points
+outside the bounds of its list, it hands back an error describing exactly which one is bad.
+
 These range-checks are exactly what `encoding/json` cannot do: it has no idea that the
 integer `99` in `"scene": 99` is supposed to be a valid index into the `scenes` array.
 
@@ -271,8 +321,15 @@ func ParseBatch(ctx context.Context, dataList [][]byte) ([]*GLTF, error) {
 }
 ```
 
+**In plain terms:** this function parses many glTF files at once by spreading the work over
+several goroutines (the same "run things at the same time" idea used in cjson-go above), and
+collects all the finished results into `resultChan` for the caller to read back.
+
 `ParseBatch` respects a `context.Context` — cancel it and workers stop picking up new work
-within one item. Each result carries the original index so the output slice preserves
+within one item (a `Context` is a small, standard Go value you pass around that carries a
+"please stop soon" signal and optional deadlines; goroutines that check it can bail out early
+instead of running to completion once nobody needs their answer). Each result carries the
+original index so the output slice preserves
 input order regardless of which worker finishes first.
 
 !!! tip "Always validate after batch parse"
@@ -283,10 +340,22 @@ input order regardless of which worker finishes first.
 
 ## tinyxml2-go: depth limits against the billion-laughs attack
 
-[`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) wraps `encoding/xml` into a DOM, which means it builds a
-recursive tree in memory. Recursive trees have a specific failure mode: deeply nested
-input can overflow the goroutine stack — and unlike a panic, a stack overflow is a
-**fatal** error that `recover()` cannot catch.
+[`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) wraps `encoding/xml` into a DOM
+(a "DOM," or Document Object Model, is a tree-shaped representation of a document in memory —
+each element becomes a "node" that can contain child nodes, mirroring how the tags are nested
+in the original file), which means it builds a
+recursive tree in memory ("recursive" describes a function that calls itself to handle
+smaller and smaller pieces of the same problem — here, parsing one XML element calls the same
+parsing logic again for each element nested inside it; "in memory" means the tree is
+"allocated" — reserved as a chunk of the computer's working memory, RAM — rather than kept on
+disk). Recursive trees have a specific failure mode: deeply nested
+input can overflow the goroutine stack (every goroutine gets a limited region of memory,
+its "stack," to keep track of function calls in progress; each nested recursive call uses a
+bit more of it, and sufficiently deep nesting can exhaust that region entirely) — and unlike
+a panic (Go's term for a program erroring out abruptly mid-execution), a stack overflow is a
+**fatal** error that `recover()` cannot catch (`recover()` is the normal tool for regaining
+control after a panic and continuing to run; a stack overflow bypasses it entirely and
+crashes the whole program).
 
 ### The hard ceiling
 
@@ -304,6 +373,10 @@ func parseElement(dec *xml.Decoder, se xml.StartElement, depth int) (*Node, erro
     ...
 }
 ```
+
+**In plain terms:** every time the parser steps one level deeper into nested XML tags, it
+calls itself again with `depth` increased by one; if that count ever passes the hard-coded
+ceiling of 10,000, it stops immediately and reports an error instead of continuing to recurse.
 
 This ceiling applies even to the bare `Parse` path and to `UnlimitedConfig`. There is no
 way to configure it away — that is intentional.
@@ -334,6 +407,12 @@ The config lives in [`tinyxml2-go/config.go`](src/tinyxml2-go-config-go.md):
     MaxNestingDepth: 0,
 }
 ```
+
+**In plain terms:** these are three ready-made bundles of settings (each one a `Config`
+struct — the bundle-of-named-fields idea from cgltf-go above) that trade off strictness
+against flexibility: `DefaultConfig` is reasonable for everyday use, `StrictConfig` clamps
+things down hard for input you don't trust, and `UnlimitedConfig` turns off every adjustable
+limit while the un-adjustable 10,000-deep ceiling from above still applies no matter what.
 
 ### Using ParseWithConfig
 
@@ -381,8 +460,18 @@ func (n *Node) FindDeep(name string) *Node {
 }
 ```
 
+**In plain terms:** instead of having the function call itself for each child node (which
+would grow the goroutine stack the same way `parseElement` above does), it keeps its own
+manual to-do list — the `stack` slice — of nodes still waiting to be checked, adding and
+removing items from that list with an ordinary loop. `*Node` means "a pointer to a `Node`" —
+a pointer is a value that stores the location of some other piece of data in memory rather
+than a copy of the data itself, so passing one around is cheap and lets multiple places refer
+to the exact same node.
+
 The explicit stack replaces recursion. Children are pushed in reverse so they pop in
-document order (pre-order DFS). `FindAllDeep` has the same shape and collects all
+document order (pre-order DFS — "depth-first search," a strategy for walking a tree that
+dives all the way down one branch before backing up to try the next). `FindAllDeep` has the
+same shape and collects all
 matches. Neither can overflow the goroutine stack no matter how deep the tree is.
 
 ---
@@ -399,7 +488,10 @@ matches. Neither can overflow the goroutine stack no matter how deep the tree is
 ---
 
 !!! note "Try it"
-    Run the test suite for all three modules from the workspace root:
+    Run the test suite for all three modules from the workspace root (a "test suite" is a
+    collection of small programs, each one called a "test," that runs a piece of code and
+    checks the result matches what's expected — `go test` is the command that finds and runs
+    them, printing PASS or FAIL for each one):
 
     ```bash
     cd /path/to/safeheaders-go
@@ -418,7 +510,10 @@ matches. Neither can overflow the goroutine stack no matter how deep the tree is
     go test ./tinyxml2-go/... -run 'Nesting|DepthCeiling' -v
     ```
 
-    To run with the race detector (catches concurrent map writes and slice races):
+    To run with the race detector (a "race" happens when two goroutines read and write the
+    same piece of memory at the same time without coordination, producing unpredictable
+    results; this extra check instruments the test run to catch that class of bug — it
+    catches concurrent map writes and slice races):
 
     ```bash
     go test -race ./cjson-go/... ./cgltf-go/... ./tinyxml2-go/...
