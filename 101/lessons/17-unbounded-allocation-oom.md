@@ -30,76 +30,39 @@ required.
       <path d="M0,0 L0,6 L8,3 Z" fill="currentColor"/>
     </marker>
   </defs>
-
-  <!-- Column headers -->
   <text x="175" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#e5484d">BEFORE (unsafe)</text>
   <text x="525" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="var(--md-accent-fg-color,#00897b)">AFTER (safe)</text>
-
-  <!-- Divider -->
   <line x1="350" y1="10" x2="350" y2="300" stroke="var(--md-default-fg-color--lightest,#ccc)" stroke-width="1" stroke-dasharray="4,4"/>
-
-  <!-- === LEFT SIDE === -->
-
-  <!-- Box 1: crafted file -->
   <rect x="60" y="44" width="230" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
   <text x="175" y="61" text-anchor="middle" font-size="11" fill="currentColor">Attacker-crafted WAV file</text>
   <text x="175" y="77" text-anchor="middle" font-size="11" fill="currentColor">subchunkSize = 0xFFFFFFFF (~4 GB)</text>
-
-  <!-- Arrow -->
   <line x1="175" y1="86" x2="175" y2="114" stroke="currentColor" stroke-width="1.5" marker-end="url(#l17-arrow)"/>
-
-  <!-- Box 2: make call -->
   <rect x="60" y="114" width="230" height="42" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="175" y="131" text-anchor="middle" font-size="11" fill="currentColor">Parser calls directly:</text>
   <text x="175" y="149" text-anchor="middle" font-size="11" font-style="italic" fill="currentColor">make([]byte, subchunkSize)</text>
-
-  <!-- Arrow -->
   <line x1="175" y1="156" x2="175" y2="184" stroke="currentColor" stroke-width="1.5" marker-end="url(#l17-arrow)"/>
-
-  <!-- Box 3: OS request -->
   <rect x="60" y="184" width="230" height="42" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="175" y="201" text-anchor="middle" font-size="11" fill="currentColor">OS asked for ~4 GB of RAM</text>
   <text x="175" y="219" text-anchor="middle" font-size="11" fill="currentColor">on a 44-byte file</text>
-
-  <!-- Arrow -->
   <line x1="175" y1="226" x2="175" y2="254" stroke="currentColor" stroke-width="1.5" marker-end="url(#l17-arrow)"/>
-
-  <!-- Box 4: OOM -->
   <rect x="60" y="254" width="230" height="38" rx="6" fill="#e5484d" stroke="#e5484d" stroke-width="1.5"/>
   <text x="175" y="270" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">OOM — process killed</text>
   <text x="175" y="285" text-anchor="middle" font-size="10" fill="#fff">denial of service, no exploit needed</text>
-
-  <!-- === RIGHT SIDE === -->
-
-  <!-- Box 1: same crafted file -->
   <rect x="410" y="44" width="230" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
   <text x="525" y="61" text-anchor="middle" font-size="11" fill="currentColor">Attacker-crafted WAV file</text>
   <text x="525" y="77" text-anchor="middle" font-size="11" fill="currentColor">subchunkSize = 0xFFFFFFFF (~4 GB)</text>
-
-  <!-- Arrow -->
   <line x1="525" y1="86" x2="525" y2="114" stroke="currentColor" stroke-width="1.5" marker-end="url(#l17-arrow)"/>
-
-  <!-- Box 2: cap check -->
   <rect x="410" y="114" width="230" height="56" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="525" y="131" text-anchor="middle" font-size="11" fill="currentColor">Cap check:</text>
   <text x="525" y="147" text-anchor="middle" font-size="11" font-style="italic" fill="currentColor">if allocSize &gt; r.Len() {</text>
   <text x="525" y="162" text-anchor="middle" font-size="11" font-style="italic" fill="currentColor">  allocSize = r.Len() // 44 bytes</text>
-
-  <!-- Arrow -->
   <line x1="525" y1="170" x2="525" y2="198" stroke="currentColor" stroke-width="1.5" marker-end="url(#l17-arrow)"/>
-
-  <!-- Box 3: bounded make -->
   <rect x="410" y="198" width="230" height="42" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="525" y="215" text-anchor="middle" font-size="11" fill="currentColor">make([]byte, 44)</text>
   <text x="525" y="233" text-anchor="middle" font-size="11" fill="currentColor">bounded by bytes physically present</text>
-
-  <!-- Arrow -->
   <line x1="525" y1="240" x2="525" y2="258" stroke="currentColor" stroke-width="1.5" marker-end="url(#l17-arrow)"/>
-
-  <!-- Box 4: success -->
   <rect x="410" y="258" width="230" height="34" rx="6" fill="var(--md-accent-fg-color,#00897b)" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
-  <text x="525" y="279" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Parse continues safely</text>
-</svg>
+  <text x="525" y="279" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Parse continues safely</text></svg>
 
 ---
 

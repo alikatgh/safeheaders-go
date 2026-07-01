@@ -35,44 +35,27 @@ them.
       <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
     </marker>
   </defs>
-
-  <!-- Phase 1 label -->
   <text x="110" y="22" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,currentColor)">Phase 1 — 10 Parallel Finders</text>
-
-  <!-- 10 module reviewer boxes (2 columns of 5) -->
-  <!-- Left column -->
   <rect x="10" y="32" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="55" y="49" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">jsmn-go</text>
-
   <rect x="10" y="66" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="55" y="83" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">stb-image-go</text>
-
   <rect x="10" y="100" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="55" y="117" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">linenoise-go</text>
-
   <rect x="10" y="134" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="55" y="151" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">stb-truetype-go</text>
-
   <rect x="10" y="168" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="55" y="185" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">miniz-go</text>
-
-  <!-- Right column -->
   <rect x="115" y="32" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="160" y="49" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">tinyxml2-go</text>
-
   <rect x="115" y="66" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="160" y="83" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">cgltf-go</text>
-
   <rect x="115" y="100" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="160" y="117" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">dr-wav-go</text>
-
   <rect x="115" y="134" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="160" y="151" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">module-9</text>
-
   <rect x="115" y="168" width="90" height="26" rx="5" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.2"/>
   <text x="160" y="185" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">module-10</text>
-
-  <!-- Arrows from all 10 finders to verifier -->
   <line x1="100" y1="45" x2="280" y2="120" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
   <line x1="100" y1="79" x2="280" y2="122" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
   <line x1="100" y1="113" x2="280" y2="128" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
@@ -83,31 +66,20 @@ them.
   <line x1="205" y1="113" x2="280" y2="128" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
   <line x1="205" y1="147" x2="280" y2="134" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
   <line x1="205" y1="181" x2="280" y2="140" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1" marker-end="url(#l26-arrow)"/>
-
-  <!-- "26 candidates" label on the arrows -->
   <text x="242" y="98" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">26 candidates</text>
-
-  <!-- Phase 2 — Verifier box -->
   <rect x="280" y="100" width="140" height="60" rx="7" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="350" y="124" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Adversarial</text>
   <text x="350" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Verifier</text>
   <text x="350" y="155" text-anchor="middle" font-size="10" fill="#fff">(reproduce or reject)</text>
-
-  <!-- Output: confirmed bugs -->
   <line x1="420" y1="120" x2="520" y2="90" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l26-arrow)"/>
   <rect x="522" y="68" width="158" height="44" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="601" y="88" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">25 Confirmed Bugs</text>
   <text x="601" y="104" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">0 false positives</text>
-
-  <!-- Output: uncertain -->
   <line x1="420" y1="140" x2="520" y2="170" stroke="#e5484d" stroke-width="1.5" marker-end="url(#l26-arrow)"/>
   <rect x="522" y="149" width="158" height="36" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="601" y="168" text-anchor="middle" font-size="11" font-weight="600" fill="#e5484d">U1 — Uncertain</text>
   <text x="601" y="180" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,currentColor)">(not reproducible)</text>
-
-  <!-- Phase 2 label -->
-  <text x="350" y="176" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,currentColor)">Phase 2 — Verify</text>
-</svg>
+  <text x="350" y="176" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,currentColor)">Phase 2 — Verify</text></svg>
 
 ---
 

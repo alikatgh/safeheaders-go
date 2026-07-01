@@ -48,8 +48,7 @@ the original input, so no value is ever copied.
     <rect x="436" y="206" width="112" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="492" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">t3 Primitive</text><text x="492" y="246" text-anchor="middle" fill="var(--md-default-fg-color--light)">Start 6 · End 7</text><text x="492" y="263" text-anchor="middle" fill="var(--md-default-fg-color--light)">1</text><text x="492" y="282" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">Parent 2</text>
     <rect x="568" y="206" width="112" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="624" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">t4 Primitive</text><text x="624" y="246" text-anchor="middle" fill="var(--md-default-fg-color--light)">Start 8 · End 9</text><text x="624" y="263" text-anchor="middle" fill="var(--md-default-fg-color--light)">2</text><text x="624" y="282" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">Parent 2</text>
   </g>
-  <text x="360" y="314" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">arrows = ParentIdx · one pre-allocated []Token · zero per-value heap allocation</text>
-</svg>
+  <text x="360" y="314" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">arrows = ParentIdx · one pre-allocated []Token · zero per-value heap allocation</text></svg>
 
 ---
 

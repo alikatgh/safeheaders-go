@@ -54,8 +54,7 @@ at the budget and the decode is rejected before any giant allocation.
   <rect x="480" y="196" width="200" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="580" y="218" text-anchor="middle" font-size="11.5" fill="currentColor">reads ≤ budget, then stops</text>
   <text x="580" y="236" text-anchor="middle" font-size="11" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">✓ ErrTooLarge — request rejected</text>
-  <text x="360" y="294" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">the guard must fire BEFORE image.Decode / zip.Open allocates — a header check is cheap, the allocation is not</text>
-</svg>
+  <text x="360" y="294" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">the guard must fire BEFORE image.Decode / zip.Open allocates — a header check is cheap, the allocation is not</text></svg>
 
 ---
 

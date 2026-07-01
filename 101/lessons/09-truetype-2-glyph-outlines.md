@@ -58,8 +58,7 @@ sum.
   <text x="454" y="214" font-size="11" fill="currentColor">Coordinates are stored as deltas:</text>
   <text x="454" y="236" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-family="ui-monospace,monospace">x += dx ;  y += dy</text>
   <text x="454" y="266" font-size="11" fill="currentColor">glyphBudget caps total points:</text>
-  <text x="454" y="288" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-family="ui-monospace,monospace">maxGlyphPoints = 1&lt;&lt;20</text>
-</svg>
+  <text x="454" y="288" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-family="ui-monospace,monospace">maxGlyphPoints = 1&lt;&lt;20</text></svg>
 
 ---
 

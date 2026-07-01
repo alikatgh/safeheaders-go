@@ -48,8 +48,7 @@ is the highlighted `data` size — cap it before any `make([]byte, n)`.
   <text x="360" y="40" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">each chunk = 4-byte tag · 4-byte little-endian size · payload — read left to right</text>
   <path d="M545,150 L545,178" fill="none" stroke="#e5484d" stroke-width="1.4"/>
   <text x="360" y="196" text-anchor="middle" font-size="12" fill="#e5484d" font-weight="600">untrusted — a crafted file can claim 4 GB here</text>
-  <text x="360" y="214" text-anchor="middle" font-size="11.5" fill="currentColor" font-family="ui-monospace,monospace">cap it, then make([]byte, n) — never trust the number</text>
-</svg>
+  <text x="360" y="214" text-anchor="middle" font-size="11.5" fill="currentColor" font-family="ui-monospace,monospace">cap it, then make([]byte, n) — never trust the number</text></svg>
 
 ---
 

@@ -40,87 +40,46 @@ would have caught it immediately; the hand-written unit tests did not.
       <path d="M0,0 L8,3.5 L0,7 Z" fill="#e5484d"/>
     </marker>
   </defs>
-
-  <!-- Row labels -->
   <text x="10" y="75" font-size="11" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">PASS</text>
   <text x="10" y="175" font-size="11" fill="#e5484d" font-weight="600">FAIL</text>
-
-  <!-- ── TOP ROW (correct path) ── -->
-  <!-- Box: original bytes -->
   <rect x="50" y="50" width="90" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
   <text x="95" y="68" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">original</text>
   <text x="95" y="83" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">bytes</text>
-
-  <!-- Arrow -->
   <line x1="140" y1="71" x2="163" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
-
-  <!-- Box: compressEntry -->
   <rect x="165" y="50" width="110" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
   <text x="220" y="68" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">compressEntry</text>
   <text x="220" y="83" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">(DEFLATE #1)</text>
-
-  <!-- Arrow -->
   <line x1="275" y1="71" x2="298" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
-
-  <!-- Box: CreateRaw -->
   <rect x="300" y="50" width="90" height="42" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4"/>
   <text x="345" y="68" font-size="11" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">CreateRaw</text>
   <text x="345" y="83" font-size="11" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">(no re-compress)</text>
-
-  <!-- Arrow -->
   <line x1="390" y1="71" x2="413" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
-
-  <!-- Box: ExtractArchive -->
   <rect x="415" y="50" width="100" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
   <text x="465" y="68" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">ExtractArchive</text>
   <text x="465" y="83" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">→ original ✓</text>
-
-  <!-- Arrow -->
   <line x1="515" y1="71" x2="538" y2="71" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l23-arr-ok)"/>
-
-  <!-- Result: PASS -->
   <rect x="540" y="50" width="70" height="42" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="575" y="68" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">bytes.Equal</text>
   <text x="575" y="84" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">== true</text>
-
-  <!-- ── BOTTOM ROW (buggy path) ── -->
-  <!-- Box: original bytes -->
   <rect x="50" y="150" width="90" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
   <text x="95" y="168" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">original</text>
   <text x="95" y="183" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">bytes</text>
-
-  <!-- Arrow -->
   <line x1="140" y1="171" x2="163" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
-
-  <!-- Box: compressEntry -->
   <rect x="165" y="150" width="110" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
   <text x="220" y="168" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">compressEntry</text>
   <text x="220" y="183" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">(DEFLATE #1)</text>
-
-  <!-- Arrow -->
   <line x1="275" y1="171" x2="298" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
-
-  <!-- Box: Create (BUG) -->
   <rect x="300" y="150" width="90" height="42" rx="6" fill="none" stroke="#e5484d" stroke-width="1.4"/>
   <text x="345" y="168" font-size="11" text-anchor="middle" fill="#e5484d">Create</text>
   <text x="345" y="183" font-size="11" text-anchor="middle" fill="#e5484d">+DEFLATE #2</text>
-
-  <!-- Arrow -->
   <line x1="390" y1="171" x2="413" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
-
-  <!-- Box: ExtractArchive -->
   <rect x="415" y="150" width="100" height="42" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2"/>
   <text x="465" y="168" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">ExtractArchive</text>
   <text x="465" y="183" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">→ garbled ✗</text>
-
-  <!-- Arrow -->
   <line x1="515" y1="171" x2="538" y2="171" stroke="#e5484d" stroke-width="1.4" marker-end="url(#l23-arr-bad)"/>
-
-  <!-- Result: FAIL -->
   <rect x="540" y="150" width="70" height="42" rx="6" fill="#e5484d"/>
   <text x="575" y="168" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">bytes.Equal</text>
-  <text x="575" y="184" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">== false</text>
-</svg>
+  <text x="575" y="184" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">== false</text></svg>
 
 ---
 

@@ -31,74 +31,48 @@ loop, you can read all of it.
       <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
     </marker>
   </defs>
-
-  <!-- Producer box -->
   <rect x="20" y="120" width="130" height="48" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="85" y="140" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Producer</text>
   <text x="85" y="157" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fills &amp; closes jobs</text>
-
-  <!-- Buffered jobs channel -->
   <rect x="195" y="110" width="140" height="68" rx="6" ry="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
   <text x="265" y="132" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">jobs channel</text>
   <text x="265" y="150" text-anchor="middle" font-size="10" fill="currentColor">make(chan int, N)</text>
   <text x="265" y="167" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">buffered · closed after fill</text>
-
-  <!-- Arrow: producer -> jobs channel -->
   <line x1="150" y1="144" x2="193" y2="144" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#l11-arrow)"/>
-
-  <!-- ctx.Done signal -->
   <rect x="195" y="240" width="140" height="44" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2"/>
   <text x="265" y="258" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">ctx.Done()</text>
   <text x="265" y="274" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">cancellation signal</text>
-
-  <!-- Three worker goroutines -->
-  <!-- Worker 1 -->
   <rect x="395" y="30" width="130" height="64" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="460" y="52" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 1</text>
   <text x="460" y="68" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">go func() · select</text>
   <text x="460" y="83" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">{ jobs | ctx.Done }</text>
-
-  <!-- Worker 2 -->
   <rect x="395" y="118" width="130" height="64" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="460" y="140" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 2</text>
   <text x="460" y="156" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">go func() · select</text>
   <text x="460" y="171" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">{ jobs | ctx.Done }</text>
-
-  <!-- Worker 3 -->
   <rect x="395" y="206" width="130" height="64" rx="6" ry="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="460" y="228" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 3</text>
   <text x="460" y="244" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">go func() · select</text>
   <text x="460" y="259" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">{ jobs | ctx.Done }</text>
-
-  <!-- Arrows: jobs channel -> workers -->
   <line x1="335" y1="134" x2="393" y2="62" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l11-arrow)"/>
   <line x1="335" y1="144" x2="393" y2="150" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l11-arrow)"/>
   <line x1="335" y1="155" x2="393" y2="238" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l11-arrow)"/>
-
-  <!-- Arrows: ctx.Done -> workers -->
   <line x1="335" y1="258" x2="393" y2="88" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
   <line x1="335" y1="262" x2="393" y2="176" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
   <line x1="335" y1="262" x2="393" y2="252" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
-
-  <!-- errs channel -->
   <rect x="560" y="118" width="120" height="64" rx="6" ry="6" fill="none" stroke="#e5484d" stroke-width="1.4"/>
   <text x="620" y="140" text-anchor="middle" font-size="12" fill="#e5484d" font-weight="600">errs channel</text>
   <text x="620" y="156" text-anchor="middle" font-size="10" fill="currentColor">make(chan error,</text>
   <text x="620" y="171" text-anchor="middle" font-size="10" fill="currentColor">N+workers)</text>
-
-  <!-- Arrows: workers -> errs -->
   <line x1="525" y1="70" x2="558" y2="138" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
   <line x1="525" y1="150" x2="558" y2="150" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
   <line x1="525" y1="245" x2="558" y2="165" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
-
-  <!-- Legend -->
   <line x1="20" y1="295" x2="45" y2="295" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#l11-arrow)"/>
   <text x="50" y="299" font-size="10" fill="var(--md-default-fg-color--light)">work flow</text>
   <line x1="120" y1="295" x2="145" y2="295" stroke="var(--md-default-fg-color--lighter)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#l11-arrow)"/>
   <text x="150" y="299" font-size="10" fill="var(--md-default-fg-color--light)">cancellation</text>
   <line x1="240" y1="295" x2="265" y2="295" stroke="#e5484d" stroke-width="1.2" marker-end="url(#l11-arrow)"/>
-  <text x="270" y="299" font-size="10" fill="var(--md-default-fg-color--light)">errors</text>
-</svg>
+  <text x="270" y="299" font-size="10" fill="var(--md-default-fg-color--light)">errors</text></svg>
 
 ---
 

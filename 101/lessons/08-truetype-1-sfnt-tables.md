@@ -29,64 +29,39 @@ No jargon — here's what the ideas in this lesson *actually* mean, and why they
       <path d="M0,0 L0,6 L8,3 z" fill="var(--md-default-fg-color)"/>
     </marker>
   </defs>
-
-  <!-- .ttf file box -->
   <rect x="20" y="20" width="200" height="300" rx="8" ry="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
   <text x="120" y="14" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">
     <tspan font-weight="600">.ttf file</tspan>
   </text>
-
-  <!-- 12-byte header row -->
   <rect x="30" y="30" width="180" height="36" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
   <text x="120" y="52" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">12-byte header (version, numTables)</text>
-
-  <!-- dir record 1 -->
   <rect x="30" y="76" width="180" height="34" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
   <text x="120" y="97" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">"head"  offset  length</text>
-
-  <!-- dir record 2 -->
   <rect x="30" y="118" width="180" height="34" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
   <text x="120" y="139" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">"glyf"  offset  length</text>
-
-  <!-- dir record 3 -->
   <rect x="30" y="160" width="180" height="34" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1"/>
   <text x="120" y="181" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">"loca"  offset  length</text>
-
-  <!-- dots -->
   <text x="120" y="215" font-size="14" text-anchor="middle" fill="var(--md-default-fg-color--light)">· · ·</text>
-
-  <!-- raw table data region -->
   <rect x="30" y="228" width="180" height="78" rx="4" ry="4" fill="var(--md-default-fg-color--lightest)" stroke="var(--md-default-fg-color--lighter)" stroke-width="1" stroke-dasharray="4,3"/>
   <text x="120" y="265" font-size="11" text-anchor="middle" fill="var(--md-default-fg-color)">rawData table bytes</text>
   <text x="120" y="282" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light)">(head, glyf, loca, cmap…)</text>
-
-  <!-- Arrow from directory to tableData -->
   <line x1="220" y1="140" x2="318" y2="140" stroke="var(--md-default-fg-color)" stroke-width="1.5" marker-end="url(#l08-arrow)"/>
   <text x="268" y="132" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light)">tag lookup</text>
-
-  <!-- tableData box -->
   <rect x="320" y="80" width="200" height="180" rx="8" ry="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
   <text x="420" y="74" font-size="11" text-anchor="middle" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">tableData(tag)</text>
-
   <text x="336" y="110" font-size="10" fill="var(--md-default-fg-color)">① tag in directory?</text>
   <text x="336" y="132" font-size="10" fill="var(--md-default-fg-color)">② start ≥ 0 ?</text>
   <text x="336" y="154" font-size="10" fill="var(--md-default-fg-color)">③ end ≥ start ?</text>
   <text x="336" y="176" font-size="10" fill="var(--md-default-fg-color)">④ end ≤ len(rawData) ?</text>
-
   <line x1="420" y1="197" x2="420" y2="220" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="3,3"/>
   <text x="420" y="240" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color)">all pass</text>
-
-  <!-- OK output -->
   <rect x="360" y="248" width="120" height="30" rx="4" ry="4" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="420" y="268" font-size="11" text-anchor="middle" fill="#fff">[]byte sub-slice, true</text>
-
-  <!-- Fail path -->
   <line x1="520" y1="140" x2="580" y2="140" stroke="#e5484d" stroke-width="1.5" marker-end="url(#l08-arrow)"/>
   <text x="550" y="132" font-size="10" text-anchor="middle" fill="#e5484d">any fail</text>
   <rect x="582" y="118" width="96" height="44" rx="4" ry="4" fill="#e5484d" stroke="none"/>
   <text x="630" y="138" font-size="11" text-anchor="middle" fill="#fff">nil, false</text>
-  <text x="630" y="154" font-size="10" text-anchor="middle" fill="#fff">(no panic)</text>
-</svg>
+  <text x="630" y="154" font-size="10" text-anchor="middle" fill="#fff">(no panic)</text></svg>
 
 ---
 

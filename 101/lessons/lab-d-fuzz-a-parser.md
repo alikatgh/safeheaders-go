@@ -37,53 +37,32 @@ any hand-written test — the fuzzer found them in minutes.
       <path d="M0,0 L0,7 L8,3.5 Z" fill="currentColor"/>
     </marker>
   </defs>
-
-  <!-- Seed Corpus box -->
   <rect x="20" y="110" width="130" height="52" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="85" y="131" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Seed Corpus</text>
   <text x="85" y="149" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">f.Add(...) + committed</text>
   <text x="85" y="163" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">crash seeds</text>
-
-  <!-- Arrow: Corpus → Mutator -->
   <line x1="150" y1="136" x2="198" y2="136" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
-
-  <!-- Mutator box -->
   <rect x="200" y="110" width="130" height="52" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="265" y="131" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Mutator</text>
   <text x="265" y="149" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">flip bits, insert bytes,</text>
   <text x="265" y="163" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">truncate</text>
-
-  <!-- Arrow: Mutator → Fuzz Target -->
   <line x1="330" y1="136" x2="378" y2="136" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
-
-  <!-- Fuzz Target box -->
   <rect x="380" y="100" width="140" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
   <text x="450" y="123" text-anchor="middle" font-size="12" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">Fuzz Target</text>
   <text x="450" y="141" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">Parse → Validate →</text>
   <text x="450" y="157" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">GetDuration → …</text>
   <text x="450" y="170" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lightest)">(branch tracking on)</text>
-
-  <!-- Arrow: Target → New branch (up-right) -->
   <line x1="520" y1="120" x2="588" y2="60" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
-
-  <!-- New branch outcome box -->
   <rect x="590" y="30" width="90" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="635" y="50" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">✓ New branch</text>
   <text x="635" y="66" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">keep input</text>
-
-  <!-- Arrow: New branch → Corpus (loop back, below boxes) -->
   <path d="M635,74 L635,270 L85,270 L85,162" stroke="currentColor" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#xlabdfu-arrow)"/>
   <text x="360" y="287" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">add to corpus, repeat</text>
-
-  <!-- Arrow: Target → Crash (down-right) -->
   <line x1="520" y1="153" x2="588" y2="210" stroke="#e5484d" stroke-width="1.5" marker-end="url(#xlabdfu-arrow)"/>
-
-  <!-- Crash outcome box -->
   <rect x="590" y="200" width="90" height="52" rx="6" fill="none" stroke="#e5484d" stroke-width="2"/>
   <text x="635" y="221" text-anchor="middle" font-size="11" font-weight="600" fill="#e5484d">✗ Panic</text>
   <text x="635" y="237" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">write crash seed</text>
-  <text x="635" y="250" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">to testdata/fuzz/</text>
-</svg>
+  <text x="635" y="250" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">to testdata/fuzz/</text></svg>
 
 ---
 

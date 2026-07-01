@@ -34,57 +34,36 @@ audit — use the stdlib for the grammar, write Go for everything else.
       <path d="M0,0 L0,6 L8,3 Z" fill="#e5484d"/>
     </marker>
   </defs>
-
-  <!-- Input label -->
   <text x="18" y="160" font-size="12" text-anchor="middle" dominant-baseline="middle" fill="currentColor" transform="rotate(-90,18,160)">raw bytes</text>
-
-  <!-- Arrow: input → stdlib -->
   <line x1="34" y1="155" x2="88" y2="155" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2" marker-end="url(#l06-arrow)"/>
-
-  <!-- Box 1: stdlib parser -->
   <rect x="90" y="100" width="150" height="110" rx="8" ry="8" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.5"/>
   <text x="165" y="135" font-size="12" font-weight="bold" text-anchor="middle" fill="currentColor">stdlib parser</text>
   <text x="165" y="153" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">encoding/json</text>
   <text x="165" y="167" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">encoding/xml</text>
   <text x="165" y="185" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--lightest,currentColor)">grammar only</text>
-
-  <!-- Arrow: stdlib → limits -->
   <line x1="241" y1="155" x2="275" y2="155" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2" marker-end="url(#l06-arrow)"/>
-
-  <!-- Box 2: Go limit checks -->
   <rect x="277" y="100" width="150" height="110" rx="8" ry="8" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.5"/>
   <text x="352" y="130" font-size="12" font-weight="bold" text-anchor="middle" fill="currentColor">Go limit checks</text>
   <text x="352" y="149" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">MaxArrayItems</text>
   <text x="352" y="163" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">MaxInputSize</text>
   <text x="352" y="177" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">maxNestingDepth</text>
   <text x="352" y="195" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--lightest,currentColor)">reject early</text>
-
-  <!-- Arrow: limits → validation -->
   <line x1="428" y1="155" x2="462" y2="155" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2" marker-end="url(#l06-arrow)"/>
-
-  <!-- Box 3: Go validation -->
   <rect x="464" y="100" width="150" height="110" rx="8" ry="8" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.5"/>
   <text x="539" y="130" font-size="12" font-weight="bold" text-anchor="middle" fill="currentColor">Go validation</text>
   <text x="539" y="149" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">ValidateGLTF</text>
   <text x="539" y="163" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">cross-ref checks</text>
   <text x="539" y="177" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--light,currentColor)">domain rules</text>
   <text x="539" y="195" font-size="10" text-anchor="middle" fill="var(--md-default-fg-color--lightest,currentColor)">semantics</text>
-
-  <!-- Arrow: validation → output -->
   <line x1="615" y1="155" x2="665" y2="155" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2" marker-end="url(#l06-arrow)"/>
   <text x="683" y="150" font-size="11" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">safe</text>
   <text x="683" y="163" font-size="11" text-anchor="middle" fill="var(--md-accent-fg-color,#00897b)">struct</text>
-
-  <!-- Rejection arrow down from limits box -->
   <line x1="352" y1="211" x2="352" y2="265" stroke="#e5484d" stroke-width="2" marker-end="url(#l06-arrow-err)"/>
   <rect x="295" y="268" width="115" height="28" rx="5" ry="5" fill="#e5484d" opacity="0.12" stroke="#e5484d" stroke-width="1"/>
   <text x="352" y="284" font-size="10" text-anchor="middle" fill="#e5484d">error returned</text>
-
-  <!-- Rejection arrow down from validation box -->
   <line x1="539" y1="211" x2="539" y2="265" stroke="#e5484d" stroke-width="2" marker-end="url(#l06-arrow-err)"/>
   <rect x="482" y="268" width="115" height="28" rx="5" ry="5" fill="#e5484d" opacity="0.12" stroke="#e5484d" stroke-width="1"/>
-  <text x="539" y="284" font-size="10" text-anchor="middle" fill="#e5484d">error returned</text>
-</svg>
+  <text x="539" y="284" font-size="10" text-anchor="middle" fill="#e5484d">error returned</text></svg>
 
 ---
 

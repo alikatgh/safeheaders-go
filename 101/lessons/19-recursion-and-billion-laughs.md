@@ -56,8 +56,7 @@ budget counter (`glyphBudget`), decremented across the whole expansion, stops it
   <g fill="var(--md-default-fg-color--lightest)"><circle cx="110" cy="224" r="5"/><circle cx="150" cy="224" r="5"/><circle cx="190" cy="224" r="5"/><circle cx="230" cy="224" r="5"/><circle cx="290" cy="224" r="5"/><circle cx="330" cy="224" r="5"/><circle cx="370" cy="224" r="5"/><circle cx="410" cy="224" r="5"/><circle cx="470" cy="224" r="5"/><circle cx="510" cy="224" r="5"/><circle cx="550" cy="224" r="5"/><circle cx="600" cy="224" r="5"/></g>
   <text x="360" y="250" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">depth d (never reached) — Kᵈ nodes</text>
   <text x="360" y="288" text-anchor="middle" font-size="13" fill="currentColor">K = 8, depth = 8  →  8⁸ = 16,777,216 components from a few-KB file</text>
-  <text x="360" y="310" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">a depth ceiling alone allows this; the shared budget counter is what stops it</text>
-</svg>
+  <text x="360" y="310" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">a depth ceiling alone allows this; the shared budget counter is what stops it</text></svg>
 
 ---
 

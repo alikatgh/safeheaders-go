@@ -55,8 +55,7 @@ result per job, plus one cancel-ack per worker), but the channel buffers only
   <text x="470" y="312" text-anchor="middle" font-size="11" fill="#e5484d" font-weight="600">hangs forever — workers never return</text>
   <path d="M470,150 L470,264" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2" stroke-dasharray="3 4" marker-end="url(#dl-mut)"/>
   <path d="M340,300 C250,300 184,272 156,238" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.2" stroke-dasharray="3 4" marker-end="url(#dl-mut)"/>
-  <text x="250" y="292" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)">circular wait</text>
-</svg>
+  <text x="250" y="292" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)">circular wait</text></svg>
 
 ---
 

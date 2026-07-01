@@ -50,3 +50,6 @@ go.work.sum
 # MkDocs build output (101 course)
 /101/site/
 101/site/
+
+# Machine-local dev-server launch config (hardcodes absolute local paths)
+/.claude/launch.json

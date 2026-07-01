@@ -32,89 +32,52 @@ verifiably safe, not just probably safe.
       <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
     </marker>
   </defs>
-
-  <!-- Package input box -->
   <rect x="10" y="170" width="90" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
   <text x="55" y="188" text-anchor="middle" font-size="10" fill="currentColor">Go package</text>
   <text x="55" y="202" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">"it compiles"</text>
-
-  <!-- Arrow 1 -->
   <line x1="100" y1="192" x2="122" y2="192" stroke="currentColor" stroke-width="1.4" marker-end="url(#xcapsto-arrow)"/>
-
-  <!-- Gate 1: fmt/vet/lint -->
   <rect x="124" y="162" width="72" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
   <text x="160" y="180" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">G1–3</text>
   <text x="160" y="194" text-anchor="middle" font-size="9" fill="currentColor">fmt / vet</text>
   <text x="160" y="207" text-anchor="middle" font-size="9" fill="currentColor">lint</text>
-
-  <!-- Arrow 2 -->
   <line x1="196" y1="192" x2="218" y2="192" stroke="currentColor" stroke-width="1.4" marker-end="url(#xcapsto-arrow)"/>
-
-  <!-- Gate 2: tests -->
   <rect x="220" y="162" width="68" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
   <text x="254" y="180" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">G4</text>
   <text x="254" y="194" text-anchor="middle" font-size="9" fill="currentColor">table tests</text>
   <text x="254" y="207" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">sub-tests</text>
-
-  <!-- Arrow 3 -->
   <line x1="288" y1="192" x2="310" y2="192" stroke="currentColor" stroke-width="1.4" marker-end="url(#xcapsto-arrow)"/>
-
-  <!-- Gate 3: race -->
   <rect x="312" y="162" width="68" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
   <text x="346" y="180" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">G5</text>
   <text x="346" y="194" text-anchor="middle" font-size="9" fill="currentColor">-race</text>
   <text x="346" y="207" text-anchor="middle" font-size="9" fill="currentColor">watchdog</text>
-
-  <!-- Arrow 4 -->
   <line x1="380" y1="192" x2="402" y2="192" stroke="currentColor" stroke-width="1.4" marker-end="url(#xcapsto-arrow)"/>
-
-  <!-- Gate 4: fuzz -->
   <rect x="404" y="162" width="66" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
   <text x="437" y="180" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">G6–7</text>
   <text x="437" y="194" text-anchor="middle" font-size="9" fill="currentColor">fuzz</text>
   <text x="437" y="207" text-anchor="middle" font-size="9" fill="currentColor">DoS caps</text>
-
-  <!-- Arrow 5 -->
   <line x1="470" y1="192" x2="492" y2="192" stroke="currentColor" stroke-width="1.4" marker-end="url(#xcapsto-arrow)"/>
-
-  <!-- Gate 5: CI -->
   <rect x="494" y="162" width="60" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
   <text x="524" y="180" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">G8</text>
   <text x="524" y="194" text-anchor="middle" font-size="9" fill="currentColor">CI</text>
   <text x="524" y="207" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">every PR</text>
-
-  <!-- Arrow 6 -->
   <line x1="554" y1="192" x2="576" y2="192" stroke="currentColor" stroke-width="1.4" marker-end="url(#xcapsto-arrow)"/>
-
-  <!-- Gate 6: audit -->
   <rect x="578" y="162" width="60" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
   <text x="608" y="180" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">G9</text>
   <text x="608" y="194" text-anchor="middle" font-size="9" fill="currentColor">audit</text>
   <text x="608" y="207" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">independent</text>
-
-  <!-- Arrow to ship -->
   <line x1="638" y1="192" x2="658" y2="192" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8" marker-end="url(#xcapsto-arrow)"/>
-
-  <!-- Ship it -->
   <circle cx="676" cy="192" r="18" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="676" y="197" text-anchor="middle" font-size="15" fill="#fff">✓</text>
-
-  <!-- Labels above gates -->
   <text x="160" y="150" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">static</text>
   <text x="254" y="150" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">correctness</text>
   <text x="346" y="150" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">concurrency</text>
   <text x="437" y="150" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">safety</text>
   <text x="524" y="150" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">automation</text>
   <text x="608" y="150" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">verification</text>
-
-  <!-- Failure branch from G5 (race) -->
   <line x1="346" y1="222" x2="346" y2="310" stroke="#e5484d" stroke-width="1.2" stroke-dasharray="4,3"/>
   <line x1="346" y1="310" x2="160" y2="310" stroke="#e5484d" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#xcapsto-arrow)"/>
   <text x="253" y="303" text-anchor="middle" font-size="9" fill="#e5484d">✗ race / deadlock found → fix + rerun</text>
-
-  <!-- "Ship it" label -->
-  <text x="676" y="225" text-anchor="middle" font-size="9" fill="var(--md-accent-fg-color,#00897b)">ship it</text>
-</svg>
+  <text x="676" y="225" text-anchor="middle" font-size="9" fill="var(--md-accent-fg-color,#00897b)">ship it</text></svg>
 
 ---
 

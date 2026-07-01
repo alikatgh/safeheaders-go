@@ -36,71 +36,45 @@ sends can happen in the worst case.
       <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
     </marker>
   </defs>
-
-  <!-- Coordinator box -->
   <rect x="20" y="130" width="120" height="50" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="80" y="150" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Coordinator</text>
   <text x="80" y="168" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">wg.Wait()</text>
-
-  <!-- Arrow: coordinator → jobs channel -->
   <line x1="140" y1="155" x2="188" y2="155" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
-
-  <!-- Jobs channel box -->
   <rect x="190" y="118" width="110" height="74" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="245" y="140" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">jobs chan</text>
   <text x="245" y="156" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">[0] [1] [2] … [N]</text>
   <text x="245" y="172" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">closed after fill</text>
   <text x="245" y="185" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter)">buf = numJobs</text>
-
-  <!-- Arrows: jobs channel → workers -->
   <line x1="300" y1="138" x2="348" y2="98" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
   <line x1="300" y1="155" x2="348" y2="155" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
   <line x1="300" y1="172" x2="348" y2="212" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
-
-  <!-- Worker boxes -->
   <rect x="350" y="68" width="100" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="400" y="88" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 1</text>
   <text x="400" y="104" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fn(item) → send</text>
-
   <rect x="350" y="133" width="100" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="400" y="153" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker 2</text>
   <text x="400" y="169" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fn(item) → send</text>
-
   <rect x="350" y="198" width="100" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="400" y="218" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Worker N</text>
   <text x="400" y="234" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">fn(item) → send</text>
-
-  <!-- Arrows: workers → results channel -->
   <line x1="450" y1="90" x2="498" y2="130" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
   <line x1="450" y1="155" x2="498" y2="155" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
   <line x1="450" y1="220" x2="498" y2="180" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabbwo-arrow)"/>
-
-  <!-- Results channel box -->
   <rect x="500" y="118" width="110" height="74" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="555" y="140" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">results chan</text>
   <text x="555" y="156" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">job results</text>
   <text x="555" y="172" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">+ cancel results</text>
   <text x="555" y="185" text-anchor="middle" font-size="9" fill="var(--md-accent-fg-color,#00897b)">buf = jobs + workers ✓</text>
-
-  <!-- Context cancel signal -->
   <rect x="350" y="282" width="100" height="36" rx="6" fill="#e5484d" stroke="none"/>
   <text x="400" y="298" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">ctx cancel</text>
   <text x="400" y="312" text-anchor="middle" font-size="10" fill="#fff">fires early</text>
-
-  <!-- Arrows: ctx cancel → workers -->
   <line x1="400" y1="282" x2="400" y2="244" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#xlabbwo-arrow)"/>
-
-  <!-- Under-sized label (danger) -->
   <rect x="500" y="270" width="130" height="36" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="565" y="286" text-anchor="middle" font-size="11" fill="#e5484d" font-weight="600">buf = jobs only ✗</text>
   <text x="565" y="302" text-anchor="middle" font-size="10" fill="#e5484d">wg.Wait() hangs forever</text>
-  <!-- Arrow pointing at results box -->
   <line x1="555" y1="270" x2="555" y2="194" stroke="#e5484d" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#xlabbwo-arrow)"/>
-
-  <!-- wg.Done label on workers -->
   <text x="400" y="16" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">each worker: defer wg.Done()</text>
-  <line x1="400" y1="20" x2="400" y2="66" stroke="var(--md-default-fg-color--lighter)" stroke-width="1" stroke-dasharray="3,3"/>
-</svg>
+  <line x1="400" y1="20" x2="400" y2="66" stroke="var(--md-default-fg-color--lighter)" stroke-width="1" stroke-dasharray="3,3"/></svg>
 
 ---
 

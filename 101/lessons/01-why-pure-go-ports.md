@@ -36,55 +36,28 @@ yourself.
       <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-accent-fg-color,#00897b)"/>
     </marker>
   </defs>
-
-  <!-- Column headers -->
   <text x="175" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">CGO path</text>
   <text x="525" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">Pure-Go port</text>
-
-  <!-- Divider -->
   <line x1="350" y1="35" x2="350" y2="295" stroke="var(--md-default-fg-color--lightest)" stroke-width="1" stroke-dasharray="4 3"/>
-
-  <!-- LEFT SIDE: CGO path -->
-  <!-- Go service box -->
   <rect x="60" y="44" width="140" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="130" y="69" text-anchor="middle" font-size="12" fill="currentColor">Go service</text>
-
-  <!-- Arrow down to CGO bridge -->
   <line x1="130" y1="84" x2="130" y2="116" stroke="var(--md-default-fg-color--light)" stroke-width="1.4" marker-end="url(#l01-arr)"/>
-
-  <!-- CGO bridge box -->
   <rect x="60" y="118" width="140" height="40" rx="6" fill="none" stroke="#e5484d" stroke-width="1.4"/>
   <text x="130" y="143" text-anchor="middle" font-size="12" fill="#e5484d">CGO bridge</text>
-
-  <!-- Arrow down to C library -->
   <line x1="130" y1="158" x2="130" y2="190" stroke="var(--md-default-fg-color--light)" stroke-width="1.4" marker-end="url(#l01-arr)"/>
-
-  <!-- C library box -->
   <rect x="60" y="192" width="140" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="130" y="217" text-anchor="middle" font-size="12" fill="currentColor">C library (.h)</text>
-
-  <!-- Risk labels -->
   <text x="130" y="254" text-anchor="middle" font-size="10" fill="#e5484d">segfault kills process</text>
   <text x="130" y="269" text-anchor="middle" font-size="10" fill="#e5484d">no cross-compile</text>
   <text x="130" y="284" text-anchor="middle" font-size="10" fill="#e5484d">C memory model at boundary</text>
-
-  <!-- RIGHT SIDE: Pure-Go path -->
-  <!-- Go service box -->
   <rect x="500" y="44" width="140" height="40" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="570" y="69" text-anchor="middle" font-size="12" fill="currentColor">Go service</text>
-
-  <!-- Arrow down to Go module (accent colour) -->
   <line x1="570" y1="84" x2="570" y2="153" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l01-arr-accent)"/>
-
-  <!-- Go module box (accent border) -->
   <rect x="500" y="155" width="140" height="40" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
   <text x="570" y="180" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)">Go module (pure)</text>
-
-  <!-- Gain labels -->
   <text x="570" y="218" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">memory-safe by construction</text>
   <text x="570" y="233" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">static binary, go build anywhere</text>
-  <text x="570" y="248" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">race detector &amp; fuzzer see all code</text>
-</svg>
+  <text x="570" y="248" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">race detector &amp; fuzzer see all code</text></svg>
 
 ---
 

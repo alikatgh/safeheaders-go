@@ -50,8 +50,7 @@ lets one goroutine hold the data at a time; the other waits at `Lock()`.
   <rect x="276" y="230" width="168" height="46" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6"/><text x="360" y="250" text-anchor="middle" font-size="11" fill="currentColor">defaultState.history</text><text x="360" y="266" text-anchor="middle" font-size="9.5" fill="var(--md-default-fg-color--light)">mutex-guarded</text>
   <path d="M162,219 L296,212" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.6" marker-end="url(#dr-ah)"/>
   <path d="M558,219 L424,212" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#dr-mh)"/>
-  <text x="360" y="300" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)">snapshot under lock, then do slow I/O on the copy — keep critical sections short</text>
-</svg>
+  <text x="360" y="300" text-anchor="middle" font-size="10.5" fill="var(--md-default-fg-color--light)">snapshot under lock, then do slow I/O on the copy — keep critical sections short</text></svg>
 
 ---
 

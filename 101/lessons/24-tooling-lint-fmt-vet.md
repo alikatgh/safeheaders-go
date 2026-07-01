@@ -33,43 +33,26 @@ it at runtime. Tools find bugs before users do.
       <path d="M0,0 L8,3.5 L0,7 Z" fill="var(--md-default-fg-color,#333)"/>
     </marker>
   </defs>
-
-  <!-- Makefile label at top -->
   <rect x="240" y="12" width="220" height="32" rx="6" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2" stroke-dasharray="5,3"/>
   <text x="350" y="32" text-anchor="middle" font-size="12" fill="var(--md-default-fg-color,#333)">Makefile: make all / make ci</text>
-
-  <!-- Downward connector from Makefile to row -->
   <line x1="350" y1="44" x2="350" y2="68" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2" marker-end="url(#l24-arrow)"/>
-
-  <!-- Box 1: gofmt -->
   <rect x="40" y="74" width="150" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
   <text x="115" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">gofmt</text>
   <text x="115" y="118" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Rewrites layout.</text>
   <text x="115" y="132" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Idempotent.</text>
-
-  <!-- Arrow gofmt → vet -->
   <line x1="191" y1="110" x2="268" y2="110" stroke="var(--md-default-fg-color,#333)" stroke-width="1.4" marker-end="url(#l24-arrow)"/>
-
-  <!-- Box 2: go vet -->
   <rect x="270" y="74" width="160" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
   <text x="350" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">go vet</text>
   <text x="350" y="118" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Catches compiler-legal</text>
   <text x="350" y="132" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">but wrong code.</text>
-
-  <!-- Arrow vet → golangci-lint -->
   <line x1="431" y1="110" x2="508" y2="110" stroke="var(--md-default-fg-color,#333)" stroke-width="1.4" marker-end="url(#l24-arrow)"/>
-
-  <!-- Box 3: golangci-lint -->
   <rect x="510" y="74" width="160" height="72" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
   <text x="590" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="var(--md-accent-fg-color,#00897b)">golangci-lint</text>
   <text x="590" y="118" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">Many analysers,</text>
   <text x="590" y="132" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,#888)">one config file.</text>
-
-  <!-- Arrow all → CI pass -->
   <line x1="590" y1="147" x2="590" y2="172" stroke="var(--md-default-fg-color,#333)" stroke-width="1.4" marker-end="url(#l24-arrow)"/>
   <rect x="510" y="174" width="160" height="32" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
-  <text x="590" y="194" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">CI pass</text>
-</svg>
+  <text x="590" y="194" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">CI pass</text></svg>
 
 ---
 

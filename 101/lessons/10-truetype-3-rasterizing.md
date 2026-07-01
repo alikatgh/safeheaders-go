@@ -58,8 +58,7 @@ grey level.
   <text x="545" y="246" text-anchor="middle" font-size="11.5" fill="currentColor">10 of 16 inside → 62% coverage</text>
   <text x="500" y="270" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">grey level →</text>
   <rect x="546" y="258" width="40" height="16" fill="currentColor" opacity="0.62" stroke="var(--md-default-fg-color--lightest)"/>
-  <text x="360" y="324" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">nonzero winding: +1 crossing a left→right edge, −1 right→left — inside where the counter ≠ 0</text>
-</svg>
+  <text x="360" y="324" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">nonzero winding: +1 crossing a left→right edge, −1 right→left — inside where the counter ≠ 0</text></svg>
 
 ---
 

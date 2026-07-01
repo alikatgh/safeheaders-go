@@ -31,67 +31,40 @@ No jargon — here's what the ideas in this lesson *actually* mean, and why they
       <polygon points="0 0, 10 3.5, 0 7" fill="currentColor"/>
     </marker>
   </defs>
-
-  <!-- Start -->
   <rect x="270" y="20" width="160" height="38" rx="19" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="350" y="44" text-anchor="middle" font-size="13" fill="#fff" font-weight="600">loop iteration</text>
-
-  <!-- Arrow: start → guard -->
   <line x1="350" y1="58" x2="350" y2="88" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
-
-  <!-- Guard box -->
   <rect x="200" y="88" width="300" height="44" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="2"/>
   <text x="350" y="107" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">① ctx.Err() guard</text>
   <text x="350" y="123" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light,currentColor)">if err := ctx.Err(); err != nil</text>
-
-  <!-- Arrow: guard → cancelled (left) -->
   <line x1="200" y1="110" x2="110" y2="110" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
   <text x="155" y="103" text-anchor="middle" font-size="10" fill="currentColor">cancelled</text>
-
-  <!-- Exit left -->
   <rect x="20" y="88" width="90" height="44" rx="8" fill="#e5484d" stroke="none"/>
   <text x="65" y="107" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">return</text>
   <text x="65" y="122" text-anchor="middle" font-size="10" fill="#fff">errs &lt;- err</text>
-
-  <!-- Arrow: guard → select (down, not cancelled) -->
   <line x1="350" y1="132" x2="350" y2="168" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
   <text x="372" y="155" text-anchor="start" font-size="10" fill="currentColor">not cancelled</text>
-
-  <!-- Select box -->
   <rect x="165" y="168" width="370" height="50" rx="8" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.5" stroke-dasharray="6,3"/>
   <text x="350" y="188" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">select  (blocks until one case fires)</text>
   <text x="260" y="207" text-anchor="middle" font-size="11" fill="currentColor">case &lt;-jobs</text>
   <text x="460" y="207" text-anchor="middle" font-size="11" fill="currentColor">② case &lt;-ctx.Done()</text>
-
-  <!-- Arrow: jobs case → process -->
   <line x1="260" y1="218" x2="260" y2="258" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
-
-  <!-- Process box -->
   <rect x="170" y="258" width="180" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="260" y="278" text-anchor="middle" font-size="12" fill="currentColor">process item</text>
   <text x="260" y="294" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">decode image / parse WAV</text>
-
-  <!-- Arrow: process → next iteration (loop back) -->
   <path d="M 350 280 Q 650 280 650 110 Q 650 58 510 44" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#l13-arrow)"/>
   <text x="620" y="190" text-anchor="middle" font-size="10" fill="currentColor">next</text>
   <text x="620" y="202" text-anchor="middle" font-size="10" fill="currentColor">iter.</text>
-
-  <!-- Arrow: ctx.Done case → exit right -->
   <line x1="460" y1="218" x2="460" y2="258" stroke="currentColor" stroke-width="1.5" marker-end="url(#l13-arrow)"/>
-
-  <!-- Exit right -->
   <rect x="400" y="258" width="120" height="44" rx="8" fill="#e5484d" stroke="none"/>
   <text x="460" y="278" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">return</text>
   <text x="460" y="294" text-anchor="middle" font-size="10" fill="#fff">errs &lt;- ctx.Err()</text>
-
-  <!-- Legend -->
   <rect x="20" y="320" width="14" height="14" rx="3" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="40" y="332" font-size="10" fill="currentColor">cancellation check</text>
   <rect x="170" y="320" width="14" height="14" rx="3" fill="#e5484d" stroke="none"/>
   <text x="190" y="332" font-size="10" fill="currentColor">exit (cancelled)</text>
   <rect x="310" y="320" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,2"/>
-  <text x="330" y="332" font-size="10" fill="currentColor">select block</text>
-</svg>
+  <text x="330" y="332" font-size="10" fill="currentColor">select block</text></svg>
 
 ---
 

@@ -26,37 +26,27 @@ No jargon — here's what the ideas in this lesson *actually* mean, and why they
       <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
     </marker>
   </defs>
-  <!-- Untrusted source -->
   <rect id="l04-src" x="20" y="110" width="130" height="52" rx="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
   <text x="85" y="132" text-anchor="middle" font-size="12" fill="currentColor">untrusted</text>
   <text x="85" y="150" text-anchor="middle" font-size="12" fill="currentColor">src io.Reader</text>
-  <!-- Arrow src -> flate -->
   <line x1="150" y1="136" x2="198" y2="136" stroke="currentColor" stroke-width="1.5" marker-end="url(#l04-arrow)"/>
-  <!-- flate.Reader -->
   <rect id="l04-flate" x="200" y="110" width="130" height="52" rx="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
   <text x="265" y="132" text-anchor="middle" font-size="12" fill="currentColor">flate.Reader</text>
   <text x="265" y="150" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">(decompressor)</text>
-  <!-- Arrow flate -> limit -->
   <line x1="330" y1="136" x2="378" y2="136" stroke="currentColor" stroke-width="1.5" marker-end="url(#l04-arrow)"/>
-  <!-- io.LimitReader -->
   <rect id="l04-limit" x="380" y="100" width="140" height="72" rx="8" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="450" y="126" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">io.LimitReader</text>
   <text x="450" y="143" text-anchor="middle" font-size="11" fill="#fff">cap: Max+1 bytes</text>
   <text x="450" y="160" text-anchor="middle" font-size="10" fill="#fff">(turnstile)</text>
-  <!-- Overflow arrow downward to error -->
   <line x1="450" y1="172" x2="450" y2="218" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#l04-arrow)"/>
   <rect id="l04-err" x="365" y="220" width="170" height="44" rx="8" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="450" y="239" text-anchor="middle" font-size="11" fill="#e5484d">size exceeds limit</text>
   <text x="450" y="256" text-anchor="middle" font-size="10" fill="#e5484d">→ error returned</text>
-  <!-- Arrow limit -> io.Copy -->
   <line x1="520" y1="136" x2="568" y2="136" stroke="currentColor" stroke-width="1.5" marker-end="url(#l04-arrow)"/>
-  <!-- io.Copy + dst -->
   <rect id="l04-copy" x="570" y="110" width="110" height="52" rx="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
   <text x="625" y="132" text-anchor="middle" font-size="12" fill="currentColor">io.Copy</text>
   <text x="625" y="150" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">→ dst Writer</text>
-  <!-- 32 KB label on arrow -->
-  <text x="340" y="128" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">32 KB chunks</text>
-</svg>
+  <text x="340" y="128" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light)">32 KB chunks</text></svg>
 
 ---
 

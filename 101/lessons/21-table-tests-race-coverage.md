@@ -33,7 +33,6 @@ wrong" into "always caught in CI".
       <path d="M0,0 L0,6 L8,3 z" fill="var(--md-default-fg-color--light)"/>
     </marker>
   </defs>
-  <!-- Table (slice of structs) -->
   <rect x="20" y="100" width="160" height="110" rx="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
   <text x="100" y="122" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">[]struct{ … }</text>
   <rect x="32" y="132" width="136" height="20" rx="4" fill="var(--md-accent-fg-color,#00897b)" opacity="0.15" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1"/>
@@ -42,16 +41,12 @@ wrong" into "always caught in CI".
   <text x="100" y="171" text-anchor="middle" font-size="11" fill="currentColor">{"backspace", '\x7f', …}</text>
   <rect x="32" y="182" width="136" height="20" rx="4" fill="var(--md-accent-fg-color,#00897b)" opacity="0.15" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1"/>
   <text x="100" y="196" text-anchor="middle" font-size="11" fill="currentColor">{"ctrl-a home", '\x01', …}</text>
-  <!-- Arrow: table -> loop -->
   <line x1="180" y1="155" x2="232" y2="155" stroke="var(--md-default-fg-color--light)" stroke-width="1.5" marker-end="url(#l21-arrow)"/>
-  <!-- for loop box -->
   <rect x="234" y="120" width="120" height="70" rx="8" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.5"/>
   <text x="294" y="148" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">for _, tt :=</text>
   <text x="294" y="165" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">range tests</text>
   <text x="294" y="182" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">one loop, N cases</text>
-  <!-- Arrow: loop -> t.Run -->
   <line x1="354" y1="155" x2="406" y2="155" stroke="var(--md-default-fg-color--light)" stroke-width="1.5" marker-end="url(#l21-arrow)"/>
-  <!-- t.Run subtests -->
   <rect x="408" y="60" width="130" height="30" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="473" y="80" text-anchor="middle" font-size="11" fill="currentColor">t.Run("insert printable")</text>
   <rect x="408" y="103" width="130" height="30" rx="6" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
@@ -60,18 +55,14 @@ wrong" into "always caught in CI".
   <text x="473" y="166" text-anchor="middle" font-size="11" fill="currentColor">t.Run("ctrl-a home")</text>
   <rect x="408" y="189" width="130" height="30" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1" stroke-dasharray="4,3"/>
   <text x="473" y="209" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">… 6 more …</text>
-  <!-- fan-out lines from loop to subtests -->
   <line x1="354" y1="155" x2="406" y2="75" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
   <line x1="354" y1="155" x2="406" y2="118" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
   <line x1="354" y1="155" x2="406" y2="161" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
   <line x1="354" y1="155" x2="406" y2="204" stroke="var(--md-default-fg-color--light)" stroke-width="1" marker-end="url(#l21-arrow)"/>
-  <!-- race detector badge -->
   <rect x="408" y="240" width="130" height="34" rx="6" fill="#e5484d" opacity="0.12" stroke="#e5484d" stroke-width="1.5"/>
   <text x="473" y="258" text-anchor="middle" font-size="11" font-weight="600" fill="#e5484d">go test -race</text>
   <text x="473" y="270" text-anchor="middle" font-size="10" fill="#e5484d">instruments every access</text>
-  <!-- label above table -->
-  <text x="100" y="90" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">test table</text>
-</svg>
+  <text x="100" y="90" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">test table</text></svg>
 
 ---
 

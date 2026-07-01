@@ -34,59 +34,40 @@ down a production service; the fix is a single integer check at the right place.
       <path d="M0,0 L0,6 L8,3 z" fill="var(--md-accent-fg-color,#00897b)"/>
     </marker>
   </defs>
-  <!-- Threat family boxes -->
   <rect x="20" y="30" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="100" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">OOM</text>
   <text x="100" y="64" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Inflated size field</text>
-
   <rect x="20" y="94" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="100" y="112" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">CPU exhaustion</text>
   <text x="100" y="128" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Unbounded loop / tokens</text>
-
   <rect x="20" y="158" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="100" y="176" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">Stack overflow</text>
   <text x="100" y="192" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Deep nesting / composites</text>
-
   <rect x="20" y="222" width="160" height="44" rx="6" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="100" y="240" text-anchor="middle" font-size="12" font-weight="600" fill="#e5484d">Bomb attacks</text>
   <text x="100" y="256" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Decomp / decode bombs</text>
-
-  <!-- Arrows threat -> defence -->
   <line x1="180" y1="52" x2="258" y2="100" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
   <line x1="180" y1="116" x2="258" y2="148" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
   <line x1="180" y1="180" x2="258" y2="180" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
   <line x1="180" y1="244" x2="258" y2="214" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
-
-  <!-- Defence layer boxes -->
   <rect x="262" y="78" width="176" height="44" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="350" y="96" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Pre-parse gate</text>
   <text x="350" y="112" text-anchor="middle" font-size="10" fill="#fff">Check size before any work</text>
-
   <rect x="262" y="156" width="176" height="44" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="350" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">During-parse budget</text>
   <text x="350" y="190" text-anchor="middle" font-size="10" fill="#fff">Tokens, depth, pixels, nodes</text>
-
   <rect x="262" y="234" width="176" height="44" rx="6" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="350" y="252" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Aggregate cap</text>
   <text x="350" y="268" text-anchor="middle" font-size="10" fill="#fff">Archive total, not per-entry</text>
-
-  <!-- Arrow defence -> timeout -->
   <line x1="438" y1="174" x2="510" y2="174" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l16-arr)"/>
-
-  <!-- Last-resort box -->
   <rect x="514" y="130" width="166" height="88" rx="6" fill="none" stroke="var(--md-default-fg-color--light,currentColor)" stroke-width="1.5" stroke-dasharray="5 3"/>
   <text x="597" y="158" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Context timeout</text>
   <text x="597" y="176" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Last line of defence —</text>
   <text x="597" y="192" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">application layer</text>
-
-  <!-- Section labels -->
   <text x="100" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">Threats</text>
   <text x="350" y="64" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">Defence layers</text>
   <text x="597" y="118" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">Safety net</text>
-
-  <!-- Parallel amplification note -->
-  <text x="350" y="316" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Parallel workers multiply memory pressure — budget per item × worker count.</text>
-</svg>
+  <text x="350" y="316" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">Parallel workers multiply memory pressure — budget per item × worker count.</text></svg>
 
 ---
 

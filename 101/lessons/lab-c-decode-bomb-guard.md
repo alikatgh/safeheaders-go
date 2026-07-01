@@ -32,60 +32,35 @@ your server's memory.
       <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
     </marker>
   </defs>
-
-  <!-- Untrusted input box -->
   <rect x="20" y="120" width="130" height="54" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="85" y="142" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Untrusted input</text>
   <text x="85" y="160" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">(image / archive)</text>
-
-  <!-- Arrow: input → header check -->
   <line x1="150" y1="147" x2="198" y2="147" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
-
-  <!-- Header check box (accent) -->
   <rect x="200" y="110" width="160" height="74" rx="8" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="280" y="133" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">Cheap header check</text>
   <text x="280" y="151" text-anchor="middle" font-size="10" fill="#fff">image.DecodeConfig</text>
   <text x="280" y="167" text-anchor="middle" font-size="10" fill="#fff">io.LimitReader</text>
-
-  <!-- Arrow: header check → reject (up-right) -->
   <line x1="280" y1="110" x2="280" y2="62" stroke="#e5484d" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
-
-  <!-- Reject box -->
   <rect x="200" y="18" width="160" height="44" rx="8" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="280" y="38" text-anchor="middle" font-size="12" fill="#e5484d" font-weight="600">✗ Rejected</text>
   <text x="280" y="54" text-anchor="middle" font-size="10" fill="#e5484d">exceeds limit → error</text>
-
-  <!-- Label on reject arrow -->
   <text x="294" y="92" font-size="10" fill="#e5484d">over limit</text>
-
-  <!-- Arrow: header check → full decode -->
   <line x1="360" y1="147" x2="408" y2="147" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
-
-  <!-- Label on pass arrow -->
   <text x="362" y="140" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">within budget</text>
-
-  <!-- Full decode box -->
   <rect x="410" y="110" width="160" height="74" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <text x="490" y="133" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">Full decode</text>
   <text x="490" y="151" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">image.Decode</text>
   <text x="490" y="167" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light,currentColor)">io.ReadAll</text>
-
-  <!-- Arrow: full decode → safe output -->
   <line x1="570" y1="147" x2="618" y2="147" stroke="currentColor" stroke-width="1.5" marker-end="url(#xlabcde-arrow)"/>
-
-  <!-- Safe output box -->
   <rect x="620" y="120" width="60" height="54" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="650" y="142" text-anchor="middle" font-size="12" fill="var(--md-accent-fg-color,#00897b)" font-weight="600">✓ Safe</text>
   <text x="650" y="158" text-anchor="middle" font-size="10" fill="var(--md-accent-fg-color,#00897b)">output</text>
-
-  <!-- Bottom legend -->
   <rect x="200" y="220" width="14" height="14" rx="3" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="220" y="232" font-size="11" fill="currentColor">header check (cheap — no pixel alloc)</text>
   <rect x="200" y="244" width="14" height="14" rx="3" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="220" y="256" font-size="11" fill="currentColor">reject path — error returned before any allocation</text>
   <rect x="200" y="268" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
-  <text x="220" y="280" font-size="11" fill="currentColor">full decode — only reached when dimensions are safe</text>
-</svg>
+  <text x="220" y="280" font-size="11" fill="currentColor">full decode — only reached when dimensions are safe</text></svg>
 
 ---
 

@@ -41,59 +41,34 @@ audio data backed by 4 bytes of actual bytes.
       <path d="M0,0 L0,6 L8,3 z" fill="#e5484d"/>
     </marker>
   </defs>
-
-  <!-- Box 1: Valid WAV seed -->
   <rect x="20" y="100" width="110" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
   <text x="75" y="121" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Valid WAV seed</text>
   <text x="75" y="139" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lighter,#888)">f.Add(valid)</text>
-
-  <!-- Arrow 1→2 -->
   <line x1="131" y1="126" x2="168" y2="126" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l22-arrow)"/>
-
-  <!-- Box 2: Fuzzer engine -->
   <rect x="170" y="100" width="120" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
   <text x="230" y="121" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Fuzzer engine</text>
   <text x="230" y="139" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lighter,#888)">mutates bytes</text>
-
-  <!-- Arrow 2→3 -->
   <line x1="291" y1="126" x2="328" y2="126" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l22-arrow)"/>
-
-  <!-- Box 3: FuzzParse / Parse -->
   <rect x="330" y="100" width="120" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
   <text x="390" y="121" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">FuzzParse</text>
   <text x="390" y="139" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--lighter,#888)">Parse(data)</text>
-
-  <!-- "err != nil → loop back" label -->
   <path d="M390,100 Q390,55 230,55 Q170,55 170,99" fill="none" stroke="var(--md-default-fg-color--lighter,#888)" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#l22-arrow)"/>
   <text x="305" y="46" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">err != nil → loop</text>
-
-  <!-- Arrow 3→4 (success path) -->
   <line x1="451" y1="126" x2="488" y2="126" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l22-arrow-acc)"/>
   <text x="469" y="119" text-anchor="middle" font-size="9" fill="var(--md-accent-fg-color,#00897b)">ok</text>
-
-  <!-- Box 4: Accessors -->
   <rect x="490" y="100" width="120" height="52" rx="7" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5"/>
   <text x="550" y="118" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Accessors</text>
   <text x="550" y="133" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">GetSampleCount</text>
   <text x="550" y="146" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">ExtractChannels…</text>
-
-  <!-- Arrow 4→5 (panic path) -->
   <line x1="550" y1="153" x2="550" y2="188" stroke="#e5484d" stroke-width="1.5" marker-end="url(#l22-arrow-red)"/>
   <text x="560" y="175" font-size="9" fill="#e5484d">panic!</text>
-
-  <!-- Box 5: crash file saved -->
   <rect x="430" y="190" width="180" height="52" rx="7" fill="none" stroke="#e5484d" stroke-width="1.5"/>
   <text x="520" y="210" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">Crash file saved</text>
   <text x="520" y="228" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">testdata/fuzz/FuzzParse/&lt;hash&gt;</text>
-
-  <!-- Arrow 5→CI label -->
   <line x1="429" y1="216" x2="310" y2="216" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l22-arrow)"/>
-
-  <!-- Box 6: CI regression -->
   <rect x="140" y="190" width="168" height="52" rx="7" fill="none" stroke="var(--md-default-fg-color--light,#666)" stroke-width="1.5"/>
   <text x="224" y="210" text-anchor="middle" font-size="11" fill="currentColor" font-weight="600">CI regression test</text>
-  <text x="224" y="228" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">go test replays forever</text>
-</svg>
+  <text x="224" y="228" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--lighter,#888)">go test replays forever</text></svg>
 
 ---
 

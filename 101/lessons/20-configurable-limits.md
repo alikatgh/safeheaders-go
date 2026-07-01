@@ -36,53 +36,34 @@ denial-of-service bugs happen in production.
       <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-accent-fg-color,#00897b)"/>
     </marker>
   </defs>
-
-  <!-- Preset constructor boxes -->
   <rect x="20" y="40" width="150" height="44" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="95" y="58" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">DefaultConfig()</text>
   <text x="95" y="75" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">100 MB · 1 M tokens</text>
-
   <rect x="20" y="158" width="150" height="44" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="95" y="176" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">StrictConfig()</text>
   <text x="95" y="193" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">10 MB · 100 K tokens</text>
-
   <rect x="20" y="278" width="150" height="44" rx="6" fill="none" stroke="var(--md-default-fg-color--light)" stroke-width="1.4"/>
   <text x="95" y="296" text-anchor="middle" font-size="12" fill="currentColor" font-weight="600">UnlimitedConfig()</text>
   <text x="95" y="313" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color--light)">0 · 0 (skip checks)</text>
-
-  <!-- Arrows from presets to ParseWithConfig -->
   <line x1="170" y1="62" x2="248" y2="155" stroke="var(--md-default-fg-color--light)" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
   <line x1="170" y1="180" x2="248" y2="180" stroke="var(--md-default-fg-color--light)" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
   <line x1="170" y1="300" x2="248" y2="205" stroke="var(--md-default-fg-color--light)" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
-
-  <!-- ParseWithConfig outer box -->
   <rect x="252" y="100" width="310" height="160" rx="8" fill="none" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.8"/>
   <text x="407" y="122" text-anchor="middle" font-size="13" fill="var(--md-accent-fg-color,#00897b)" font-weight="700">ParseWithConfig</text>
-
-  <!-- Step 1: Validate() -->
   <rect x="272" y="134" width="130" height="38" rx="5" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="337" y="149" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">1 · Validate()</text>
   <text x="337" y="164" text-anchor="middle" font-size="9" fill="#fff">Config fields ≥ 0?</text>
-
-  <!-- Arrow between steps -->
   <line x1="402" y1="153" x2="422" y2="153" stroke="var(--md-default-fg-color--light)" stroke-width="1.2" marker-end="url(#l20-arrow)"/>
-
-  <!-- Step 2: validateInput() -->
   <rect x="424" y="134" width="122" height="38" rx="5" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="485" y="149" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">2 · validateInput()</text>
   <text x="485" y="164" text-anchor="middle" font-size="9" fill="#fff">payload within limit?</text>
-
-  <!-- Error exit downward from step 2 -->
   <line x1="485" y1="172" x2="485" y2="222" stroke="#e5484d" stroke-width="1.3" marker-end="url(#l20-arrow)"/>
   <rect x="430" y="224" width="130" height="32" rx="5" fill="none" stroke="#e5484d" stroke-width="1.3"/>
   <text x="495" y="238" text-anchor="middle" font-size="10" fill="#e5484d" font-weight="600">ErrInputTooLarge</text>
   <text x="495" y="250" text-anchor="middle" font-size="9" fill="#e5484d">ErrTooManyTokens …</text>
-
-  <!-- Arrow out to parse work -->
   <line x1="562" y1="153" x2="630" y2="153" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.4" marker-end="url(#l20-arrow-accent)"/>
   <text x="638" y="148" text-anchor="start" font-size="11" fill="currentColor">parse</text>
-  <text x="638" y="161" text-anchor="start" font-size="11" fill="currentColor">tokens</text>
-</svg>
+  <text x="638" y="161" text-anchor="start" font-size="11" fill="currentColor">tokens</text></svg>
 
 ---
 

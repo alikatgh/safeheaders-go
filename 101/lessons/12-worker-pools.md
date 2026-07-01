@@ -54,8 +54,7 @@ order.
   <rect x="572" y="134" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="620" y="149" text-anchor="middle" font-size="10" fill="currentColor">r2 · idx 2</text>
   <rect x="572" y="162" width="96" height="22" rx="3" fill="none" stroke="var(--md-default-fg-color--lighter)"/><text x="620" y="177" text-anchor="middle" font-size="10" fill="currentColor">r3 · idx 3</text>
   <text x="360" y="262" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)"><tspan font-family="ui-monospace,monospace">wg.Wait()</tspan> closes resultCh once every worker signs out (wg.Done)</text>
-  <text x="360" y="280" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">each result written to slice[idx] → input order preserved</text>
-</svg>
+  <text x="360" y="280" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light)">each result written to slice[idx] → input order preserved</text></svg>
 
 ---
 

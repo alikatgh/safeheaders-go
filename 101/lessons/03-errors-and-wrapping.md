@@ -35,37 +35,22 @@ the original cause.
       <path d="M8,0 L8,6 L0,3 z" fill="#e5484d"/>
     </marker>
   </defs>
-
-  <!-- Layer 1: top caller — ParseBatch -->
   <rect x="60" y="20" width="480" height="58" rx="8" fill="none" stroke="var(--md-default-fg-color,currentColor)" stroke-width="1.4"/>
   <text x="300" y="44" text-anchor="middle" font-size="12" font-weight="600" fill="var(--md-default-fg-color,currentColor)">ParseBatch — outer layer</text>
   <text x="300" y="63" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light,currentColor)">fmt.Errorf("failed to parse WAV at index %d: %w", idx, err)</text>
-
-  <!-- Down arrow: wrapping direction -->
   <line x1="300" y1="78" x2="300" y2="120" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l03-arrow)"/>
   <text x="315" y="105" font-size="10" fill="var(--md-accent-fg-color,#00897b)">wraps</text>
-
-  <!-- Layer 2: readDataChunk -->
   <rect x="60" y="122" width="480" height="58" rx="8" fill="none" stroke="var(--md-default-fg-color,currentColor)" stroke-width="1.4"/>
   <text x="300" y="146" text-anchor="middle" font-size="12" font-weight="600" fill="var(--md-default-fg-color,currentColor)">readDataChunk — mid layer</text>
   <text x="300" y="165" text-anchor="middle" font-size="11" fill="var(--md-default-fg-color--light,currentColor)">fmt.Errorf("failed to read subchunk size: %w", err)</text>
-
-  <!-- Down arrow -->
   <line x1="300" y1="180" x2="300" y2="222" stroke="var(--md-accent-fg-color,#00897b)" stroke-width="1.5" marker-end="url(#l03-arrow)"/>
   <text x="315" y="207" font-size="10" fill="var(--md-accent-fg-color,#00897b)">wraps</text>
-
-  <!-- Layer 3: sentinel at bottom -->
   <rect x="60" y="224" width="480" height="58" rx="8" fill="var(--md-accent-fg-color,#00897b)"/>
   <text x="300" y="248" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Sentinel — root cause</text>
   <text x="300" y="267" text-anchor="middle" font-size="11" fill="#fff">var ErrInputTooLarge = errors.New("input size exceeds maximum allowed")</text>
-
-  <!-- errors.Is arrow on the right, pointing upward (unwinding) -->
   <line x1="590" y1="253" x2="590" y2="49" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#l03-arrow-up)"/>
   <text x="600" y="170" font-size="11" fill="#e5484d" writing-mode="tb" glyph-orientation-vertical="0" transform="rotate(90,610,155)">errors.Is — unwinds chain</text>
-
-  <!-- Label above the right arrow -->
-  <text x="635" y="49" text-anchor="middle" font-size="10" fill="#e5484d">found!</text>
-</svg>
+  <text x="635" y="49" text-anchor="middle" font-size="10" fill="#e5484d">found!</text></svg>
 
 ---
 

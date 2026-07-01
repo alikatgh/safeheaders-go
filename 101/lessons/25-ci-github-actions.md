@@ -33,44 +33,32 @@ machine that runs those tests on every push so humans do not have to remember.
       <path d="M0,0 L0,7 L8,3.5 Z" fill="var(--md-default-fg-color,#333)"/>
     </marker>
   </defs>
-  <!-- Trigger box -->
   <rect x="260" y="16" width="180" height="38" rx="6" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="350" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">push / pull_request</text>
-  <!-- Arrow down -->
   <line x1="350" y1="54" x2="350" y2="76" stroke="var(--md-default-fg-color,#333)" stroke-width="1.5" marker-end="url(#l25-arr)"/>
-  <!-- Row label -->
   <text x="14" y="104" font-size="10" fill="var(--md-default-fg-color--light,#666)">Jobs (parallel)</text>
-  <!-- Job boxes row 1 -->
-  <!-- test -->
   <rect x="14" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="68" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">test</text>
   <text x="68" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">-race · coverage</text>
-  <!-- lint -->
   <rect x="134" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="188" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">lint</text>
   <text x="188" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">golangci-lint v2</text>
-  <!-- security -->
   <rect x="254" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="308" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">security</text>
   <text x="308" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">gosec · govulncheck</text>
-  <!-- benchmark -->
   <rect x="374" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="428" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">benchmark</text>
   <text x="428" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">PR only</text>
-  <!-- fuzz -->
   <rect x="494" y="82" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="548" y="99" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">fuzz</text>
   <text x="548" y="113" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">schedule/dispatch</text>
-  <!-- examples + build in row 2 -->
   <rect x="134" y="138" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="188" y="155" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">examples</text>
   <text x="188" y="169" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">make examples</text>
   <rect x="254" y="138" width="108" height="38" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="308" y="155" text-anchor="middle" font-size="11" font-weight="600" fill="var(--md-default-fg-color,#333)">build</text>
   <text x="308" y="169" text-anchor="middle" font-size="9" fill="var(--md-default-fg-color--light,#666)">Linux · macOS · Win</text>
-  <!-- Divider -->
   <line x1="14" y1="200" x2="686" y2="200" stroke="var(--md-default-fg-color--lightest,#ccc)" stroke-width="1" stroke-dasharray="4 3"/>
-  <!-- Detail: test job internals -->
   <text x="14" y="220" font-size="10" fill="var(--md-default-fg-color--light,#666)">Inside test (per module × 9):</text>
   <rect x="14" y="228" width="130" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="79" y="248" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">go test -race ./...</text>
@@ -86,7 +74,6 @@ machine that runs those tests on every push so humans do not have to remember.
   <line x1="434" y1="278" x2="434" y2="260" stroke="var(--md-default-fg-color,#333)" stroke-width="1.2" marker-end="url(#l25-arr)"/>
   <rect x="420" y="228" width="80" height="32" rx="5" fill="var(--md-accent-fg-color,#00897b)" stroke="none"/>
   <text x="460" y="248" text-anchor="middle" font-size="10" font-weight="600" fill="#fff">pass ✓</text>
-  <!-- Detail: security job internals -->
   <text x="14" y="310" font-size="10" fill="var(--md-default-fg-color--light,#666)">Inside security:</text>
   <rect x="14" y="318" width="130" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="79" y="333" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">gosec (source</text>
@@ -97,8 +84,7 @@ machine that runs those tests on every push so humans do not have to remember.
   <text x="240" y="346" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">(inline PR annotations)</text>
   <rect x="340" y="318" width="160" height="32" rx="5" fill="none" stroke="var(--md-default-fg-color--light,#888)" stroke-width="1.2"/>
   <text x="420" y="333" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">govulncheck (call graph</text>
-  <text x="420" y="346" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">vs CVE database)</text>
-</svg>
+  <text x="420" y="346" text-anchor="middle" font-size="10" fill="var(--md-default-fg-color,#333)">vs CVE database)</text></svg>
 
 ---
 
