@@ -51,7 +51,10 @@ func Parse(data []byte) (*XMLDocument, error) {
 			// Skip
 		case xml.StartElement:
 			// Once we find the first element, we start parsing the tree.
-			root, err := parseElement(dec, v, 0) // Pass the decoder and the first token.
+			// depth starts at 1 (root == 1), matching parseElementLimited's
+			// convention so both paths hit the absolute maxNestingDepth ceiling
+			// at the same nesting level.
+			root, err := parseElement(dec, v, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -181,11 +184,8 @@ func parseElementLimited(
 	}
 }
 
-// The recursive parseElement helper needs only a minor change
-// to remove the 'parser' struct dependency.
-// func parseElement(dec *xml.Decoder, se xml.StartElement) (*Node, error) { ... }
-
-// parseElement recursively builds the tree.
+// parseElement recursively builds the tree. depth is the nesting depth of se
+// (root == 1), matching parseElementLimited's convention.
 // maxNestingDepth is an absolute hard ceiling on recursion depth that applies
 // even to the unlimited Parse / UnlimitedConfig paths. Going far past it would
 // overflow the goroutine stack — a fatal error recover() cannot catch — so the

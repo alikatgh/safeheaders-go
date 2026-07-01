@@ -34,7 +34,9 @@ type Config struct {
 
 	// MaxNestingDepth limits how deeply elements may nest. This prevents
 	// stack exhaustion from deeply nested XML.
-	// Default: 1,000. Set to 0 for unlimited (not recommended).
+	// Default: 1,000. Set to 0 to disable this configurable limit — but note an
+	// absolute hard ceiling of 10,000 levels always applies underneath, even to
+	// this "unlimited" setting (see tinyxml2.go's maxNestingDepth).
 	MaxNestingDepth int
 }
 
