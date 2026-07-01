@@ -66,7 +66,11 @@ budget counter (`glyphBudget`), decremented across the whole expansion, stops it
 ### How the recursive parser works
 
 [`tinyxml2-go/tinyxml2.go`](src/tinyxml2-go-tinyxml2-go.md) builds an XML DOM by calling `parseElement` once per
-node. (In plain terms: a "function" here is a named, reusable chunk of code that does one job — like `parseElement`, whose job is to read one XML tag and everything inside it. "Calling" a function just means running it. "Building an XML DOM" means constructing, in the computer's memory, a tree-shaped map of the document's tags and their nesting.) When it reads a child start-tag, it recurses (in plain terms: "recursion" means a function calling *itself* to handle a smaller version of the same problem — here, `parseElement` calls `parseElement` again to read the tag nested just inside the current one):
+node.
+
+**In plain terms:** a **function** is a named, reusable chunk of code that does one job — like `parseElement`, whose job is to read one XML tag and everything inside it; "calling" it just means running it. "Building an XML DOM" means constructing, in the computer's memory, a tree-shaped map of the document's tags and their nesting. **Recursion** means a function calling *itself* to handle a smaller version of the same problem.
+
+When it reads a child start-tag, it recurses — `parseElement` calls `parseElement` again to read the tag nested just inside the current one:
 
 ```go
 // from tinyxml2-go/tinyxml2.go
@@ -84,9 +88,13 @@ func parseElement(dec *xml.Decoder, se xml.StartElement, depth int) (*Node, erro
 **In plain terms:** this code says "before doing anything else, check whether we've nested deeper than `maxNestingDepth`; if so, stop and report an error. Otherwise, when a child tag starts, call `parseElement` again — on that child — one level deeper." Each such nested call waits for its child call to finish before it can finish itself, which is exactly what "recursion" means in practice.
 
 Each call to `parseElement` lives on the goroutine stack until its matching
-`EndElement` is read. (In plain terms: a "goroutine" is a lightweight, independently-running unit of work inside a Go program — think of it as one worker among possibly many working at once. The "stack" is a reserved region of memory that keeps track of every function call currently in progress for that worker, like a pile of index cards — one card per call, added on top when a call starts and removed when it finishes. "Lives on the stack" means the call's information sits on that pile until it is done.) With deeply nested XML (`<a><b><c>...`), this grows linearly
+`EndElement` is read.
+
+**In plain terms:** a **goroutine** is a lightweight, independently-running worker inside a Go program — one of possibly many running at once. The **stack** is a region of memory that tracks every function call in progress for that worker, like a pile of index cards (one per call, added on top when a call starts, removed when it finishes); "lives on the stack" means the call's information sits on that pile until it's done. A few **KB** is a few kilobytes — a kilobyte being about a thousand **bytes**, a byte being a basic unit of digital storage — and growing the stack "dynamically" means its size expands automatically as needed.
+
+With deeply nested XML (`<a><b><c>...`), this grows linearly
 with nesting depth. Go starts goroutines with a small stack (a few KB) and grows
-it dynamically (in plain terms: a "KB", or kilobyte, is a small unit of computer memory — about a thousand bytes, and a "byte" is a basic unit of digital information; "dynamically" here means the stack's size automatically expands as needed) — but growth has a ceiling, and past that the runtime terminates
+it dynamically — but growth has a ceiling, and past that the runtime terminates
 the program with no opportunity to recover.
 
 ### The absolute ceiling

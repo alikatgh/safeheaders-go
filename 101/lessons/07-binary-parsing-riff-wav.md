@@ -102,7 +102,9 @@ type WAVHeader struct {
 
 **In plain terms:** this defines a form named `WAVHeader` with six labeled blanks. `uint16` and `uint32` just say how big a number can fit in that blank (16 bits or 32 bits — a **bit** is a single yes/no, 0-or-1 switch, and 8 bits make one byte, so `uint16` is 2 bytes and `uint32` is 4 bytes). Nothing runs here; this only describes the shape of the form so the rest of the code can fill it in.
 
-`Parse` wraps the input slice in a `bytes.Reader` and reads each field in order. (`Parse` is a **function** — a named, reusable piece of code that does one job when you run it; running a function is called **calling** or **invoking** it. A **slice** is Go's flexible view onto a sequence of bytes — think of it as a window over a stretch of a longer list, one you can resize or reposition without copying the underlying data. `bytes.Reader` is a small helper object that remembers "where you've read up to" in that slice, so each read continues from where the last one left off instead of starting over.)
+`Parse` wraps the input slice in a `bytes.Reader` and reads each field in order.
+
+**In plain terms:** `Parse` is a **function** — a named, reusable piece of code that does one job when you run ("call" or "invoke") it. A **slice** is Go's flexible view onto a sequence of bytes: a window over part of a longer list that you can resize without copying the underlying data. `bytes.Reader` is a small helper that remembers where you've read up to, so each read continues from where the last one left off.
 
 ```go
 // from dr-wav-go/dr_wav.go
@@ -207,8 +209,10 @@ if allocSize > r.Len() {
 
 `r.Len()` returns the number of bytes *actually remaining* in the reader. A
 file claiming a 4 GB data chunk but containing only 100 bytes will allocate
-100 bytes, not 4 GB. This is the fix for the fuzz-discovered OOM bug (**fuzzing** is an automated testing technique that bombards code with huge numbers of randomly mutated, often malformed inputs to try to trigger crashes — a **test** here is a small piece of code, separate from the main program, whose only job is to check that other code behaves correctly) (see
+100 bytes, not 4 GB. This is the fix for the fuzz-discovered OOM bug (see
 [Lesson 17](17-unbounded-allocation-oom.md) for how `go test -fuzz` found it).
+
+**In plain terms:** **fuzzing** is an automated testing technique that bombards code with huge numbers of randomly mutated, often malformed inputs to try to trigger crashes. A **test** here is a small piece of code, separate from the main program, whose only job is to check that other code behaves correctly.
 
 !!! warning "Size fields are always untrusted"
     Any integer read from a file, network packet, or user input that controls
@@ -294,7 +298,9 @@ This separation keeps `Parse` focused on structure (does the byte layout make
 sense?) and `ValidateWAV` focused on semantics (do the values make sense?). A
 library that silently rejects odd-but-parseable headers surprises callers; one
 that parses everything and surfaces validation as a separate step is more
-composable. (A **library** — also called a **package** — is a bundle of code someone wrote and shared so other programs can reuse it instead of rewriting the same logic. A **caller** is whatever other piece of code runs, i.e. calls, a given function; here it means whoever uses this WAV library.)
+composable.
+
+**In plain terms:** a **library** (also called a **package**) is a bundle of code someone wrote and shared so other programs can reuse it. A **caller** is whatever other code runs ("calls") a given function — here, whoever uses this WAV library.
 
 ---
 
