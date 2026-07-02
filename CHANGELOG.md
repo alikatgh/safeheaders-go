@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **jsmn-go, dr-wav-go, cgltf-go, miniz-go**: each module's worker-pool loop now
+  checks `ctx.Err()` before its `select`, matching the fix `stb-image-go`
+  already had. Without it, a bare `select { case <-jobs: ...; case
+  <-ctx.Done(): ... }` picks randomly when both are ready, so an
+  already-canceled context is only honored once the random draw happens to
+  land on it rather than on the very next loop iteration — a source of flaky
+  cancellation timing, not a correctness/deadlock bug (the overall batch
+  functions already detected cancellation after `wg.Wait()` either way).
+  `dr-wav-go` and `cgltf-go`'s worker closures were promoted to named
+  `parseBatchWorker` functions (with named job/result types) to keep
+  `ParseBatch` under golangci-lint's complexity gate after adding the check.
+
 ### Added
 - **stb-image-go, dr-wav-go, cgltf-go, miniz-go**: `MaxBatchSize` (default
   10,000) caps the number of files each module's batch entry point

@@ -206,6 +206,43 @@ func (g *GLTF) GetMesh(index int) (*Mesh, error) {
 // exhaust memory/CPU in aggregate. Set it to 0 to disable the guard.
 var MaxBatchSize = 10_000
 
+// gltfBatchJob is one unit of work for ParseBatch's worker pool.
+type gltfBatchJob struct {
+	data  []byte
+	index int
+}
+
+// gltfBatchResult is one worker's output for ParseBatch's worker pool.
+type gltfBatchResult struct {
+	gltf  *GLTF
+	err   error
+	index int
+}
+
+// parseBatchWorker pulls jobs from jobs, parses each via Parse, and sends the
+// result on results. It returns once jobs is drained and closed, or ctx is
+// canceled.
+func parseBatchWorker(ctx context.Context, jobs <-chan gltfBatchJob, results chan<- gltfBatchResult) {
+	for {
+		// Check cancellation first: a bare select races between a ready job
+		// and ctx.Done() (Go picks randomly), so an already-canceled context
+		// would only be honored intermittently.
+		if ctx.Err() != nil {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case work, ok := <-jobs:
+			if !ok {
+				return
+			}
+			gltf, err := Parse(work.data)
+			results <- gltfBatchResult{gltf: gltf, err: err, index: work.index}
+		}
+	}
+}
+
 // ParseBatch parses multiple glTF files concurrently.
 func ParseBatch(ctx context.Context, dataList [][]byte) ([]*GLTF, error) {
 	if len(dataList) == 0 {
@@ -221,17 +258,8 @@ func ParseBatch(ctx context.Context, dataList [][]byte) ([]*GLTF, error) {
 		numWorkers = len(dataList)
 	}
 
-	type result struct {
-		gltf  *GLTF
-		err   error
-		index int
-	}
-
-	dataChan := make(chan struct {
-		data  []byte
-		index int
-	}, len(dataList))
-	resultChan := make(chan result, len(dataList))
+	dataChan := make(chan gltfBatchJob, len(dataList))
+	resultChan := make(chan gltfBatchResult, len(dataList))
 
 	var wg sync.WaitGroup
 
@@ -240,23 +268,7 @@ func ParseBatch(ctx context.Context, dataList [][]byte) ([]*GLTF, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case work, ok := <-dataChan:
-					if !ok {
-						return
-					}
-
-					gltf, err := Parse(work.data)
-					resultChan <- result{
-						gltf:  gltf,
-						err:   err,
-						index: work.index,
-					}
-				}
-			}
+			parseBatchWorker(ctx, dataChan, resultChan)
 		}()
 	}
 
@@ -267,10 +279,7 @@ func ParseBatch(ctx context.Context, dataList [][]byte) ([]*GLTF, error) {
 			case <-ctx.Done():
 				close(dataChan)
 				return
-			case dataChan <- struct {
-				data  []byte
-				index int
-			}{data, i}:
+			case dataChan <- gltfBatchJob{data: data, index: i}:
 			}
 		}
 		close(dataChan)

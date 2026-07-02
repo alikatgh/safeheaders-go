@@ -204,6 +204,43 @@ func ValidateWAV(wav *WAV) error {
 // still exhaust memory/CPU in aggregate. Set it to 0 to disable the guard.
 var MaxBatchSize = 10_000
 
+// wavBatchJob is one unit of work for ParseBatch's worker pool.
+type wavBatchJob struct {
+	data  []byte
+	index int
+}
+
+// wavBatchResult is one worker's output for ParseBatch's worker pool.
+type wavBatchResult struct {
+	wav   *WAV
+	err   error
+	index int
+}
+
+// parseBatchWorker pulls jobs from jobs, parses each via Parse, and sends the
+// result on results. It returns once jobs is drained and closed, or ctx is
+// canceled.
+func parseBatchWorker(ctx context.Context, jobs <-chan wavBatchJob, results chan<- wavBatchResult) {
+	for {
+		// Check cancellation first: a bare select races between a ready job
+		// and ctx.Done() (Go picks randomly), so an already-canceled context
+		// would only be honored intermittently.
+		if ctx.Err() != nil {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case work, ok := <-jobs:
+			if !ok {
+				return
+			}
+			wav, err := Parse(work.data)
+			results <- wavBatchResult{wav: wav, err: err, index: work.index}
+		}
+	}
+}
+
 // ParseBatch parses multiple WAV files concurrently.
 func ParseBatch(ctx context.Context, dataList [][]byte) ([]*WAV, error) {
 	if len(dataList) == 0 {
@@ -219,17 +256,8 @@ func ParseBatch(ctx context.Context, dataList [][]byte) ([]*WAV, error) {
 		numWorkers = len(dataList)
 	}
 
-	type result struct {
-		wav   *WAV
-		err   error
-		index int
-	}
-
-	dataChan := make(chan struct {
-		data  []byte
-		index int
-	}, len(dataList))
-	resultChan := make(chan result, len(dataList))
+	dataChan := make(chan wavBatchJob, len(dataList))
+	resultChan := make(chan wavBatchResult, len(dataList))
 
 	var wg sync.WaitGroup
 
@@ -238,23 +266,7 @@ func ParseBatch(ctx context.Context, dataList [][]byte) ([]*WAV, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case work, ok := <-dataChan:
-					if !ok {
-						return
-					}
-
-					wav, err := Parse(work.data)
-					resultChan <- result{
-						wav:   wav,
-						err:   err,
-						index: work.index,
-					}
-				}
-			}
+			parseBatchWorker(ctx, dataChan, resultChan)
 		}()
 	}
 
@@ -265,10 +277,7 @@ func ParseBatch(ctx context.Context, dataList [][]byte) ([]*WAV, error) {
 			case <-ctx.Done():
 				close(dataChan)
 				return
-			case dataChan <- struct {
-				data  []byte
-				index int
-			}{data, i}:
+			case dataChan <- wavBatchJob{data: data, index: i}:
 			}
 		}
 		close(dataChan)

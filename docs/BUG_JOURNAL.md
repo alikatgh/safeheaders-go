@@ -20,6 +20,15 @@
 
 ## Chronological Log
 
+### 2026-07-02 — the project's OWN documented "flaky cancellation" pattern was still present in 4 of 5 worker pools
+
+- **Files**: `jsmn-go/parallel.go` (`chunkWorker`), `dr-wav-go/dr_wav.go` (`ParseBatch` worker), `cgltf-go/cgltf.go` (`ParseBatch` worker), `miniz-go/miniz.go` (`CreateArchiveConcurrent` worker)
+- **Symptom**: this exact bug shape is already a "Patterns to scan for FIRST" bullet in this file (`select { case <-jobs: ...; case <-ctx.Done(): ... }` honors cancellation only ~50% of the time) — it had been fixed in `stb-image-go` but, checking every other worker loop with the same shape (`grep -rl 'case <-ctx.Done()'`), 4 of the 5 modules with this pattern had never actually received the fix.
+- **Cause**: a bare `select` with both a ready job and a canceled `ctx.Done()` picks randomly; an already-canceled context is only honored once the random draw happens to land on it, not on the very next iteration.
+- **Fix**: added the same `if ctx.Err() != nil { <exit> }` guard immediately before the `select` in all four worker loops, matching `stb-image-go`'s existing (correct) shape exactly. `dr-wav-go` and `cgltf-go`'s `ParseBatch` needed the same gocognit-driven extraction as `stb-image-go` did for the batch-size fix — the anonymous worker closures were pulled into named `parseBatchWorker` functions (with named `wavBatchJob`/`gltfBatchJob`/`*Result` types replacing the inline anonymous struct types, since a named top-level function needs named parameter types). `jsmn-go`'s `chunkWorker` and `miniz-go`'s worker were already at/near a named-function or lower-complexity shape and didn't need it.
+- **Verification**: full suite + `-race` pass and `golangci-lint` 0 issues in all four modules after the fix.
+- **Lesson**: having a documented pattern in this file is not the same as having applied it everywhere it applies. When a fix is genuinely a "this shape, wherever it occurs" class of bug (not a one-off), grep the whole codebase for the shape immediately — don't assume the other N-1 instances were already handled just because one was.
+
 ### 2026-07-02 — four modules' batch entry points had no aggregate batch-size cap
 
 - **Files**: `stb-image-go/stb_image.go` (`LoadBatchConcurrent`), `dr-wav-go/dr_wav.go` (`ParseBatch`), `cgltf-go/cgltf.go` (`ParseBatch`), `miniz-go/miniz.go` (`CreateArchiveConcurrent`)

@@ -182,6 +182,13 @@ func CreateArchiveConcurrent(ctx context.Context, files []FileEntry) ([]byte, er
 		go func() {
 			defer wg.Done()
 			for {
+				// Check cancellation first: a bare select races between a
+				// ready job and ctx.Done() (Go picks randomly), so an
+				// already-canceled context would only be honored
+				// intermittently.
+				if ctx.Err() != nil {
+					return
+				}
 				select {
 				case <-ctx.Done():
 					return

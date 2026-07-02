@@ -126,6 +126,13 @@ func chunkWorker(
 	config *Config,
 ) {
 	for {
+		// Check cancellation first: a bare select races between a ready job
+		// and ctx.Done() (Go picks randomly), so an already-canceled context
+		// would only be honored intermittently.
+		if err := ctx.Err(); err != nil {
+			resultsCh <- chunkResult{err: err}
+			return
+		}
 		select {
 		case <-ctx.Done():
 			resultsCh <- chunkResult{err: ctx.Err()}
