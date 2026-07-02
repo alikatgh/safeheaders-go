@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **stb-image-go**: `MaxBatchSize` (default 10,000) caps the number of images
+  `LoadBatchConcurrent` accepts per call. `MaxImagePixels` already bounded each
+  image individually; this closes the aggregate gap where many small-but-valid
+  images could still exhaust memory/CPU in a single batch.
 - **miniz-go**: streaming `CompressStream(dst, src)` / `DecompressStream(dst, src)`
   for large files — DEFLATE through an `io.Reader`/`io.Writer` without buffering
   the whole payload. `DecompressStream` honors `MaxDecompressedSize`. (Complements

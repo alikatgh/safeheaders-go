@@ -88,8 +88,62 @@ func Load(data []byte) (image.Image, error) {
 	return img, nil
 }
 
+// MaxBatchSize caps the number of images LoadBatchConcurrent will accept in a
+// single call. MaxImagePixels bounds each individual image's decoded size, but
+// a batch of many images that each individually pass that check can still
+// exhaust memory or CPU in aggregate (e.g. 100,000 small-but-valid images).
+// The default is generous enough for normal callers; set it to 0 to disable
+// the guard entirely.
+var MaxBatchSize = 10_000
+
+// checkBatchLimit rejects a batch whose item count exceeds MaxBatchSize.
+func checkBatchLimit(n int) error {
+	if MaxBatchSize > 0 && n > MaxBatchSize {
+		return fmt.Errorf("batch of %d images exceeds the %d-image limit (adjust MaxBatchSize)",
+			n, MaxBatchSize)
+	}
+	return nil
+}
+
+// batchWorker pulls image indices from jobs, decodes each via Load, and writes
+// the result into results[idx] (each worker owns a distinct index, so no lock
+// is needed) or reports a decode failure on errs. It returns once jobs is
+// drained and closed, or ctx is canceled.
+func batchWorker(ctx context.Context, datas [][]byte, jobs <-chan int, results []image.Image, errs chan<- error) {
+	for {
+		// Check cancellation first: a bare select races between a ready
+		// job and ctx.Done() (Go picks randomly), so an already-canceled
+		// context would only be honored intermittently.
+		if err := ctx.Err(); err != nil {
+			errs <- err
+			return
+		}
+		select {
+		case idx, ok := <-jobs:
+			// 'ok' will be false if the jobs channel is closed and empty.
+			if !ok {
+				return
+			}
+			img, err := Load(datas[idx])
+			if err != nil {
+				errs <- fmt.Errorf("failed to decode image at index %d: %w", idx, err)
+			} else {
+				results[idx] = img
+			}
+		case <-ctx.Done():
+			// The context was canceled, so stop processing.
+			errs <- ctx.Err()
+			return
+		}
+	}
+}
+
 // LoadBatchConcurrent decodes multiple images in parallel with context support and full error reporting.
 func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, error) {
+	if err := checkBatchLimit(len(datas)); err != nil {
+		return nil, err
+	}
+
 	numWorkers := runtime.NumCPU()
 	if len(datas) < numWorkers {
 		numWorkers = len(datas)
@@ -115,32 +169,7 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte) ([]image.Image, er
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for {
-				// Check cancellation first: a bare select races between a ready
-				// job and ctx.Done() (Go picks randomly), so an already-canceled
-				// context would only be honored intermittently.
-				if err := ctx.Err(); err != nil {
-					errs <- err
-					return
-				}
-				select {
-				case idx, ok := <-jobs:
-					// 'ok' will be false if the jobs channel is closed and empty.
-					if !ok {
-						return
-					}
-					img, err := Load(datas[idx])
-					if err != nil {
-						errs <- fmt.Errorf("failed to decode image at index %d: %w", idx, err)
-					} else {
-						results[idx] = img
-					}
-				case <-ctx.Done():
-					// The context was canceled, so stop processing.
-					errs <- ctx.Err()
-					return
-				}
-			}
+			batchWorker(ctx, datas, jobs, results, errs)
 		}()
 	}
 

@@ -120,7 +120,7 @@ with Original" section, others don't).
 
 ### 5. Input Size Limits (DoS Risk)
 **Priority**: Medium (Security)
-**Status**: ✅ Implemented in all 9 modules; one narrower gap remains
+**Status**: ✅ Fully implemented in all 9 modules — no known open gap
 
 **Implemented**:
 - **jsmn-go** - `ParseWithConfig` enforces `MaxInputSize` and `MaxTokens`
@@ -132,17 +132,15 @@ with Original" section, others don't).
   (a malicious size header can no longer trigger an OOM)
 - **stb-image-go** - `MaxImagePixels` rejects any single image whose declared
   dimensions exceed the cap, checked from the header *before* the full decode
-  (a decode-bomb guard) — this was "still open" in a prior version of this doc; it is now fixed
+  (a decode-bomb guard), **and** (2026-07-02) `MaxBatchSize` rejects a
+  `LoadBatchConcurrent` call outright if handed more than 10,000 images —
+  closing the aggregate gap a prior version of this doc flagged as open
+  (many small-but-valid images each individually passing `MaxImagePixels`
+  could still exhaust memory/CPU in aggregate)
 - **cjson-go** - `MaxArrayItems` caps `UnmarshalArrayParallel` — this was also
   previously listed as open and is now fixed
 - **miniz-go** - `MaxDecompressedSize` bounds both single-entry and (as of the
   2026-06-23 audit) aggregate archive output
-
-**Still open**: `stb-image-go`'s `LoadBatchConcurrent` has no explicit cap on
-the *number* of images passed in one batch call (as opposed to each image's
-pixel count, which is capped). A caller invoking it with 100,000 tiny images
-could still exhaust memory on the aggregate decoded output. Low priority —
-the per-image decode-bomb vector (the sharper risk) is closed.
 
 ---
 
@@ -323,7 +321,7 @@ needed beyond routine version bumps.
 - [ ] Complete tinyxml2-go (add XPath queries) — still open, genuinely not done
 - [x] Complete dr-wav-go (multi-channel support) — `ExtractChannels()` exists
 - [x] Document error handling consistency (CONTRIBUTING.md § Error Handling Standards) — enforcement not independently re-audited across every call site
-- [x] Add input size limits — done in all 9 modules (see #5); batch-item-count cap on stb-image-go's `LoadBatchConcurrent` is the one remaining gap
+- [x] Add input size limits — done in all 9 modules, including stb-image-go's `MaxBatchSize` aggregate cap (see #5)
 - [x] Increase test coverage to 80%+ — 8 of 9 modules now clear 80%; `linenoise-go` is at 77.6%, still below
 
 ### Phase 3: Optimization

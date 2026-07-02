@@ -93,6 +93,22 @@ for i, img := range images {
 }
 ```
 
+### DoS Guards
+
+Two package-level variables guard against untrusted input, both adjustable
+and disabled by setting to `0`:
+
+- **`stbimagego.MaxImagePixels`** (default `64<<20`, i.e. 64 megapixels) — rejects
+  any single image whose header-declared dimensions exceed this, before the
+  full decode runs. Stops a "decode bomb": a tiny file whose header claims an
+  enormous width/height, which would otherwise drive `image.Decode` to
+  allocate gigabytes.
+- **`stbimagego.MaxBatchSize`** (default `10_000`) — rejects a `LoadBatchConcurrent`
+  call outright if it's handed more images than this, before any decoding
+  starts. `MaxImagePixels` bounds each image individually; this bounds the
+  *count*, since many small-but-valid images can still exhaust memory or CPU
+  in aggregate.
+
 ### Context Cancellation
 
 ```go

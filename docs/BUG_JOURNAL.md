@@ -16,8 +16,18 @@
 - **`testing` imported into a non-`_test.go` file**: Benchmark helpers placed in `foo_bench.go` (not `foo_bench_test.go`) compile `testing` into the production binary and dodge `tests: false` lint scope. Benchmarks belong in `*_test.go` files.
 - **`select { case <-jobs: ...; case <-ctx.Done(): ... }` honors cancellation only ~50% of the time**: when both a job and `ctx.Done()` are ready, Go picks a case at random, so a pre-canceled context is observed intermittently → flaky cancellation tests. Add a leading `if err := ctx.Err(); err != nil { … }` check at the top of the worker loop (or a leading `ctx.Err()` check in the result collector) so cancellation is deterministic.
 - **A blank line OR a standalone `<!-- comment -->` line inside a raw `<svg>...</svg>` block in Markdown silently truncates it**: Python-Markdown's `md_in_html` extension closes the "raw HTML" block early at that line, injecting a stray `</svg></p>` there — everything after becomes inert `<p><rect .../></p>` fragments outside any SVG context, so the diagram renders as visually EMPTY with no build error or warning. `mkdocs build --strict` does not catch this (the HTML is well-formed, just semantically broken). Verify inline SVGs by checking the BUILT HTML for real shape elements (`grep -c '<rect\|<text' site/page/index.html`), not just source XML validity. Fix: never put a blank line or a comment-only line inside an inline `<svg>` block — keep every line non-blank and non-comment-only from `<svg>` to `</svg>`.
+- **Per-item limit is not an aggregate limit, for batch APIs too**: a guard that caps each individual item (image pixel count, archive entry size, array element count) does nothing to stop a caller from passing many items that each pass the check but exhaust memory/CPU in aggregate (e.g. 100,000 small-but-valid images to a batch decode call). Any `LoadBatchXxx(items []T)`-shaped API needs its OWN cap on `len(items)`, independent of and in addition to any per-item cap. Same family as the ZIP aggregate-cap bug, just for in-process batch APIs rather than archive entries.
 
 ## Chronological Log
+
+### 2026-07-02 — stb-image-go: LoadBatchConcurrent had no aggregate batch-size cap
+
+- **File**: `stb-image-go/stb_image.go` (`LoadBatchConcurrent`)
+- **Symptom**: found while correcting stale claims in `ISSUES.md` — the doc had (correctly, for once) flagged that `MaxImagePixels` caps each image's decoded size individually, but nothing capped how many images `LoadBatchConcurrent` would accept in one call.
+- **Cause**: a caller passing e.g. 100,000 small-but-individually-valid images could still exhaust memory/CPU in aggregate; no guard existed at the batch-count level.
+- **Fix**: added `var MaxBatchSize = 10_000` (same adjustable/disable-with-0 convention as `MaxImagePixels`), checked via a new `checkBatchLimit` helper before any decoding work begins. Extracting the per-worker loop into a standalone `batchWorker` function was required to keep `LoadBatchConcurrent` under golangci-lint's `gocognit` threshold after adding the check — adding a guard clause to an already-complex function needs a compensating simplification, not just the new `if`.
+- **Verification**: new `TestMaxBatchSize` (matches `TestMaxImagePixels`'s save/restore/disable pattern); full suite + `-race` pass; `golangci-lint` 0 issues; coverage 87.7%→88.6%.
+- **Lesson**: see the matching "Patterns to scan for FIRST" bullet above.
 
 ### 2026-07-01 — 101 course: 19 of 31 inline SVG diagrams rendered visually empty
 
