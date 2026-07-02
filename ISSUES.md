@@ -129,18 +129,28 @@ with Original" section, others don't).
   nesting depth, including an absolute `maxNestingDepth` ceiling that applies
   even to the "unlimited" path
 - **dr-wav-go** - data-chunk allocation is capped to the bytes actually present
-  (a malicious size header can no longer trigger an OOM)
+  (a malicious size header can no longer trigger an OOM), **and**
+  (2026-07-02) `MaxBatchSize` caps `ParseBatch` to 10,000 files
 - **stb-image-go** - `MaxImagePixels` rejects any single image whose declared
   dimensions exceed the cap, checked from the header *before* the full decode
   (a decode-bomb guard), **and** (2026-07-02) `MaxBatchSize` rejects a
-  `LoadBatchConcurrent` call outright if handed more than 10,000 images —
-  closing the aggregate gap a prior version of this doc flagged as open
-  (many small-but-valid images each individually passing `MaxImagePixels`
-  could still exhaust memory/CPU in aggregate)
+  `LoadBatchConcurrent` call outright if handed more than 10,000 images
+- **cgltf-go** - (2026-07-02) `MaxBatchSize` caps `ParseBatch` to 10,000 files —
+  the same aggregate gap as stb-image-go/dr-wav-go, found by checking every
+  other `func.*Batch\|func.*Parallel` entry point in the codebase after fixing
+  the first instance
 - **cjson-go** - `MaxArrayItems` caps `UnmarshalArrayParallel` — this was also
   previously listed as open and is now fixed
 - **miniz-go** - `MaxDecompressedSize` bounds both single-entry and (as of the
-  2026-06-23 audit) aggregate archive output
+  2026-06-23 audit) aggregate archive output on the *extract* path, **and**
+  (2026-07-02) `MaxBatchSize` caps `CreateArchiveConcurrent` to 10,000 files
+  on the *create* path (a distinct gap — the existing guard didn't cover it)
+
+**Note on 2026-07-02's fixes**: after closing the stb-image-go gap, the same
+`LoadBatchXxx(items []T)`/`ParseBatch(dataList [][]byte)` shape was grepped for
+across every module rather than assumed fixed elsewhere — it wasn't, in three
+more places. See the "per-item limit is not an aggregate limit" pattern in
+`docs/BUG_JOURNAL.md`.
 
 ---
 

@@ -201,10 +201,19 @@ func (g *GLTF) GetMesh(index int) (*Mesh, error) {
 	return &g.Meshes[index], nil
 }
 
+// MaxBatchSize caps the number of files ParseBatch will accept in a single
+// call. Many small-but-valid glTF files handed to one batch call can still
+// exhaust memory/CPU in aggregate. Set it to 0 to disable the guard.
+var MaxBatchSize = 10_000
+
 // ParseBatch parses multiple glTF files concurrently.
 func ParseBatch(ctx context.Context, dataList [][]byte) ([]*GLTF, error) {
 	if len(dataList) == 0 {
 		return nil, errors.New("empty data list")
+	}
+	if MaxBatchSize > 0 && len(dataList) > MaxBatchSize {
+		return nil, fmt.Errorf("batch of %d files exceeds the %d-file limit (adjust MaxBatchSize)",
+			len(dataList), MaxBatchSize)
 	}
 
 	numWorkers := runtime.NumCPU()

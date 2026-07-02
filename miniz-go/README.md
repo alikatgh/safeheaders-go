@@ -111,6 +111,12 @@ if err != nil {
 fmt.Printf("Created %d byte archive using parallel compression\n", len(archive))
 ```
 
+`minizgo.MaxBatchSize` (default 10,000, set to `0` to disable) rejects a
+`CreateArchiveConcurrent` call outright if handed more files than that — many
+small files still cost per-worker compression buffers and goroutine overhead
+in aggregate. (`MaxDecompressedSize`, documented above, is the separate guard
+on the *extract* path.)
+
 ### Context Cancellation
 
 ```go

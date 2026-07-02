@@ -1,6 +1,7 @@
 package drwavgo
 
 import (
+	"context"
 	"encoding/binary"
 	"testing"
 )
@@ -68,5 +69,33 @@ func TestParseSerializeRoundTrip(t *testing.T) {
 	}
 	if err := ValidateWAV(got); err != nil {
 		t.Errorf("ValidateWAV: %v", err)
+	}
+}
+
+// TestMaxBatchSize verifies the aggregate DoS guard: a batch whose file count
+// exceeds MaxBatchSize is rejected before any parsing work begins, even
+// though every individual file is well-formed and small.
+func TestMaxBatchSize(t *testing.T) {
+	dataList := [][]byte{
+		createTestWAV(44100, 1, 16, 10),
+		createTestWAV(44100, 1, 16, 10),
+		createTestWAV(44100, 1, 16, 10),
+	}
+
+	if _, err := ParseBatch(context.Background(), dataList); err != nil {
+		t.Fatalf("ParseBatch under the default limit failed: %v", err)
+	}
+
+	orig := MaxBatchSize
+	defer func() { MaxBatchSize = orig }()
+
+	MaxBatchSize = 2 // below len(dataList) == 3
+	if _, err := ParseBatch(context.Background(), dataList); err == nil {
+		t.Fatal("expected ParseBatch to reject a 3-file batch under a 2-file limit")
+	}
+
+	MaxBatchSize = 0 // disabled
+	if _, err := ParseBatch(context.Background(), dataList); err != nil {
+		t.Fatalf("ParseBatch with the guard disabled failed: %v", err)
 	}
 }

@@ -198,10 +198,20 @@ func ValidateWAV(wav *WAV) error {
 	return nil
 }
 
+// MaxBatchSize caps the number of files ParseBatch will accept in a single
+// call. A per-file size limit is a caller's own concern (via the bytes it
+// passes in), but many small-but-valid files handed to one batch call can
+// still exhaust memory/CPU in aggregate. Set it to 0 to disable the guard.
+var MaxBatchSize = 10_000
+
 // ParseBatch parses multiple WAV files concurrently.
 func ParseBatch(ctx context.Context, dataList [][]byte) ([]*WAV, error) {
 	if len(dataList) == 0 {
 		return nil, errors.New("empty data list")
+	}
+	if MaxBatchSize > 0 && len(dataList) > MaxBatchSize {
+		return nil, fmt.Errorf("batch of %d files exceeds the %d-file limit (adjust MaxBatchSize)",
+			len(dataList), MaxBatchSize)
 	}
 
 	numWorkers := runtime.NumCPU()

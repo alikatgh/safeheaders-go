@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **stb-image-go**: `MaxBatchSize` (default 10,000) caps the number of images
-  `LoadBatchConcurrent` accepts per call. `MaxImagePixels` already bounded each
-  image individually; this closes the aggregate gap where many small-but-valid
-  images could still exhaust memory/CPU in a single batch.
+- **stb-image-go, dr-wav-go, cgltf-go, miniz-go**: `MaxBatchSize` (default
+  10,000) caps the number of files each module's batch entry point
+  (`LoadBatchConcurrent`, `ParseBatch` ×2, `CreateArchiveConcurrent`) accepts
+  per call. Per-item guards already existed on some of these paths
+  (`MaxImagePixels`, `MaxDecompressedSize`), but none capped the *count* of
+  items in a batch — many small-but-valid items could still exhaust
+  memory/CPU in aggregate. Found by grepping every `Batch`/`Parallel` entry
+  point in the codebase after fixing the first instance in stb-image-go.
 - **miniz-go**: streaming `CompressStream(dst, src)` / `DecompressStream(dst, src)`
   for large files — DEFLATE through an `io.Reader`/`io.Writer` without buffering
   the whole payload. `DecompressStream` honors `MaxDecompressedSize`. (Complements

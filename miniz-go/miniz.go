@@ -147,10 +147,21 @@ type compressedFile struct {
 	err        error
 }
 
+// MaxBatchSize caps the number of files CreateArchiveConcurrent will accept
+// in a single call. Many small files handed to one call can still exhaust
+// memory/CPU in aggregate (per-worker compression buffers, goroutine
+// overhead) even though ExtractArchive's aggregate byte cap doesn't apply on
+// this create path. Set it to 0 to disable the guard.
+var MaxBatchSize = 10_000
+
 // CreateArchiveConcurrent creates a ZIP archive from files using parallel compression.
 func CreateArchiveConcurrent(ctx context.Context, files []FileEntry) ([]byte, error) {
 	if len(files) == 0 {
 		return nil, errors.New("no files provided")
+	}
+	if MaxBatchSize > 0 && len(files) > MaxBatchSize {
+		return nil, fmt.Errorf("batch of %d files exceeds the %d-file limit (adjust MaxBatchSize)",
+			len(files), MaxBatchSize)
 	}
 
 	numWorkers := runtime.NumCPU()

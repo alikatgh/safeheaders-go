@@ -143,6 +143,11 @@ for i, wav := range wavs {
 }
 ```
 
+`drwavgo.MaxBatchSize` (default 10,000, set to `0` to disable) rejects a
+`ParseBatch` call outright if handed more files than that — many small-but-valid
+files can still exhaust memory/CPU in aggregate even though each one parses fine
+on its own.
+
 ### Context Cancellation
 
 ```go

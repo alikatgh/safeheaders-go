@@ -20,13 +20,14 @@
 
 ## Chronological Log
 
-### 2026-07-02 — stb-image-go: LoadBatchConcurrent had no aggregate batch-size cap
+### 2026-07-02 — four modules' batch entry points had no aggregate batch-size cap
 
-- **File**: `stb-image-go/stb_image.go` (`LoadBatchConcurrent`)
+- **Files**: `stb-image-go/stb_image.go` (`LoadBatchConcurrent`), `dr-wav-go/dr_wav.go` (`ParseBatch`), `cgltf-go/cgltf.go` (`ParseBatch`), `miniz-go/miniz.go` (`CreateArchiveConcurrent`)
 - **Symptom**: found while correcting stale claims in `ISSUES.md` — the doc had (correctly, for once) flagged that `MaxImagePixels` caps each image's decoded size individually, but nothing capped how many images `LoadBatchConcurrent` would accept in one call.
-- **Cause**: a caller passing e.g. 100,000 small-but-individually-valid images could still exhaust memory/CPU in aggregate; no guard existed at the batch-count level.
-- **Fix**: added `var MaxBatchSize = 10_000` (same adjustable/disable-with-0 convention as `MaxImagePixels`), checked via a new `checkBatchLimit` helper before any decoding work begins. Extracting the per-worker loop into a standalone `batchWorker` function was required to keep `LoadBatchConcurrent` under golangci-lint's `gocognit` threshold after adding the check — adding a guard clause to an already-complex function needs a compensating simplification, not just the new `if`.
-- **Verification**: new `TestMaxBatchSize` (matches `TestMaxImagePixels`'s save/restore/disable pattern); full suite + `-race` pass; `golangci-lint` 0 issues; coverage 87.7%→88.6%.
+- **Cause**: a caller passing e.g. 100,000 small-but-individually-valid items could still exhaust memory/CPU in aggregate; no guard existed at the batch-count level. After fixing stb-image-go, grepped `func.*Batch\|func.*Parallel` across every module rather than assuming the others were fine — they weren't: the identical gap existed in `dr-wav-go`, `cgltf-go`, and `miniz-go`'s create (not extract) path.
+- **Fix**: added `var MaxBatchSize = 10_000` to all four (same adjustable/disable-with-0 convention as `MaxImagePixels`/`MaxDecompressedSize`). stb-image-go's `LoadBatchConcurrent` needed a compensating refactor (extracting the per-worker loop into a standalone `batchWorker` function) to stay under golangci-lint's `gocognit` threshold after adding the check; the other three had enough structural headroom already.
+- **Verification**: a `TestMaxBatchSize` per module (matching each module's existing `TestMaxImagePixels`/`TestMaxDecompressedSize` save/restore/disable pattern); full suite + `-race` pass and `golangci-lint` 0 issues in all four modules.
+- **Lesson**: see the matching "Patterns to scan for FIRST" bullet above — when you find one instance of a bug shape, grep the whole codebase for the same function signature/shape before considering the fix complete.
 - **Lesson**: see the matching "Patterns to scan for FIRST" bullet above.
 
 ### 2026-07-01 — 101 course: 19 of 31 inline SVG diagrams rendered visually empty

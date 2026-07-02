@@ -2,6 +2,7 @@ package minizgo
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 )
@@ -70,5 +71,33 @@ func TestExtractArchiveAggregateBombGuard(t *testing.T) {
 	MaxDecompressedSize = 64 << 20
 	if _, err := ExtractArchive(archive); err != nil {
 		t.Errorf("ExtractArchive under a sufficient cap: %v", err)
+	}
+}
+
+// TestMaxBatchSize verifies the aggregate DoS guard on the create path: a
+// batch whose file count exceeds MaxBatchSize is rejected before any
+// compression work begins, even though every individual file is tiny.
+func TestMaxBatchSize(t *testing.T) {
+	files := []FileEntry{
+		{Name: "a.txt", Data: []byte("a")},
+		{Name: "b.txt", Data: []byte("b")},
+		{Name: "c.txt", Data: []byte("c")},
+	}
+
+	if _, err := CreateArchiveConcurrent(context.Background(), files); err != nil {
+		t.Fatalf("CreateArchiveConcurrent under the default limit failed: %v", err)
+	}
+
+	orig := MaxBatchSize
+	defer func() { MaxBatchSize = orig }()
+
+	MaxBatchSize = 2 // below len(files) == 3
+	if _, err := CreateArchiveConcurrent(context.Background(), files); err == nil {
+		t.Fatal("expected CreateArchiveConcurrent to reject a 3-file batch under a 2-file limit")
+	}
+
+	MaxBatchSize = 0 // disabled
+	if _, err := CreateArchiveConcurrent(context.Background(), files); err != nil {
+		t.Fatalf("CreateArchiveConcurrent with the guard disabled failed: %v", err)
 	}
 }
