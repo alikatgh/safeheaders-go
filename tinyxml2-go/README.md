@@ -202,6 +202,29 @@ cd tinyxml2-go
 go test -v
 ```
 
+## Performance
+
+Two benchmarks ship with the module — run them yourself rather than trusting
+numbers that go stale:
+
+```bash
+cd tinyxml2-go
+go test -bench=. -benchmem
+```
+
+- `BenchmarkParse` — parsing throughput on a generated ~1&nbsp;MB document.
+- `BenchmarkTraverseConcurrent` — walking direct children of the root across
+  `runtime.NumCPU()` goroutines via `TraverseConcurrent`.
+
+## Limitations
+
+- No XPath or CSS-selector-style querying — `Find`/`FindAll`/`FindDeep`/
+  `FindAllDeep` only match by element name.
+- No support for XML namespaces, DTDs, or external entity resolution.
+- `Parse` applies no size/depth limits; use `ParseWithConfig` for untrusted
+  input (see [Concurrent Traversal](#concurrent-traversal) and the `Config`
+  type under [API Reference](#api-reference)).
+
 ## License
 
 MIT - See [LICENSE](../LICENSE)

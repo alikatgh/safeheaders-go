@@ -2,7 +2,7 @@
 
 This document tracks known issues, technical debt, and planned improvements for the SafeHeaders-Go project.
 
-**Last Updated**: 2026-06-23
+**Last Updated**: 2026-07-02 (verified against the actual repo state — several entries below were stale and have been corrected)
 **Status Legend**: 🔴 Critical | 🟡 Major | 🔵 Minor | ✅ Fixed
 
 ---
@@ -40,10 +40,12 @@ The former scope gap, **stb-truetype-go**'s placeholder rasterizer, is now a rea
 pure-Go glyf rasterizer (sfnt parsing, cmap formats, simple+composite outlines,
 anti-aliased scan-fill; fuzzed). The remaining modules do real work, deliberately
 scoped as ports/wrappers:
-- **dr-wav-go** - RIFF/PCM parse + serialize, concurrent batch decode (no float/ADPCM)
+- **dr-wav-go** - RIFF/PCM parse + serialize, concurrent batch decode, multi-channel
+  extraction (`ExtractChannels`) — no float/ADPCM sample formats
 - **cgltf-go** - full glTF 2.0 JSON parse/serialize, concurrent batch parse
 - **cjson-go** - marshaling helpers + parallel array unmarshal over `encoding/json`
-- **miniz-go** - ZIP create/extract + DEFLATE, parallel entry compression
+- **miniz-go** - ZIP create/extract + DEFLATE, parallel entry compression, streaming
+  compress/decompress
 - **tinyxml2-go** - DOM parse + traversal queries (no XPath)
 - **stb-image-go** - PNG/JPEG/GIF decode + concurrent batch over the `image` stdlib
 
@@ -51,22 +53,24 @@ scoped as ports/wrappers:
 
 ### 2. Inconsistent Error Handling
 **Priority**: Medium
-**Affected Modules**: All
+**Status**: 🟡 Partially resolved — a standard is now documented; consistent enforcement across every call site was not independently re-audited
 
-**Examples**:
-1. **stb-image-go** - Returns formatted string of errors (now fixed for context cancellation, but still inconsistent for other errors)
-2. **jsmn-go** - Fails fast on first error (good for correctness)
-3. **tinyxml2-go** - No error aggregation in concurrent operations
-4. **Most modules** - Mix of `errors.New()`, `fmt.Errorf()`, and direct returns
+**What changed**: `CONTRIBUTING.md` now has a dedicated "Error Handling Standards"
+section, and the 2026-06-23 security audit's fixes (see `docs/audits/`) added
+consistent `fmt.Errorf("context: %w", err)` wrapping to several previously-bare
+`return nil, err` sites (e.g. `tinyxml2-go/tinyxml2.go`'s `Parse`/`ParseWithConfig`
+token loops).
 
-**Impact**: Makes debugging harder, inconsistent API experience.
+**Still true**:
+1. **stb-image-go** - context-cancellation error handling was fixed; other error
+   paths are not necessarily uniform.
+2. **jsmn-go** - fails fast on first error (a deliberate, documented choice, not a bug).
+3. Some modules still mix `errors.New()`, `fmt.Errorf()`, and direct returns —
+   no module uses `errors.Join()` for aggregation.
 
-**Recommendation**:
-- Document error handling strategy in CONTRIBUTING.md
-- Standardize on one approach:
-  - Option A: Always fail-fast on first error
-  - Option B: Aggregate errors using `errors.Join()` (Go 1.20+)
-- Add error wrapping consistently with `fmt.Errorf("context: %w", err)`
+**Recommendation**: a full pass verifying every exported function follows the
+documented standard has not been done; low urgency since the standard itself
+is now written down for contributors to follow going forward.
 
 ---
 
@@ -93,75 +97,52 @@ object/array is still not implemented (such inputs use the serial path).
 
 ### 4. Missing Module Documentation
 **Priority**: Medium
-**Status**: Partial
+**Status**: ✅ Largely resolved — this entire section was stale; all 9 modules have substantial READMEs
 
-**Current State**:
-- Only jsmn-go and select modules have README.md
-- Most modules lack usage examples
-- No API documentation beyond godoc comments
-- Performance characteristics undocumented
+**Verified current state** (all 9 module READMEs re-checked directly, not assumed):
+- **All 9 modules have a `README.md`** (149–459 lines each), not "only jsmn-go and select modules" as previously claimed.
+- **8 of 9** have a `## Performance` section with real benchmark commands.
+  `tinyxml2-go` was missing one — **fixed this pass**, added pointing at its
+  real `BenchmarkParse`/`BenchmarkTraverseConcurrent` benchmarks (no fabricated numbers).
+- **5 of 9** (cgltf, dr-wav, jsmn, miniz, and now tinyxml2) have a `## Limitations`
+  section. `cjson-go`, `linenoise-go`, `stb-image-go`, `stb-truetype-go` still lack one —
+  genuinely open, low priority.
+- **Thread-safety** is documented in 8 of 9 READMEs. `linenoise-go` had zero
+  mentions despite the code being mutex-guarded since the 2026-06-23 audit fix
+  (H3) — **fixed this pass**, added a "Thread safety" note under Global Functions.
+- Every module has godoc comments plus its own usage examples in its README.
 
-**Missing for Each Module**:
-- [ ] API usage examples (basic + concurrent)
-- [ ] Performance benchmarks and comparisons
-- [ ] Known limitations section
-- [ ] Compatibility notes with original C libraries
-- [ ] Thread-safety guarantees
-
-**Recommendation**:
-Create template: `.github/MODULE_README_TEMPLATE.md` with sections:
-1. Overview
-2. Installation
-3. Basic Usage
-4. Concurrent Usage
-5. Performance Characteristics
-6. Limitations
-7. API Reference
-8. Contributing
+**Still genuinely open**: a compatibility-notes-with-the-original-C-library
+section is not standardized across modules (some READMEs have a "Comparison
+with Original" section, others don't).
 
 ---
 
 ### 5. Input Size Limits (DoS Risk)
 **Priority**: Medium (Security)
-**Status**: ✅ Largely implemented (jsmn-go, tinyxml2-go, dr-wav-go)
+**Status**: ✅ Implemented in all 9 modules; one narrower gap remains
 
 **Implemented**:
 - **jsmn-go** - `ParseWithConfig` enforces `MaxInputSize` and `MaxTokens`
   (`DefaultConfig`/`StrictConfig`/`UnlimitedConfig`)
-- **tinyxml2-go** - `ParseWithConfig` enforces input size, node count, and
-  nesting depth
+- **tinyxml2-go** - `ParseWithConfig`/`Parse` enforce input size, node count, and
+  nesting depth, including an absolute `maxNestingDepth` ceiling that applies
+  even to the "unlimited" path
 - **dr-wav-go** - data-chunk allocation is capped to the bytes actually present
   (a malicious size header can no longer trigger an OOM)
+- **stb-image-go** - `MaxImagePixels` rejects any single image whose declared
+  dimensions exceed the cap, checked from the header *before* the full decode
+  (a decode-bomb guard) — this was "still open" in a prior version of this doc; it is now fixed
+- **cjson-go** - `MaxArrayItems` caps `UnmarshalArrayParallel` — this was also
+  previously listed as open and is now fixed
+- **miniz-go** - `MaxDecompressedSize` bounds both single-entry and (as of the
+  2026-06-23 audit) aggregate archive output
 
-**Still open**:
-- **stb-image-go** - no explicit batch-size limit (bounded in practice by caller)
-- **cjson-go** - relies on `encoding/json`'s own limits
-
-**Impact**:
-- An attacker could send 1GB JSON → OOM crash
-- Batch processing 10,000 images → memory exhaustion
-- Deeply nested XML → stack overflow or memory exhaustion
-
-**Recommendation**:
-Add configurable limits with sensible defaults:
-```go
-type ParserConfig struct {
-    MaxTokens      int // Default: 1,000,000
-    MaxInputSize   int // Default: 100MB
-    MaxBatchSize   int // Default: 1,000 items
-    MaxNestingDepth int // Default: 1,000
-}
-```
-
-Example:
-```go
-// jsmn-go
-func NewParserWithConfig(cfg ParserConfig) *Parser
-func ParseParallel(json []byte, cfg ParserConfig) ([]Token, error)
-
-// stb-image-go
-func LoadBatchConcurrent(ctx context.Context, datas [][]byte, maxBatch int) ([]image.Image, error)
-```
+**Still open**: `stb-image-go`'s `LoadBatchConcurrent` has no explicit cap on
+the *number* of images passed in one batch call (as opposed to each image's
+pixel count, which is capped). A caller invoking it with 100,000 tiny images
+could still exhaust memory on the aggregate decoded output. Low priority —
+the per-image decode-bomb vector (the sharper risk) is closed.
 
 ---
 
@@ -169,14 +150,16 @@ func LoadBatchConcurrent(ctx context.Context, datas [][]byte, maxBatch int) ([]i
 
 ### 6. Test Coverage
 **Priority**: Low
-**Status**: ✅ Every module is above the 70% CI gate (measured `go test -cover` totals)
+**Status**: ✅ Every module is above the 70% CI gate (re-measured this pass with `go test -cover`)
 
-- cgltf 93% · tinyxml2 89% · stb-image 89% · jsmn 88% · cjson 83% · dr-wav 82% ·
-  stb-truetype 81% · miniz 79% · linenoise 77%
+- cgltf 94.3% · cjson 93.9% · jsmn 93.6% · tinyxml2 89.8% · stb-image 87.7% ·
+  dr-wav 86.2% · stb-truetype 81.3% · miniz 83.6% · linenoise 77.6%
 
-Fuzz tests exist for jsmn-go and tinyxml2-go, and the 70% threshold is enforced
-in CI. Still useful: cross-module integration tests and more error-injection
-and edge-case coverage.
+(Several of these — cjson, jsmn, miniz in particular — are meaningfully higher
+than the last-recorded numbers in this file, reflecting coverage work since the
+prior update.) Fuzz tests exist for jsmn-go, tinyxml2-go, dr-wav-go, and
+stb-truetype-go. Still useful: cross-module integration tests and more
+error-injection/edge-case coverage.
 
 ---
 
@@ -193,33 +176,31 @@ fixtures are regenerable with `make testdata`. None are committed — see
 
 ### 8. Missing Contributing Guidelines
 **Priority**: Low
-**Status**: Not present
+**Status**: ✅ Resolved — this entire entry was stale
 
-**Needed Files**:
-- [ ] CONTRIBUTING.md - PR process, code standards, testing requirements
-- [ ] ARCHITECTURE.md - Design patterns, concurrency patterns, error handling
-- [ ] SECURITY.md - Vulnerability reporting, security policy
-- [ ] CODE_OF_CONDUCT.md - Community guidelines
-- [ ] CHANGELOG.md - Version history
+All five files this entry asked for already exist at the repo root:
+`CONTRIBUTING.md`, `ARCHITECTURE.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, and
+`CHANGELOG.md` (the last actively maintained — see its `[Unreleased]` section).
 
 ---
 
-### 9. No Semantic Versioning / Releases
+### 9. Semantic Versioning / Releases
 **Priority**: Low
-**Issue**: No git tags, no GitHub releases, no version tracking.
+**Status**: 🟡 Partially resolved — this entry's "no git tags" claim was stale
 
-**Impact**: Users can't track breaking changes or pin to stable versions.
+Git tags exist: `v0.2.0` (repo-wide), plus per-module tags
+`stb-image-go/v0.1.0`, `tinyxml2-go/v0.1.0`, `tinyxml2-go/v0.3.0`.
 
-**Recommendation**:
-- Add semantic versioning: `v0.1.0` for alpha modules, `v1.0.0` for stable
-- Create GitHub releases with changelog
-- Use git tags: `git tag -a v0.1.0 -m "Initial alpha release"`
-- Document breaking changes clearly
+**Still open**: no GitHub Releases have been published from these tags, and
+tagging is not yet consistent across all 9 modules (most don't have their own
+tag). Low priority.
 
 ---
 
 ### 10. Duplicate Code Patterns
 **Priority**: Low
+**Status**: Still open — genuinely unaddressed, re-verified this pass (no `internal/` package exists)
+
 **Issue**: Worker pool pattern duplicated across 6+ modules.
 
 **Examples**:
@@ -227,7 +208,9 @@ fixtures are regenerable with `make testdata`. None are committed — see
 - stb-image-go:43-67 (nearly identical)
 - tinyxml2-go:131-148 (similar pattern)
 
-**Recommendation**:
+**Recommendation** (unchanged — deliberately not attempted without a decision
+from a maintainer, since consolidating 6 modules' concurrency code is a
+meaningful refactor with real regression risk, not a quick fix):
 Extract common patterns to internal package:
 ```go
 // internal/workers/pool.go
@@ -253,53 +236,42 @@ func RunPool[T any, R any](
 
 ---
 
-### 11. License Compatibility Not Verified
+### 11. License Compatibility
 **Priority**: Low (Legal)
-**Issue**: README says "MIT" but doesn't verify compatibility with original C libraries.
+**Status**: 🟡 Partially resolved — the file exists; the legal question is still unverified
 
-**Original Library Licenses**:
+**Done**: a `LICENSE` file now exists at the repo root (this entry previously,
+incorrectly, said it didn't).
+
+**Original Library Licenses** (unchanged from the original entry):
 - jsmn.h - MIT ✅
 - stb_*.h - Public Domain / MIT ✅
 - cJSON.h - MIT ✅
-- tinyxml2.h - zlib ⚠️ (need to verify compatibility)
+- tinyxml2.h - zlib ⚠️ (compatibility with the repo's MIT license not
+  independently verified — this needs an actual legal read, not an AI guess)
 - cgltf.h - MIT ✅
-- nuklear.h - Public Domain / MIT ✅
 - dr_wav.h - Public Domain ✅
 
-**Recommendation**:
-- Add LICENSE file with full MIT text
-- Add LICENSES/ directory with original library licenses
-- Verify zlib license compatibility with MIT
-- Add attribution section to README
+**Still open**: a `LICENSES/` directory with the original per-library license
+texts and a README attribution section have not been added.
 
 ---
 
-### 12. No Code Owners / Review Requirements
+### 12. Code Owners
 **Priority**: Low
-**Issue**: No CODEOWNERS file, unclear who reviews PRs.
+**Status**: ✅ Resolved — this entry was stale
 
-**Recommendation**:
-```
-# .github/CODEOWNERS
-* @alikatgh
-
-# Specific modules
-/jsmn-go/ @alikatgh
-/stb-truetype-go/ @alikatgh
-```
+`.github/CODEOWNERS` already exists.
 
 ---
 
-### 13. golangci-lint Version Too Old
+### 13. golangci-lint Version
 **Priority**: Low
-**Issue**: CI uses v2.1.6 (very old, from 2020), many new linters missed.
+**Status**: ✅ Resolved — this entry's version numbers were both wrong
 
-**Current**: v2.1.6 (2020)
-**Latest**: v1.61.0 (2024)
-
-**Impact**: Missing modern linters (exhaustruct, nilerr, nilaway, etc.)
-
-**Recommendation**: Update to v1.61.0 or later.
+CI and the `Makefile` pin `golangci-lint v2.2.2` (not "v2.1.6 from 2020" as this
+entry previously claimed), matching the `.golangci.yml` v2 schema. No action
+needed beyond routine version bumps.
 
 ---
 
@@ -307,90 +279,86 @@ func RunPool[T any, R any](
 
 ### Future Enhancements (P3)
 
-1. **Streaming API for jsmn-go**
-   - Current: Loads entire JSON into memory
-   - Proposed: `ParseStream(r io.Reader) <-chan Token`
-   - Benefit: Handle multi-GB JSON files
+1. **Streaming APIs** — ✅ done, but not exactly as originally scoped to jsmn-go
+   - `cjson-go`: `UnmarshalStream(r io.Reader, v any) error` / `MarshalStream(w io.Writer, v any) error`
+   - `miniz-go`: `CompressStream(dst io.Writer, src io.Reader) error` / `DecompressStream(...)`
+   - `stb-image-go`: `LoadStream(r io.Reader) (image.Image, error)`
+   - `jsmn-go` itself does **not** have a `ParseStream`/channel-based API — its
+     token model is a flat `[]Token` over the whole input, which doesn't map
+     cleanly onto a streaming/channel interface without a larger redesign. If
+     multi-GB JSON streaming is still wanted specifically for jsmn-go, that
+     remains open.
 
-2. **WebAssembly Support**
+2. **WebAssembly Support** — still just an idea, not started.
    - Compile modules to WASM for browser usage
-   - Example: JSON parsing in web workers
    - Target: `GOOS=js GOARCH=wasm go build`
 
-3. **Performance Monitoring**
-   - Add pprof endpoints for benchmarking
-   - Memory allocation profiling
-   - CPU profiling for hot paths
+3. **Performance Monitoring** — still just an idea, not started.
+   - pprof endpoints, allocation/CPU profiling for hot paths
 
-4. **Benchmark Comparison Tool**
-   - Script to compare against C libraries
-   - Automated benchstat reports in CI
-   - Performance regression detection
+4. **Benchmark Comparison Tool** — still just an idea, not started.
+   - Script to compare against the original C libraries, automated benchstat in CI
 
-5. **Module-Specific READMEs**
-   - Detailed API docs for each module
-   - More usage examples
-   - Performance tuning guides
+5. **Module-Specific READMEs** — ✅ done (see #4 above); the remaining gap is
+   per-module Limitations sections and consistent "Compatibility with original"
+   sections, not full READMEs.
 
-6. **Add More C Libraries**
-   - stb_vorbis.h (audio decoding)
-   - tinyobjloader.h (OBJ model loading)
-   - utf8.h (UTF-8 handling)
-   - See README wishlist for full list
+6. **Add More C Libraries** — still just an idea (stb_vorbis.h, tinyobjloader.h,
+   utf8.h), not started.
 
 ---
 
 ## 🎯 Roadmap
 
-### Phase 1: Stability (Current)
+### Phase 1: Stability — ✅ complete
 - [x] Fix failing tests
 - [x] Extend CI to all modules
 - [x] Fix Go version mismatch
 - [x] Remove duplicate CI steps
-- [ ] Add maturity badges
-- [ ] Add CONTRIBUTING.md
-- [ ] Add LICENSE file
+- [x] Add maturity badges (README.md has 7 status badges)
+- [x] Add CONTRIBUTING.md
+- [x] Add LICENSE file
 
-### Phase 2: Completeness (Next)
-- [ ] Complete tinyxml2-go (add XPath queries)
-- [ ] Complete dr-wav-go (multi-channel support)
-- [ ] Improve error handling consistency
-- [ ] Add input size limits
-- [ ] Increase test coverage to 80%+
+### Phase 2: Completeness
+- [ ] Complete tinyxml2-go (add XPath queries) — still open, genuinely not done
+- [x] Complete dr-wav-go (multi-channel support) — `ExtractChannels()` exists
+- [x] Document error handling consistency (CONTRIBUTING.md § Error Handling Standards) — enforcement not independently re-audited across every call site
+- [x] Add input size limits — done in all 9 modules (see #5); batch-item-count cap on stb-image-go's `LoadBatchConcurrent` is the one remaining gap
+- [x] Increase test coverage to 80%+ — 8 of 9 modules now clear 80%; `linenoise-go` is at 77.6%, still below
 
-### Phase 3: Optimization (Future)
-- [ ] Implement smart chunking for jsmn-go
-- [ ] Optimize memory allocations
-- [ ] Add fuzz testing
-- [ ] Performance benchmarks vs C
+### Phase 3: Optimization
+- [x] Implement smart chunking for jsmn-go
+- [ ] Optimize memory allocations — no dedicated pass done
+- [x] Add fuzz testing (jsmn-go, tinyxml2-go, dr-wav-go, stb-truetype-go)
+- [ ] Performance benchmarks vs C — not started
 
-### Phase 4: Ecosystem (Long-term)
-- [ ] Add streaming APIs
+### Phase 4: Ecosystem
+- [x] Add streaming APIs (cjson-go, miniz-go, stb-image-go — see Enhancement #1)
 - [ ] WebAssembly support
-- [ ] Create examples/ directory
-- [ ] Write blog posts / tutorials
+- [ ] Create examples/ directory (an `examples/` directory with 4 runnable programs already exists at the repo root — if "ecosystem examples" means something further, scope it explicitly)
+- [ ] Write blog posts / tutorials (the `101/` course — a full 31-lesson learn-Go-from-this-repo curriculum — substantially covers this)
 - [ ] Present at conferences
 
 ---
 
 ## 📊 Module Maturity Matrix
 
-Coverage = measured `go test -cover` total. Tests/Docs/Lint reflect current CI.
+Coverage = measured `go test -cover` total, re-run 2026-07-02. Tests/Docs/Lint reflect current CI.
 
 | Module | Coverage | Tests | Docs | Lint | Status |
 |--------|----------|-------|------|------|--------|
-| cgltf-go | 93% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| tinyxml2-go | 89% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| stb-image-go | 89% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| jsmn-go | 88% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| cjson-go | 83% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| dr-wav-go | 82% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| stb-truetype-go | 81% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| miniz-go | 79% | ✅ race | ✅ | ✅ | 🟢 Stable |
-| linenoise-go | 77% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| cgltf-go | 94.3% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| cjson-go | 93.9% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| jsmn-go | 93.6% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| tinyxml2-go | 89.8% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| stb-image-go | 87.7% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| dr-wav-go | 86.2% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| miniz-go | 83.6% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| stb-truetype-go | 81.3% | ✅ race | ✅ | ✅ | 🟢 Stable |
+| linenoise-go | 77.6% | ✅ race | ✅ | ✅ | 🟢 Stable |
 
 **Legend**: ✅ = passing / present · 🟢 Stable. All 9 modules are Stable,
-race-tested, lint-clean (golangci-lint v2, 0 issues), and above the 70% gate.
+race-tested, lint-clean (golangci-lint v2.2.2, 0 issues), and above the 70% gate.
 
 ---
 
@@ -415,7 +383,13 @@ Found a new issue? Want to fix one? Great!
 - This document is living and should be updated as issues are fixed
 - When fixing an issue, move it to the "Fixed" section with date
 - Add new issues as they're discovered
-- Link to GitHub issues when created
+- **2026-07-02**: this file had drifted significantly from reality — several
+  P1/P2 items claimed things were "not present" or "still open" (LICENSE,
+  CODEOWNERS, CONTRIBUTING.md, git tags, module READMEs, golangci-lint version,
+  cjson/stb-image size limits) when they had in fact already been done in
+  earlier work. Every claim in this revision was re-verified directly against
+  the repo (file existence checks, `git tag`, `go test -cover`, grep for the
+  relevant guard code) rather than assumed. Re-verify before trusting old
+  entries in the git history of this file.
 
 **Maintainer**: @alikatgh
-**Last Review**: 2025-10-31

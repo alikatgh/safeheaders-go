@@ -241,6 +241,11 @@ These operate on a global state for simple usage:
 - `SetMultiLine(enabled bool)` - Enable/disable multi-line mode
 - `SetMaskMode(enabled bool)` - Enable/disable password masking
 
+**Thread safety:** all global functions operate on a single shared `*State`
+guarded by an internal `sync.Mutex`, so calling them concurrently from
+multiple goroutines is safe. If you need independent, non-shared state,
+construct your own with `New(config)` instead of using the global functions.
+
 ### Types
 
 #### `Config`
