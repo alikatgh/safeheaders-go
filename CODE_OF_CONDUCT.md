@@ -66,7 +66,7 @@ representative at an online or offline event.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the project maintainers responsible for enforcement at:
 
-**conduct@safeheaders.dev** (or open a GitHub issue with the tag `conduct`)
+**safeheaders@aulenor.com** (or open a GitHub issue with the tag `conduct`)
 
 All complaints will be reviewed and investigated promptly and fairly.
 

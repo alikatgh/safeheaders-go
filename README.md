@@ -5,55 +5,82 @@
 [![Coverage](https://codecov.io/gh/alikatgh/safeheaders-go/branch/main/graph/badge.svg)](https://codecov.io/gh/alikatgh/safeheaders-go)
 [![Go Version](https://img.shields.io/badge/Go-1.23%2B-blue)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Security](https://img.shields.io/badge/Security-Scanning-brightgreen)](SECURITY.md)
 [![GoDoc](https://pkg.go.dev/badge/github.com/alikatgh/safeheaders-go)](https://pkg.go.dev/github.com/alikatgh/safeheaders-go)
 
-**Production-ready, pure Go implementations of popular single-header C libraries with built-in concurrency support and zero CGO dependencies.**
+**This is the project I built to learn Go** — by porting nine popular single-header
+C libraries (JSON/XML/glTF parsers, a WAV decoder, a ZIP/DEFLATE codec, an image
+loader, a from-scratch TrueType rasterizer, a line editor) to pure Go, then testing,
+fuzzing, race-detecting, and security-auditing them until they held up.
 
-> **Status:** all 9 modules are production-ready. Every module is lint-clean,
-> race-tested, fuzzed where it parses untrusted input, and above the 70%
-> coverage gate.
+Everything I learned along the way is distilled into **[SafeHeaders-Go 101](./101)** —
+a complete, self-paced course built from this repo's real code and real bugs.
 
-## Table of Contents
+## The 101 course
 
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Available Modules](#available-modules)
-- [Installation](#installation)
-- [Examples](#examples)
-- [Performance](#performance)
-- [Why SafeHeaders-Go?](#why-safeheaders-go)
-- [Production Usage](#production-usage)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [Security](#security)
-- [License](#license)
+**26 lessons across 6 modules, plus a hands-on lab per module and a capstone.** It takes
+someone who knows a little programming through building, securing, fuzzing, and shipping
+a real Go library.
 
-## Features
+There are no toy examples — every snippet cites an actual file in this repo. When the
+course teaches worker pools, you read the real `ParseBatch`. When it teaches deadlocks,
+it's an actual bug this project shipped (an under-sized results channel that wedged the
+pool under cancellation) and the real one-line fix. When it teaches bounds-safety, it's
+the TrueType `glyf` decoder parsing untrusted font files byte by byte.
 
-- ✅ **Memory Safe** - No buffer overflows, bounds-checked, zero unsafe pointers
-- ✅ **Concurrent** - Built-in goroutine support for parallel processing
-- ✅ **Zero Dependencies** - Pure Go stdlib, no CGO required
-- ✅ **Easy Integration** - Drop-in packages for any Go project
-- ✅ **Production Ready** - Comprehensive tests, fuzz tests, security scanning
-- ✅ **Well Documented** - Full godoc, examples, and usage guides
-- ✅ **Actively Maintained** - Regular updates, security patches, community support
+| Module | Lessons | Focus |
+|--------|---------|-------|
+| — | Welcome | Orientation & the whole map |
+| **1 · Go & the workspace** | 01–04 | Why pure-Go ports, modules/`go.work`, error wrapping, `io.Reader`/`Writer` |
+| **2 · Parsing untrusted input** | 05–10 + Lab A | JSON tokenizer, stdlib wrappers, RIFF/WAV, and TrueType (tables → outlines → rasterizer) |
+| **3 · Concurrency in Go** | 11–15 + Lab B | goroutines/channels, worker pools, `context` cancellation, a real deadlock, data races |
+| **4 · Security & DoS resistance** | 16–20 + Lab C | threat model, OOM allocation, decode/decompression bombs, recursion limits, configurable caps |
+| **5 · Testing, fuzzing & correctness** | 21–23 + Lab D | table tests/`-race`/coverage, `go test -fuzz`, round-trip & property tests |
+| **6 · Tooling, CI & the audit story** | 24–26 + Capstone | `gofmt`/`vet`/golangci-lint, GitHub Actions/`govulncheck`/`gosec`, the 10-agent audit |
 
-## Quick Start
+The labs aren't reading — you write and run code against the repo: build a bounds-checked
+binary parser, make a worker pool deadlock and fix it, add a decode-bomb guard, fuzz a
+parser until it crashes and commit the seed.
 
-### Installation
+### Run the course locally
+
+The lessons are plain Markdown served with [MkDocs](https://www.mkdocs.org/) +
+[Material for MkDocs](https://squidfunk.github.io/mkdocs-material/):
 
 ```bash
-# Install a specific module
-go get github.com/alikatgh/safeheaders-go/jsmn-go
-
-# Or multiple modules
-go get github.com/alikatgh/safeheaders-go/jsmn-go \
-       github.com/alikatgh/safeheaders-go/stb-image-go \
-       github.com/alikatgh/safeheaders-go/tinyxml2-go
+pip install -r 101/requirements.txt       # mkdocs-material
+mkdocs serve -f 101/mkdocs.yml            # → http://localhost:8000
 ```
 
-### Basic Usage
+See [101/README.md](./101/README.md) for the full curriculum and structure.
+
+## The libraries
+
+Nine pure-Go, zero-CGO ports of well-known single-header C libraries. Each module is
+lint-clean, race-tested, fuzzed where it parses untrusted input, and above the 70%
+coverage gate enforced in CI. Coverage figures are measured `go test -cover` totals.
+
+| Module | Version | Coverage | Description |
+|--------|---------|----------|-------------|
+| [cgltf-go](./cgltf-go) | v0.5.0 | 93% | glTF 3D model loading with parallel assets |
+| [tinyxml2-go](./tinyxml2-go) | v0.5.0 | 89% | XML DOM parsing with element traversal |
+| [stb-image-go](./stb-image-go) | v0.5.0 | 89% | Image loading with batch decoding (PNG, JPEG, GIF) |
+| [jsmn-go](./jsmn-go) | v0.5.0 | 88% | Fast JSON tokenizer with parallel parsing |
+| [cjson-go](./cjson-go) | v0.5.0 | 83% | JSON marshaling/unmarshaling with parallel processing |
+| [dr-wav-go](./dr-wav-go) | v0.5.0 | 82% | WAV audio (RIFF/PCM) parsing with concurrent decoding |
+| [stb-truetype-go](./stb-truetype-go) | v0.5.0 | 81% | TrueType glyph rasterization (glyf outlines, anti-aliased) + LRU cache |
+| [miniz-go](./miniz-go) | v0.5.0 | 79% | ZIP compression with concurrent chunking |
+| [linenoise-go](./linenoise-go) | v0.1.0 | 77% | Minimal line editing library for CLI apps |
+
+The theme across all of them: **memory safety** (bounds-checked, no `unsafe`),
+**concurrency** (worker pools with `context` cancellation), and **DoS resistance**
+(configurable size/token/recursion limits, decode- and decompression-bomb guards on
+by default).
+
+## Quick start
+
+```bash
+go get github.com/alikatgh/safeheaders-go/jsmn-go
+```
 
 ```go
 package main
@@ -69,7 +96,7 @@ import (
 func main() {
     json := []byte(`{"name": "SafeHeaders-Go", "version": "0.5.0", "stable": true}`)
 
-    // Option 1: Serial parsing (for small inputs)
+    // Serial parsing (small inputs)
     p := jsmngo.NewParser(100)
     count, err := p.Parse(json)
     if err != nil {
@@ -77,7 +104,7 @@ func main() {
     }
     fmt.Printf("Parsed %d tokens\n", count)
 
-    // Option 2: Parallel parsing (for large inputs)
+    // Parallel parsing (large inputs)
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
 
@@ -89,380 +116,95 @@ func main() {
 }
 ```
 
-## Available Modules
+More in [`examples/`](./examples): a production-style HTTP service, a JSON parser with
+validation, a linenoise REPL, and others — see [examples/README.md](./examples/README.md).
 
-Coverage figures below are the measured `go test -cover` totals for each module
-(enforced at a 70% minimum in CI).
+## Performance notes
 
-| Module | Status | Version | Coverage | Description |
-|--------|--------|---------|----------|-------------|
-| [cgltf-go](./cgltf-go) | 🟢 **Stable** | v0.5.0 | 93% | glTF 3D model loading with parallel assets |
-| [tinyxml2-go](./tinyxml2-go) | 🟢 **Stable** | v0.5.0 | 89% | XML DOM parsing with element traversal |
-| [stb-image-go](./stb-image-go) | 🟢 **Stable** | v0.5.0 | 89% | Image loading with batch decoding (PNG, JPEG, GIF) |
-| [jsmn-go](./jsmn-go) | 🟢 **Stable** | v0.5.0 | 88% | Fast JSON tokenizer with parallel parsing |
-| [cjson-go](./cjson-go) | 🟢 **Stable** | v0.5.0 | 83% | JSON marshaling/unmarshaling with parallel processing |
-| [dr-wav-go](./dr-wav-go) | 🟢 **Stable** | v0.5.0 | 82% | WAV audio (RIFF/PCM) parsing with concurrent decoding |
-| [stb-truetype-go](./stb-truetype-go) | 🟢 **Stable** | v0.5.0 | 81% | TrueType glyph rasterization (glyf outlines, anti-aliased) + LRU cache |
-| [miniz-go](./miniz-go) | 🟢 **Stable** | v0.5.0 | 79% | ZIP compression with concurrent chunking |
-| [linenoise-go](./linenoise-go) | 🟢 **Stable** | v0.1.0 | 77% | Minimal line editing library for CLI apps |
-
-**Status Legend:**
-- 🟢 **Stable** - Production-ready, race-tested, automated security scanning (gosec, govulncheck)
-- 🟡 **Beta** - Core features complete, API may change
-- 🔴 **Alpha** - Experimental, not recommended for production
-
-**All 9 modules are production-ready.**
-
-## Examples
-
-Comprehensive examples are available in the [`examples/`](./examples) directory:
-
-### Available Examples
-
-1. **[JSON Parser](./examples/json-parser/)** - Production-ready JSON parsing with validation
-   ```bash
-   cd examples/json-parser && go run main.go
-   ```
-
-2. **[Production HTTP Service](./examples/production-usage/)** - Complete HTTP server with SafeHeaders-Go
-   ```bash
-   cd examples/production-usage && go run main.go
-   ```
-
-3. **[Linenoise REPL](./examples/linenoise-repl/)** - Interactive command-line with history and completion
-   ```bash
-   cd examples/linenoise-repl && go run main.go
-   ```
-
-4. **More Examples** - See [`examples/README.md`](./examples/README.md) for the full list
-
-### Quick Example Snippets
-
-<details>
-<summary><b>Parse Large JSON in Parallel</b></summary>
-
-```go
-import (
-    "context"
-    "github.com/alikatgh/safeheaders-go/jsmn-go"
-)
-
-func parseJSON(data []byte) error {
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-
-    tokens, err := jsmngo.ParseParallel(ctx, data)
-    if err != nil {
-        return err
-    }
-
-    fmt.Printf("Parsed %d tokens\n", len(tokens))
-    return nil
-}
-```
-</details>
-
-<details>
-<summary><b>Load Images Concurrently</b></summary>
-
-```go
-import (
-    "context"
-    "github.com/alikatgh/safeheaders-go/stb-image-go"
-)
-
-func loadImages(files [][]byte) error {
-    ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-    defer cancel()
-
-    images, err := stbimagego.LoadBatchConcurrent(ctx, files)
-    if err != nil {
-        return err
-    }
-
-    fmt.Printf("Loaded %d images\n", len(images))
-    return nil
-}
-```
-</details>
-
-<details>
-<summary><b>Parse XML Document</b></summary>
-
-```go
-import "github.com/alikatgh/safeheaders-go/tinyxml2-go"
-
-func parseXML(data []byte) error {
-    doc := tinyxml2go.NewDocument()
-    if err := doc.Parse(data); err != nil {
-        return err
-    }
-
-    root := doc.RootElement()
-    fmt.Printf("Root element: %s\n", root.Name())
-    return nil
-}
-```
-</details>
-
-## Performance
-
-Each parser/codec module ships benchmarks. Run them on your own hardware:
+Each parser/codec module ships benchmarks — run them on your own hardware:
 
 ```bash
 make bench                       # jsmn-go, stb-image-go, stb-truetype-go
 cd jsmn-go && go test -bench=. -benchmem -run='^$' ./...
 ```
 
-**Where the concurrency helps (and where it doesn't):**
+Where the concurrency helps (and where it doesn't):
 
-- `jsmn-go` `ParseParallel` / `ParseWithConfig` split the input at **top-level
-  delimiters** and tokenize chunks concurrently. This pays off on large streams
-  of many top-level values; a single large object or array has no top-level
-  split points and **transparently falls back to serial parsing**. Inputs below
-  4 KB always parse serially (the goroutine overhead is not worth it).
-- `stb-image-go`, `cgltf-go`, `dr-wav-go`, `miniz-go` parallelize across
-  **independent items** (a batch of images / assets / files), so speedup scales
-  with the number of items, not the size of any single one.
+- `jsmn-go`'s `ParseParallel` splits input at **top-level delimiters** and tokenizes
+  chunks concurrently. It pays off on large streams of many top-level values; a single
+  large object has no split points and transparently falls back to serial. Inputs below
+  4 KB always parse serially — the goroutine overhead isn't worth it.
+- `stb-image-go`, `cgltf-go`, `dr-wav-go`, `miniz-go` parallelize across **independent
+  items** (a batch of images / assets / files), so speedup scales with item count, not
+  the size of any single input.
 
-Because throughput depends heavily on CPU count, input shape, and allocator
-behavior, this README intentionally does not quote fixed numbers — measure on
-your target hardware with the commands above.
+This README intentionally quotes no fixed numbers — throughput depends on CPU count,
+input shape, and allocator behavior. Measure on your target hardware.
 
-## Why SafeHeaders-Go?
+## What building this taught me
 
-Traditional C libraries are fast but unsafe. Go stdlib is safe but doesn't parallelize parsing. SafeHeaders-Go gives you both:
+The interesting parts of this repo are the scars, and the course is built around them:
 
-### vs C Libraries
+- **A real deadlock** — a worker pool with an under-sized results channel that wedged
+  under cancellation, caught by a multi-agent audit and `go test -race`
+  ([lesson 14](./101/lessons/14-the-deadlock-bug.md)).
+- **Decode and decompression bombs** — tiny inputs that expand to gigabytes, and the
+  guards now on by default ([lesson 18](./101/lessons/18-decode-and-decompression-bombs.md)).
+- **Billion-laughs / recursion blowups** in the XML parser, and configurable depth
+  limits ([lesson 19](./101/lessons/19-recursion-and-billion-laughs.md)).
+- **Fuzzing that actually found crashes** — jsmn, tinyxml2, dr-wav, and miniz are
+  fuzzed in CI, with crash seeds committed ([lesson 22](./101/lessons/22-fuzzing.md)).
+- **The audit story** — what a 10-agent code audit found and what it cost
+  ([lesson 26](./101/lessons/26-the-audit-story.md)).
 
-| Feature | C Libraries | SafeHeaders-Go |
-|---------|-------------|----------------|
-| Memory Safety | ❌ Manual | ✅ Automatic |
-| CGO Required | ✅ Yes | ❌ No |
-| Cross-Compilation | ❌ Hard | ✅ Easy |
-| Concurrency | ❌ Manual | ✅ Built-in |
-| Deployment | ❌ Complex | ✅ Simple |
-
-### vs Go Stdlib
-
-| Feature | Go Stdlib | SafeHeaders-Go |
-|---------|-----------|----------------|
-| Safety | ✅ Yes | ✅ Yes |
-| Parallel Parsing | ❌ No | ✅ Yes |
-| Context Support | ✅ Yes | ✅ Yes |
-| Zero Dependencies | ✅ Yes | ✅ Yes |
-| Performance | ⚠️ Good | ✅ Better (for large inputs) |
-
-### vs Other Go Ports
-
-- **Concurrency-First Design** - Built for parallel processing from the ground up
-- **Production Ready** - Comprehensive testing, security scanning, examples
-- **Well Maintained** - Regular updates, active community support
-- **Zero Dependencies** - Pure stdlib, no external packages
-
-## Production Usage
-
-SafeHeaders-Go is designed for production use. Here's how to use it safely:
-
-### Input Validation
-
-```go
-const MaxInputSize = 10 * 1024 * 1024 // 10MB
-
-func validateAndParse(data []byte) error {
-    if len(data) == 0 {
-        return errors.New("empty input")
-    }
-    if len(data) > MaxInputSize {
-        return fmt.Errorf("input too large: %d bytes", len(data))
-    }
-
-    // Parse with timeout
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-
-    _, err := jsmngo.ParseParallel(ctx, data)
-    return err
-}
-```
-
-### Error Handling
-
-```go
-tokens, err := jsmngo.ParseParallel(ctx, data)
-if err != nil {
-    if errors.Is(err, context.Canceled) {
-        return errors.New("parsing canceled")
-    }
-    if errors.Is(err, context.DeadlineExceeded) {
-        return errors.New("parsing timeout")
-    }
-    return fmt.Errorf("parse failed: %w", err)
-}
-```
-
-### Best Practices
-
-1. **Always use context timeouts** for long-running operations
-2. **Validate input size** before processing (see [SECURITY.md](./SECURITY.md))
-3. **Handle errors gracefully** and provide meaningful messages
-4. **Monitor memory usage** in production (see examples)
-5. **Use parallel mode** only for inputs >4KB (overhead otherwise)
-
-See [examples/production-usage](./examples/production-usage) for a complete production-ready HTTP service.
+CI runs the full ladder on every commit: tests with `-race`, a 70% coverage gate,
+golangci-lint, `gosec` and `govulncheck`, scheduled fuzzing, and multi-OS builds
+(Linux, macOS, Windows).
 
 ## Documentation
 
-- 📖 [**CONTRIBUTING.md**](./CONTRIBUTING.md) - How to contribute, coding standards, architecture
-- 🔒 [**SECURITY.md**](./SECURITY.md) - Security policy, vulnerability reporting, best practices
-- 🐛 [**ISSUES.md**](./ISSUES.md) - Known issues, roadmap, improvement tracker
-- 📝 [**CHANGELOG.md**](./CHANGELOG.md) - Version history, release notes
-- 🤝 [**CODE_OF_CONDUCT.md**](./CODE_OF_CONDUCT.md) - Community guidelines
-- 💡 [**Examples**](./examples/) - Comprehensive usage examples
-- 📦 [**Module READMEs**](./jsmn-go/README.md) - Detailed documentation for each module
-- 🧪 [**Test Data**](./testdata/) - Benchmark and test data files
-
-### Module Documentation
-
-Each module has comprehensive documentation:
-
-- **Installation & Quick Start**
-- **API Reference** with godoc
-- **Performance Benchmarks**
-- **Known Limitations**
-- **Examples & Use Cases**
-
-Visit the module directories for detailed docs.
+- 📚 [**101/**](./101) — the full course (start here)
+- 📖 [**CONTRIBUTING.md**](./CONTRIBUTING.md) — coding standards, architecture, porting guidelines
+- 🔒 [**SECURITY.md**](./SECURITY.md) — threat model, limits, vulnerability reporting
+- 🐛 [**ISSUES.md**](./ISSUES.md) — known issues and improvement tracker
+- 📝 [**CHANGELOG.md**](./CHANGELOG.md) — version history
+- 📦 Module READMEs — each module directory has installation, API reference, benchmarks, and known limitations
 
 ## Contributing
 
-We welcome contributions! 🎉
+Contributions are welcome — bug reports, tests, docs, performance work, or a whole new
+port. If you want to port another single-header C library, some candidates:
 
-### How to Contribute
+- [ ] [stb_vorbis.h](https://github.com/nothings/stb/blob/master/stb_vorbis.c) — Ogg Vorbis decoder
+- [ ] [tinyobjloader.h](https://github.com/tinyobjloader/tinyobjloader) — OBJ 3D model loader
+- [ ] [stb_perlin.h](https://github.com/nothings/stb/blob/master/stb_perlin.h) — Perlin noise
+- [ ] [utf8.h](https://github.com/sheredom/utf8.h) — UTF-8 utilities
 
-1. **Report Bugs** - Use our [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml)
-2. **Request Features** - Use our [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml)
-3. **Port New Libraries** - Use our [port request template](.github/ISSUE_TEMPLATE/port_request.yml)
-4. **Submit PRs** - Follow our [pull request template](.github/PULL_REQUEST_TEMPLATE.md)
-5. **Improve Docs** - Documentation improvements are always welcome
-6. **Add Tests** - Increase coverage, add fuzz tests
-7. **Optimize Performance** - Improve parallel algorithms
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
-
-### Development Setup
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines and the
+[capstone lesson](./101/lessons/capstone-world-class-module.md) for what a finished
+module looks like.
 
 ```bash
-# Clone repository
 git clone https://github.com/alikatgh/safeheaders-go.git
 cd safeheaders-go
-
-# Run tests
-go test ./...
-
-# Run tests with race detector
 go test -race ./...
-
-# Run tests with coverage
-go test -coverprofile=coverage.out ./...
-
-# Run benchmarks
-go test -bench=. -benchmem ./...
-
-# Run linter
 golangci-lint run --config .golangci.yml
 ```
 
-### Wishlist - Port New Libraries
-
-Want to port a new C library? Pick one:
-
-- [ ] [linenoise.h](https://github.com/antirez/linenoise) - CLI input editing
-- [ ] [stb_vorbis.h](https://github.com/nothings/stb/blob/master/stb_vorbis.c) - Ogg Vorbis decoder
-- [ ] [tinyobjloader.h](https://github.com/tinyobjloader/tinyobjloader) - OBJ 3D model loader
-- [ ] [stb_perlin.h](https://github.com/nothings/stb/blob/master/stb_perlin.h) - Perlin noise
-- [ ] [utf8.h](https://github.com/sheredom/utf8.h) - UTF-8 utilities
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for porting guidelines.
-
 ## Security
 
-Security is a top priority for SafeHeaders-Go.
-
-### Reporting Vulnerabilities
-
-**DO NOT** open a public issue for security vulnerabilities. Instead:
-
-1. **Email:** security@safeheaders.dev (or use GitHub Security Advisories)
-2. **Include:** Detailed description, proof of concept, impact assessment
-3. **Timeline:** We aim to respond within 48 hours
-
-See [SECURITY.md](./SECURITY.md) for complete details.
-
-### Security Features
-
-- ✅ **Input Validation** - Configurable size/token limits, plus decode- and
-  decompression-bomb guards enabled by default (see [SECURITY.md](./SECURITY.md))
-- ✅ **Bounds Checking** - No buffer overflows
-- ✅ **Context Timeouts** - Prevent DoS attacks
-- ✅ **Memory Safety** - Pure Go, no unsafe pointers
-- ✅ **Security Scanning** - Automated gosec and govulncheck in CI
-- ✅ **Fuzz Testing** - jsmn, tinyxml2, dr-wav, miniz fuzzed weekly in CI
-- ✅ **Dependency Management** - Zero external dependencies
-
-### Known Security Considerations
-
-See [SECURITY.md](./SECURITY.md) for:
-- DoS prevention guidelines
-- Input size recommendations
-- Context timeout best practices
-- Memory usage monitoring
-
-## CI/CD & Quality
-
-- ✅ **Automated Testing** - All modules tested on every commit
-- ✅ **Race Detection** - Tests run with `-race` flag
-- ✅ **Coverage Tracking** - Minimum 70% coverage enforced
-- ✅ **Security Scanning** - gosec and govulncheck on every PR
-- ✅ **Linting** - golangci-lint with 50+ linters
-- ✅ **Fuzz Testing** - Automated fuzzing for parser modules
-- ✅ **Benchmarking** - Performance regression detection
-- ✅ **Multi-OS Testing** - Linux, macOS, Windows
-- ✅ **Dependabot** - Automated dependency updates
-
-## Roadmap
-
-See [ISSUES.md](./ISSUES.md) for detailed roadmap. Highlights:
-
-### v1.0.0 (Q1 2026)
-- Stable API guarantee
-- Input validation with configurable limits
-- Improved error handling consistency
-- Smart chunking for better parallel performance
-- Official security audit
-
-### v1.1.0 (Q2 2026)
-- Streaming APIs for large files
-- WebAssembly support
-- Additional C library ports
-- Performance optimizations
-
-## Community & Support
-
-- 💬 [GitHub Discussions](https://github.com/alikatgh/safeheaders-go/discussions) - Ask questions, share ideas
-- 🐛 [Issue Tracker](https://github.com/alikatgh/safeheaders-go/issues) - Report bugs, request features
-- 📧 [Email](mailto:support@safeheaders.dev) - Direct support
-- 🐦 [Twitter](https://twitter.com/safeheadersgo) - Updates and announcements
+Please **do not** open a public issue for security vulnerabilities — email
+[safeheaders@aulenor.com](mailto:safeheaders@aulenor.com) or use
+[GitHub Security Advisories](https://github.com/alikatgh/safeheaders-go/security/advisories)
+instead. See [SECURITY.md](./SECURITY.md) for the threat model, configurable limits,
+and DoS-prevention guidance.
 
 ## License
 
-MIT License - See [LICENSE](./LICENSE) for details.
+MIT — see [LICENSE](./LICENSE). Original C libraries retain their respective licenses
+(MIT, BSD, Public Domain, zlib).
 
-Original C libraries retain their respective licenses (MIT, BSD, Public Domain, zlib).
-
-### Attribution
-
-SafeHeaders-Go is a reimplementation of the following excellent C libraries:
+SafeHeaders-Go reimplements these excellent C libraries — thank you to their authors:
 
 - [jsmn](https://github.com/zserge/jsmn) by Serge Zaitsev (MIT)
 - [stb](https://github.com/nothings/stb) by Sean Barrett (Public Domain / MIT)
@@ -470,11 +212,4 @@ SafeHeaders-Go is a reimplementation of the following excellent C libraries:
 - [tinyxml2](https://github.com/leethomason/tinyxml2) by Lee Thomason (zlib)
 - [cgltf](https://github.com/jkuhlmann/cgltf) by Johannes Kuhlmann (MIT)
 - [dr_wav](https://github.com/mackron/dr_libs) by David Reid (Public Domain)
-
-Thank you to all the original authors for their amazing work! 🙏
-
----
-
-**Made with ❤️ by the SafeHeaders-Go team**
-
-**Star this repo if you find it useful!** ⭐
+- [linenoise](https://github.com/antirez/linenoise) by Salvatore Sanfilippo (BSD)

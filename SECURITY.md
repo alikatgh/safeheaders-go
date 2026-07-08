@@ -21,7 +21,7 @@ Security vulnerabilities should not be disclosed publicly until a fix is availab
 
 ### 2. Report Privately
 
-Please report security vulnerabilities by emailing: **security@safeheaders.dev** (or create a GitHub Security Advisory)
+Please report security vulnerabilities by emailing: **safeheaders@aulenor.com** (or create a GitHub Security Advisory)
 
 Alternatively, you can use GitHub's private vulnerability reporting feature:
 1. Go to the repository's "Security" tab
