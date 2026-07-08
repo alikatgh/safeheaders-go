@@ -53,3 +53,6 @@ go.work.sum
 
 # Machine-local dev-server launch config (hardcodes absolute local paths)
 /.claude/launch.json
+
+# Wrangler (Cloudflare Pages) local state/cache
+.wrangler/

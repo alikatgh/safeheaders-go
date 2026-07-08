@@ -1,5 +1,6 @@
 site_name: SafeHeaders-Go 101
 site_description: From zero to a production-grade, secure Go library — taught from the real safeheaders-go code.
+site_url: https://go.aulenor.com/
 docs_dir: lessons
 site_dir: site
 
