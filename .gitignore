@@ -56,3 +56,9 @@ go.work.sum
 
 # Wrangler (Cloudflare Pages) local state/cache
 .wrangler/
+
+# Secrets — never commit (templates are fine)
+.env
+.env.*
+!.env.example
+!.env.schema
